@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.device.mapper.DeviceConfigHistoryMapper">
+
+    <select id="selectHistoryByDevice" resultType="com.vibe.device.entity.DeviceConfigHistoryEntity">
+        SELECT id, device_id, version, config_file_url, operator_id, change_desc,
+               create_by, create_time, update_by, update_time, deleted
+        FROM device_config_history
+        WHERE deleted = 0 AND device_id = #{deviceId}
+        ORDER BY version DESC, create_time DESC
+    </select>
+
+</mapper>

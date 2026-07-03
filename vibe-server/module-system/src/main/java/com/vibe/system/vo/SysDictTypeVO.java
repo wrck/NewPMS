@@ -1,0 +1,39 @@
+package com.vibe.system.vo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.time.LocalDateTime;
+
+/**
+ * 字典类型视图对象
+ *
+ * @author vibe
+ */
+@Data
+@Schema(description = "字典类型")
+public class SysDictTypeVO implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    @Schema(description = "字典ID")
+    private Long id;
+
+    @Schema(description = "字典名称")
+    private String dictName;
+
+    @Schema(description = "字典类型编码")
+    private String dictType;
+
+    @Schema(description = "状态 1-启用 0-禁用")
+    private Integer status;
+
+    @Schema(description = "备注")
+    private String remark;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createTime;
+}

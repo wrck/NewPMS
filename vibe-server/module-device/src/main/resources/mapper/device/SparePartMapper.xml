@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.device.mapper.SparePartMapper">
+
+    <resultMap id="sparePartVOMap" type="com.vibe.device.vo.SparePartVO">
+        <id property="id" column="id"/>
+        <result property="partName" column="part_name"/>
+        <result property="partCode" column="part_code"/>
+        <result property="modelId" column="model_id"/>
+        <result property="modelName" column="model_name"/>
+        <result property="warehouseId" column="warehouse_id"/>
+        <result property="warehouseName" column="warehouse_name"/>
+        <result property="status" column="status"/>
+        <result property="quantity" column="quantity"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectSparePartList" resultMap="sparePartVOMap">
+        SELECT s.id, s.part_name, s.part_code, s.model_id, s.warehouse_id, s.status,
+               s.quantity, s.create_time,
+               m.model_name, w.warehouse_name
+        FROM spare_part s
+        LEFT JOIN device_model m ON m.id = s.model_id AND m.deleted = 0
+        LEFT JOIN warehouse w ON w.id = s.warehouse_id AND w.deleted = 0
+        <where>
+            s.deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (s.part_name LIKE CONCAT('%', #{keyword}, '%')
+                  OR s.part_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="warehouseId != null">
+                AND s.warehouse_id = #{warehouseId}
+            </if>
+            <if test="modelId != null">
+                AND s.model_id = #{modelId}
+            </if>
+        </where>
+        ORDER BY s.create_time DESC, s.id DESC
+    </select>
+
+    <select id="selectVoById" resultMap="sparePartVOMap">
+        SELECT s.id, s.part_name, s.part_code, s.model_id, s.warehouse_id, s.status,
+               s.quantity, s.create_time,
+               m.model_name, w.warehouse_name
+        FROM spare_part s
+        LEFT JOIN device_model m ON m.id = s.model_id AND m.deleted = 0
+        LEFT JOIN warehouse w ON w.id = s.warehouse_id AND w.deleted = 0
+        WHERE s.id = #{id} AND s.deleted = 0
+    </select>
+
+</mapper>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.project.mapper.ProjectPhaseMapper">
+
+    <select id="selectByProjectId" resultType="com.vibe.project.entity.ProjectPhaseEntity">
+        SELECT id, project_id, phase_code, phase_name, sort_order, status,
+               planned_start, planned_end, actual_start, actual_end, deliverables,
+               create_by, create_time, update_by, update_time, deleted
+        FROM project_phase
+        WHERE project_id = #{projectId} AND deleted = 0
+        ORDER BY sort_order
+    </select>
+
+</mapper>

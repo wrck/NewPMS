@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysPositionMapper">
+
+    <select id="selectPositionPage" resultType="com.vibe.system.vo.SysPositionVO">
+        SELECT p.id, p.org_id AS orgId, o.org_name AS orgName,
+               p.position_name AS positionName, p.position_code AS positionCode,
+               p.sort_order AS sortOrder, p.status, p.create_time AS createTime
+        FROM sys_position p
+        LEFT JOIN sys_org o ON o.id = p.org_id AND o.deleted = 0
+        <where>
+            p.deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (p.position_name LIKE CONCAT('%', #{keyword}, '%')
+                  OR p.position_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="orgId != null">
+                AND p.org_id = #{orgId}
+            </if>
+        </where>
+        ORDER BY p.sort_order ASC, p.id DESC
+    </select>
+
+    <select id="selectVoById" resultType="com.vibe.system.vo.SysPositionVO">
+        SELECT p.id, p.org_id AS orgId, o.org_name AS orgName,
+               p.position_name AS positionName, p.position_code AS positionCode,
+               p.sort_order AS sortOrder, p.status, p.create_time AS createTime
+        FROM sys_position p
+        LEFT JOIN sys_org o ON o.id = p.org_id AND o.deleted = 0
+        WHERE p.id = #{id} AND p.deleted = 0
+    </select>
+
+</mapper>

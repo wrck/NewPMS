@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.project.mapper.ProjectTaskMapper">
+
+    <resultMap id="taskVoMap" type="com.vibe.project.vo.ProjectTaskVO">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="phaseId" column="phase_id"/>
+        <result property="phaseName" column="phase_name"/>
+        <result property="parentTaskId" column="parent_task_id"/>
+        <result property="taskName" column="task_name"/>
+        <result property="taskType" column="task_type"/>
+        <result property="status" column="status"/>
+        <result property="executeMode" column="execute_mode"/>
+        <result property="assigneeId" column="assignee_id"/>
+        <result property="assigneeName" column="assignee_name"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="agentCompanyName" column="agent_company_name"/>
+        <result property="agentEngineerId" column="agent_engineer_id"/>
+        <result property="siteInfo" column="site_info"/>
+        <result property="deviceIds" column="device_ids"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="actualStart" column="actual_start"/>
+        <result property="actualEnd" column="actual_end"/>
+        <result property="priority" column="priority"/>
+        <result property="description" column="description"/>
+        <result property="attachments" column="attachments"/>
+        <result property="version" column="version"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="taskColumns">
+        t.id, t.project_id, t.phase_id, t.parent_task_id, t.task_name, t.task_type,
+        t.status, t.execute_mode, t.assignee_id, t.agent_company_id, t.agent_engineer_id,
+        t.site_info, t.device_ids, t.planned_start, t.planned_end, t.actual_start,
+        t.actual_end, t.priority, t.description, t.attachments, t.version,
+        t.create_time, t.update_time,
+        p.project_name AS project_name,
+        ph.phase_name AS phase_name,
+        u.real_name AS assignee_name,
+        ac.company_name AS agent_company_name
+    </sql>
+
+    <select id="selectTaskPage" resultMap="taskVoMap">
+        SELECT <include refid="taskColumns"/>
+        FROM project_task t
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN project_phase ph ON ph.id = t.phase_id AND ph.deleted = 0
+        LEFT JOIN sys_user u ON u.id = t.assignee_id AND u.deleted = 0
+        LEFT JOIN agent_company ac ON ac.id = t.agent_company_id AND ac.deleted = 0
+        <where>
+            t.deleted = 0
+            <if test="query.projectId != null">
+                AND t.project_id = #{query.projectId}
+            </if>
+            <if test="query.phaseId != null">
+                AND t.phase_id = #{query.phaseId}
+            </if>
+            <if test="query.parentTaskId != null">
+                AND t.parent_task_id = #{query.parentTaskId}
+            </if>
+            <if test="query.parentTaskId == null">
+                AND t.parent_task_id IS NULL
+            </if>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND t.task_name LIKE CONCAT('%', #{query.keyword}, '%')
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND t.status = #{query.status}
+            </if>
+            <if test="query.assigneeId != null">
+                AND t.assignee_id = #{query.assigneeId}
+            </if>
+            <if test="query.agentCompanyId != null">
+                AND t.agent_company_id = #{query.agentCompanyId}
+            </if>
+            <if test="query.agentEngineerId != null">
+                AND t.agent_engineer_id = #{query.agentEngineerId}
+            </if>
+            <if test="query.executeMode != null and query.executeMode != ''">
+                AND t.execute_mode = #{query.executeMode}
+            </if>
+            <if test="query.taskType != null and query.taskType != ''">
+                AND t.task_type = #{query.taskType}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+    </select>
+
+    <select id="selectVoById" resultMap="taskVoMap">
+        SELECT <include refid="taskColumns"/>
+        FROM project_task t
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN project_phase ph ON ph.id = t.phase_id AND ph.deleted = 0
+        LEFT JOIN sys_user u ON u.id = t.assignee_id AND u.deleted = 0
+        LEFT JOIN agent_company ac ON ac.id = t.agent_company_id AND ac.deleted = 0
+        WHERE t.id = #{id} AND t.deleted = 0
+    </select>
+
+    <select id="selectByProjectId" resultType="com.vibe.project.entity.ProjectTaskEntity">
+        SELECT id, project_id, phase_id, parent_task_id, task_name, task_type, status,
+               execute_mode, assignee_id, agent_company_id, agent_engineer_id,
+               site_info, device_ids, planned_start, planned_end, actual_start, actual_end,
+               priority, description, attachments, version, create_by, create_time,
+               update_by, update_time, deleted
+        FROM project_task
+        WHERE project_id = #{projectId} AND deleted = 0
+        ORDER BY phase_id, id
+    </select>
+
+    <select id="selectStatusCountByProject" resultType="java.util.Map">
+        SELECT status, COUNT(1) AS cnt
+        FROM project_task
+        WHERE project_id = #{projectId} AND deleted = 0
+        GROUP BY status
+    </select>
+
+    <select id="countByProjectAndStatus" resultType="int">
+        SELECT COUNT(1)
+        FROM project_task
+        WHERE project_id = #{projectId} AND status = #{status} AND deleted = 0
+    </select>
+
+    <select id="countUnfinishedByProject" resultType="int">
+        SELECT COUNT(1)
+        FROM project_task
+        WHERE project_id = #{projectId}
+          AND deleted = 0
+          AND status NOT IN ('COMPLETED', 'CONFIRMED')
+    </select>
+
+</mapper>

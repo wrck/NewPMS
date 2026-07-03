@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.vibe</groupId>
+        <artifactId>vibe-server</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>module-system</artifactId>
+    <packaging>jar</packaging>
+    <name>module-system</name>
+    <description>系统管理模块：用户/角色/菜单/组织/字典/配置/日志/消息中心</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-common</artifactId>
+        </dependency>
+        <!-- Spring AMQP（消息通知引擎用） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+    </dependencies>
+</project>

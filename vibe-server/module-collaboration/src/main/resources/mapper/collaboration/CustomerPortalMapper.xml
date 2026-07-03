@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.collaboration.mapper.CustomerPortalMapper">
+
+    <!-- ============ 客户项目列表（脱敏，仅客户可见字段） ============ -->
+    <resultMap id="customerProjectMap" type="com.vibe.collaboration.vo.CustomerProjectVO">
+        <result property="projectId" column="project_id"/>
+        <result property="projectCode" column="project_code"/>
+        <result property="projectName" column="project_name"/>
+        <result property="projectType" column="project_type"/>
+        <result property="currentPhase" column="current_phase"/>
+        <result property="progressPct" column="progress_pct"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <select id="selectCustomerProjects" resultMap="customerProjectMap">
+        SELECT p.id           AS project_id,
+               p.project_code,
+               p.project_name,
+               p.project_type,
+               p.current_phase,
+               p.progress_pct,
+               p.planned_start,
+               p.planned_end,
+               p.status
+        FROM project p
+        INNER JOIN customer c ON c.id = p.customer_id AND c.deleted = 0
+        WHERE p.deleted = 0
+          AND p.customer_id = #{customerId}
+        ORDER BY p.create_time DESC
+    </select>
+
+    <!-- ============ 项目整体进度（关联 project_phase 解析当前阶段名） ============ -->
+    <resultMap id="projectProgressMap" type="com.vibe.collaboration.vo.ProjectProgressVO">
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="progressPct" column="progress_pct"/>
+        <result property="currentPhaseName" column="current_phase_name"/>
+        <result property="overallStatus" column="overall_status"/>
+    </resultMap>
+
+    <select id="selectProjectProgress" resultMap="projectProgressMap">
+        SELECT p.id             AS project_id,
+               p.project_name,
+               p.progress_pct,
+               p.status         AS overall_status,
+               pp.phase_name    AS current_phase_name
+        FROM project p
+        LEFT JOIN project_phase pp
+               ON pp.project_id = p.id
+              AND pp.phase_code = p.current_phase
+              AND pp.deleted = 0
+        WHERE p.id = #{projectId}
+          AND p.deleted = 0
+    </select>
+
+    <!-- ============ 阶段时间线 ============ -->
+    <resultMap id="phaseTimelineMap" type="com.vibe.collaboration.vo.PhaseTimelineVO">
+        <result property="phaseId" column="phase_id"/>
+        <result property="phaseCode" column="phase_code"/>
+        <result property="phaseName" column="phase_name"/>
+        <result property="status" column="status"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="actualStart" column="actual_start"/>
+        <result property="actualEnd" column="actual_end"/>
+        <result property="deliverables" column="deliverables"/>
+    </resultMap>
+
+    <select id="selectPhaseTimeline" resultMap="phaseTimelineMap">
+        SELECT id            AS phase_id,
+               phase_code,
+               phase_name,
+               status,
+               planned_start,
+               planned_end,
+               actual_start,
+               actual_end,
+               deliverables
+        FROM project_phase
+        WHERE project_id = #{projectId}
+          AND deleted = 0
+        ORDER BY sort_order ASC, id ASC
+    </select>
+
+    <!-- ============ 项目文档（从 project_phase.deliverables JSON 提取） ============ -->
+    <resultMap id="phaseDeliverableRowMap" type="com.vibe.collaboration.bo.PhaseDeliverableRow">
+        <result property="phaseId" column="phase_id"/>
+        <result property="phaseCode" column="phase_code"/>
+        <result property="phaseName" column="phase_name"/>
+        <result property="deliverables" column="deliverables"/>
+        <result property="actualEnd" column="actual_end"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="selectProjectDocuments" resultMap="phaseDeliverableRowMap">
+        SELECT id            AS phase_id,
+               phase_code,
+               phase_name,
+               deliverables,
+               actual_end,
+               update_time
+        FROM project_phase
+        WHERE project_id = #{projectId}
+          AND deleted = 0
+          AND deliverables IS NOT NULL
+          AND JSON_LENGTH(deliverables) &gt; 0
+        ORDER BY sort_order ASC, id ASC
+    </select>
+
+    <!-- ============ 数据隔离校验：查询项目所属客户ID ============ -->
+    <select id="selectCustomerIdByProjectId" resultType="java.lang.Long">
+        SELECT customer_id
+        FROM project
+        WHERE id = #{projectId}
+          AND deleted = 0
+    </select>
+
+</mapper>

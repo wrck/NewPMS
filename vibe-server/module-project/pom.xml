@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.vibe</groupId>
+        <artifactId>vibe-server</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>module-project</artifactId>
+    <packaging>jar</packaging>
+    <name>module-project</name>
+    <description>项目管理模块：立项/计划/执行/状态机/风险问题/模板</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-common</artifactId>
+        </dependency>
+        <!-- 系统模块（用于消息通知引擎 NotificationProducer） -->
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-system</artifactId>
+        </dependency>
+
+        <!-- Spring Boot 测试（JUnit 5 + Mockito + AssertJ） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

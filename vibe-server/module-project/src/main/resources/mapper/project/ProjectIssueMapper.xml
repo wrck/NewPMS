@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.project.mapper.ProjectIssueMapper">
+
+    <select id="selectByProjectId" resultType="com.vibe.project.entity.ProjectIssueEntity">
+        SELECT id, project_id, task_id, issue_desc, impact, owner_id, status,
+               due_date, resolved_time, create_by, create_time, update_by, update_time, deleted
+        FROM project_issue
+        WHERE project_id = #{projectId} AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectOverdueIssues" resultType="com.vibe.project.entity.ProjectIssueEntity">
+        SELECT id, project_id, task_id, issue_desc, impact, owner_id, status,
+               due_date, resolved_time, create_by, create_time, update_by, update_time, deleted
+        FROM project_issue
+        WHERE deleted = 0
+          AND due_date &lt; #{today}
+          AND status NOT IN ('RESOLVED', 'CLOSED')
+    </select>
+
+</mapper>

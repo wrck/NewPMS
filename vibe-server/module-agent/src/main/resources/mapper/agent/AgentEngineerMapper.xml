@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.agent.mapper.AgentEngineerMapper">
+
+    <resultMap id="engineerVoMap" type="com.vibe.agent.vo.AgentEngineerVO">
+        <id property="id" column="id"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="name" column="name"/>
+        <result property="phone" column="phone"/>
+        <result property="skills" column="skills"/>
+        <result property="certifications" column="certifications"/>
+        <result property="status" column="status"/>
+        <result property="qualityScore" column="quality_score"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="agentCompanyName" column="agent_company_name"/>
+    </resultMap>
+
+    <select id="selectEngineerPage" resultMap="engineerVoMap">
+        SELECT e.id, e.agent_company_id, e.name, e.phone, e.skills, e.certifications,
+               e.status, e.quality_score,
+               e.create_by, e.create_time, e.update_by, e.update_time,
+               ac.company_name AS agent_company_name
+        FROM agent_engineer e
+        LEFT JOIN agent_company ac ON ac.id = e.agent_company_id AND ac.deleted = 0
+        <where>
+            e.deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (e.name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR e.phone LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.agentCompanyId != null">
+                AND e.agent_company_id = #{query.agentCompanyId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND e.status = #{query.status}
+            </if>
+            <if test="query.skill != null and query.skill != ''">
+                AND JSON_CONTAINS(e.skills, JSON_QUOTE(#{query.skill}))
+            </if>
+        </where>
+        ORDER BY e.create_time DESC
+    </select>
+
+    <select id="selectVoById" resultMap="engineerVoMap">
+        SELECT e.id, e.agent_company_id, e.name, e.phone, e.skills, e.certifications,
+               e.status, e.quality_score,
+               e.create_by, e.create_time, e.update_by, e.update_time,
+               ac.company_name AS agent_company_name
+        FROM agent_engineer e
+        LEFT JOIN agent_company ac ON ac.id = e.agent_company_id AND ac.deleted = 0
+        WHERE e.id = #{id} AND e.deleted = 0
+    </select>
+
+    <select id="selectByCompanyId" resultMap="engineerVoMap">
+        SELECT e.id, e.agent_company_id, e.name, e.phone, e.skills, e.certifications,
+               e.status, e.quality_score,
+               e.create_by, e.create_time, e.update_by, e.update_time,
+               ac.company_name AS agent_company_name
+        FROM agent_engineer e
+        LEFT JOIN agent_company ac ON ac.id = e.agent_company_id AND ac.deleted = 0
+        WHERE e.agent_company_id = #{companyId} AND e.deleted = 0
+        ORDER BY e.create_time DESC
+    </select>
+
+    <select id="selectEngineerTaskHistory" resultType="com.vibe.agent.vo.OutsourceTaskVO">
+        SELECT t.id, t.project_id, t.task_id, t.agent_company_id, t.agent_engineer_id,
+               t.task_scope, t.deadline, t.status, t.submit_count, t.confirmed_by,
+               t.confirmed_time, t.reject_reason, t.version,
+               t.create_by, t.create_time, t.update_by, t.update_time,
+               p.project_name, p.project_code,
+               pt.task_name,
+               ac.company_name AS agent_company_name,
+               ae.name AS agent_engineer_name
+        FROM outsource_task t
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN project_task pt ON pt.id = t.task_id AND pt.deleted = 0
+        LEFT JOIN agent_company ac ON ac.id = t.agent_company_id AND ac.deleted = 0
+        LEFT JOIN agent_engineer ae ON ae.id = t.agent_engineer_id AND ae.deleted = 0
+        WHERE t.agent_engineer_id = #{engineerId} AND t.deleted = 0
+        ORDER BY t.create_time DESC
+    </select>
+
+</mapper>

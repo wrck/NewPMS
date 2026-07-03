@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.device.mapper.DeviceBomMapper">
+
+    <resultMap id="bomVOMap" type="com.vibe.device.vo.DeviceBomVO">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="modelId" column="model_id"/>
+        <result property="modelName" column="model_name"/>
+        <result property="modelCode" column="model_code"/>
+        <result property="productLine" column="product_line"/>
+        <result property="plannedQty" column="planned_qty"/>
+        <result property="receivedQty" column="received_qty"/>
+        <result property="installedQty" column="installed_qty"/>
+        <result property="acceptedQty" column="accepted_qty"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="selectBomListByProject" resultMap="bomVOMap">
+        SELECT b.id, b.project_id, b.model_id, b.planned_qty, b.received_qty,
+               b.installed_qty, b.accepted_qty, b.remark, b.create_time, b.update_time,
+               m.model_name, m.model_code, m.product_line
+        FROM device_bom b
+        LEFT JOIN device_model m ON m.id = b.model_id AND m.deleted = 0
+        WHERE b.deleted = 0 AND b.project_id = #{projectId}
+        ORDER BY b.create_time ASC, b.id ASC
+    </select>
+
+    <select id="selectByProjectAndModel" resultType="com.vibe.device.entity.DeviceBomEntity">
+        SELECT id, project_id, model_id, planned_qty, received_qty, installed_qty,
+               accepted_qty, remark, create_by, create_time, update_by, update_time, deleted
+        FROM device_bom
+        WHERE deleted = 0 AND project_id = #{projectId} AND model_id = #{modelId}
+        LIMIT 1
+    </select>
+
+    <select id="selectVoById" resultMap="bomVOMap">
+        SELECT b.id, b.project_id, b.model_id, b.planned_qty, b.received_qty,
+               b.installed_qty, b.accepted_qty, b.remark, b.create_time, b.update_time,
+               m.model_name, m.model_code, m.product_line
+        FROM device_bom b
+        LEFT JOIN device_model m ON m.id = b.model_id AND m.deleted = 0
+        WHERE b.id = #{id} AND b.deleted = 0
+    </select>
+
+</mapper>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.resource.mapper.ProjectTaskRefMapper">
+
+    <!--
+        更新任务的执行人与状态，同时推进乐观锁版本号。
+        注意：project_task 表的 assignee_id 关联 sys_user.id（与 engineer.user_id 一致）。
+    -->
+    <update id="updateAssigneeAndStatus">
+        UPDATE project_task
+        SET assignee_id = #{assigneeId},
+            status = #{status},
+            version = version + 1,
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{taskId}
+          AND deleted = 0
+    </update>
+
+    <!-- 释放任务执行人，状态回到 PENDING -->
+    <update id="releaseAssignee">
+        UPDATE project_task
+        SET assignee_id = NULL,
+            status = 'PENDING',
+            version = version + 1,
+            update_time = CURRENT_TIMESTAMP
+        WHERE id = #{taskId}
+          AND deleted = 0
+    </update>
+
+    <select id="selectProjectIdByTaskId" resultType="java.lang.Long">
+        SELECT project_id FROM project_task
+        WHERE id = #{taskId} AND deleted = 0
+    </select>
+
+    <!--
+        查询任务的计划开始/结束日期。
+        返回 resultMap 通过 result 标签按列顺序映射到 LocalDate[] 的索引位置。
+    -->
+    <select id="selectTaskPlanRange" resultType="java.time.LocalDate">
+        SELECT planned_start FROM project_task WHERE id = #{taskId} AND deleted = 0
+        UNION ALL
+        SELECT planned_end FROM project_task WHERE id = #{taskId} AND deleted = 0
+    </select>
+
+</mapper>

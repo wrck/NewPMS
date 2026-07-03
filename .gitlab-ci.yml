@@ -1,0 +1,111 @@
+# ============================================================================
+# GitLab CI/CD 流水线 - Vibe ServiceDeliver
+# 阶段：构建 → 测试 → 部署
+# ============================================================================
+
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository -Dmaven.compiler.source=17 -Dmaven.compiler.target=17"
+  MAVEN_CLI_OPTS: "-B --batch-mode --errors --fail-at-end"
+
+# ---------------------------------------------------------------------------
+# 后端构建
+# ---------------------------------------------------------------------------
+backend-build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - cd vibe-server
+    - mvn $MAVEN_CLI_OPTS clean package -DskipTests
+  artifacts:
+    paths:
+      - vibe-server/vibe-server-bootstrap/target/vibe-server.jar
+    expire_in: 1 hour
+  cache:
+    paths:
+      - .m2/repository
+
+# ---------------------------------------------------------------------------
+# 前端构建（3 个前端项目并行）
+# ---------------------------------------------------------------------------
+frontend-build:web:
+  stage: build
+  image: node:20-alpine
+  script:
+    - cd vibe-web && npm ci --no-audit && npm run build
+  artifacts:
+    paths:
+      - vibe-web/dist
+    expire_in: 1 hour
+
+frontend-build:mobile:
+  stage: build
+  image: node:20-alpine
+  script:
+    - cd vibe-mobile && npm ci --no-audit && npm run build
+  artifacts:
+    paths:
+      - vibe-mobile/dist
+    expire_in: 1 hour
+
+frontend-build:portal:
+  stage: build
+  image: node:20-alpine
+  script:
+    - cd vibe-portal && npm ci --no-audit && npm run build
+  artifacts:
+    paths:
+      - vibe-portal/dist
+    expire_in: 1 hour
+
+# ---------------------------------------------------------------------------
+# 后端单元测试
+# ---------------------------------------------------------------------------
+backend-test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - cd vibe-server
+    - mvn $MAVEN_CLI_OPTS test
+  dependencies:
+    - backend-build
+  cache:
+    paths:
+      - .m2/repository
+
+# ---------------------------------------------------------------------------
+# 部署到测试环境（develop 分支自动触发）
+# ---------------------------------------------------------------------------
+deploy:staging:
+  stage: deploy
+  only:
+    - develop
+  script:
+    - docker compose --profile app build
+    - docker compose --profile app up -d
+    - sleep 30
+    - curl -f http://localhost:8080/actuator/health || exit 1
+  environment:
+    name: staging
+    url: https://staging.vibe.example.com
+
+# ---------------------------------------------------------------------------
+# 部署到生产环境（main 分支手动触发）
+# ---------------------------------------------------------------------------
+deploy:production:
+  stage: deploy
+  only:
+    - main
+  when: manual
+  script:
+    - docker compose --profile app build
+    - docker compose --profile app up -d
+    - sleep 30
+    - curl -f http://localhost:8080/actuator/health || exit 1
+  environment:
+    name: production
+    url: https://admin.vibe.example.com

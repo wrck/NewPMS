@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.resource.mapper.TimesheetMapper">
+
+    <resultMap id="timesheetVoMap" type="com.vibe.resource.vo.TimesheetVO">
+        <id property="id" column="id"/>
+        <result property="engineerId" column="engineer_id"/>
+        <result property="engineerName" column="engineer_name"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="taskId" column="task_id"/>
+        <result property="taskName" column="task_name"/>
+        <result property="workDate" column="work_date"/>
+        <result property="hours" column="hours"/>
+        <result property="overtimeHours" column="overtime_hours"/>
+        <result property="travelDays" column="travel_days"/>
+        <result property="description" column="description"/>
+        <result property="status" column="status"/>
+        <result property="approverId" column="approver_id"/>
+        <result property="approverName" column="approver_name"/>
+        <result property="approveTime" column="approve_time"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="timesheetJoinColumns">
+        t.id, t.engineer_id, t.project_id, t.task_id, t.work_date, t.hours,
+        t.overtime_hours, t.travel_days, t.description, t.status,
+        t.approver_id, t.approve_time, t.create_time,
+        e.name AS engineer_name,
+        p.project_name AS project_name,
+        pt.task_name AS task_name,
+        approver.real_name AS approver_name
+    </sql>
+
+    <select id="selectTimesheetPage" resultMap="timesheetVoMap">
+        SELECT <include refid="timesheetJoinColumns"/>
+        FROM timesheet t
+        LEFT JOIN engineer e ON e.id = t.engineer_id AND e.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN project_task pt ON pt.id = t.task_id AND pt.deleted = 0
+        LEFT JOIN sys_user approver ON approver.id = t.approver_id AND approver.deleted = 0
+        <where>
+            t.deleted = 0
+            <if test="query.engineerId != null">
+                AND t.engineer_id = #{query.engineerId}
+            </if>
+            <if test="query.projectId != null">
+                AND t.project_id = #{query.projectId}
+            </if>
+            <if test="query.taskId != null">
+                AND t.task_id = #{query.taskId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND t.status = #{query.status}
+            </if>
+            <if test="query.workDateStart != null">
+                AND t.work_date &gt;= #{query.workDateStart}
+            </if>
+            <if test="query.workDateEnd != null">
+                AND t.work_date &lt;= #{query.workDateEnd}
+            </if>
+        </where>
+        ORDER BY t.work_date DESC, t.id DESC
+    </select>
+
+    <select id="selectVoById" resultMap="timesheetVoMap">
+        SELECT <include refid="timesheetJoinColumns"/>
+        FROM timesheet t
+        LEFT JOIN engineer e ON e.id = t.engineer_id AND e.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN project_task pt ON pt.id = t.task_id AND pt.deleted = 0
+        LEFT JOIN sys_user approver ON approver.id = t.approver_id AND approver.deleted = 0
+        WHERE t.id = #{id} AND t.deleted = 0
+    </select>
+
+    <!--
+        人天统计多维查询：
+        - dimension = ENGINEER：按工程师聚合
+        - dimension = PROJECT：按项目聚合
+        - dimension = MONTHLY：按月聚合
+        人天 = (hours + overtime_hours) / 8
+    -->
+    <select id="selectStats" resultType="com.vibe.resource.vo.TimesheetStatsVO">
+        SELECT
+            <choose>
+                <when test="query.dimension == 'ENGINEER'">
+                    t.engineer_id AS engineerId,
+                    e.name AS engineerName,
+                    NULL AS projectId,
+                    NULL AS projectName,
+                    NULL AS statKey
+                </when>
+                <when test="query.dimension == 'PROJECT'">
+                    NULL AS engineerId,
+                    NULL AS engineerName,
+                    t.project_id AS projectId,
+                    p.project_name AS projectName,
+                    NULL AS statKey
+                </when>
+                <when test="query.dimension == 'MONTHLY'">
+                    t.engineer_id AS engineerId,
+                    e.name AS engineerName,
+                    t.project_id AS projectId,
+                    p.project_name AS projectName,
+                    DATE_FORMAT(t.work_date, '%Y-%m') AS statKey
+                </when>
+                <otherwise>
+                    t.engineer_id AS engineerId,
+                    e.name AS engineerName,
+                    t.project_id AS projectId,
+                    p.project_name AS projectName,
+                    NULL AS statKey
+                </otherwise>
+            </choose>,
+            COALESCE(SUM(t.hours), 0) AS totalHours,
+            COALESCE(SUM(t.overtime_hours), 0) AS totalOvertimeHours,
+            COALESCE(SUM(t.travel_days), 0) AS totalTravelDays,
+            ROUND(COALESCE(SUM(t.hours), 0) / 8, 2) AS totalManDays,
+            COUNT(t.id) AS recordCount
+        FROM timesheet t
+        LEFT JOIN engineer e ON e.id = t.engineer_id AND e.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        <where>
+            t.deleted = 0
+            AND t.status = 'APPROVED'
+            <if test="query.engineerId != null">
+                AND t.engineer_id = #{query.engineerId}
+            </if>
+            <if test="query.projectId != null">
+                AND t.project_id = #{query.projectId}
+            </if>
+            <if test="query.startDate != null">
+                AND t.work_date &gt;= #{query.startDate}
+            </if>
+            <if test="query.endDate != null">
+                AND t.work_date &lt;= #{query.endDate}
+            </if>
+        </where>
+        <choose>
+            <when test="query.dimension == 'ENGINEER'">
+                GROUP BY t.engineer_id, e.name
+                ORDER BY t.engineer_id
+            </when>
+            <when test="query.dimension == 'PROJECT'">
+                GROUP BY t.project_id, p.project_name
+                ORDER BY t.project_id
+            </when>
+            <when test="query.dimension == 'MONTHLY'">
+                GROUP BY t.engineer_id, e.name, t.project_id, p.project_name, DATE_FORMAT(t.work_date, '%Y-%m')
+                ORDER BY statKey, t.engineer_id
+            </when>
+            <otherwise>
+                GROUP BY t.engineer_id, e.name, t.project_id, p.project_name
+                ORDER BY t.engineer_id, t.project_id
+            </otherwise>
+        </choose>
+    </select>
+
+</mapper>

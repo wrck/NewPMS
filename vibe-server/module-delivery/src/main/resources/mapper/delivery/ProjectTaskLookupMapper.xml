@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.delivery.mapper.ProjectTaskLookupMapper">
+
+    <select id="selectById" resultType="com.vibe.delivery.bo.ProjectTaskLookup">
+        SELECT id, project_id, task_name, assignee_id, status,
+               planned_start, planned_end, actual_start, actual_end,
+               site_info
+        FROM project_task
+        WHERE id = #{id} AND deleted = 0
+    </select>
+
+    <update id="updateTaskStatus">
+        UPDATE project_task
+        SET status = #{status},
+            update_by = #{operatorId},
+            update_time = NOW()
+        <if test="actualEnd != null">
+            , actual_end = #{actualEnd}
+        </if>
+        WHERE id = #{id} AND deleted = 0
+    </update>
+
+    <select id="countUnconfirmedByProject" resultType="int">
+        SELECT COUNT(1) FROM project_task
+        WHERE project_id = #{projectId} AND deleted = 0
+          AND status NOT IN ('COMPLETED', 'CONFIRMED')
+    </select>
+
+    <update id="updateProjectProgress">
+        UPDATE project
+        SET progress_pct = #{progressPct},
+            update_by = #{operatorId},
+            update_time = NOW()
+        WHERE id = #{projectId} AND deleted = 0
+    </update>
+
+    <select id="countTotalByProject" resultType="int">
+        SELECT COUNT(1) FROM project_task
+        WHERE project_id = #{projectId} AND deleted = 0
+    </select>
+
+    <select id="countCompletedByProject" resultType="int">
+        SELECT COUNT(1) FROM project_task
+        WHERE project_id = #{projectId} AND deleted = 0
+          AND status IN ('COMPLETED', 'CONFIRMED')
+    </select>
+
+    <select id="selectTaskIdsByProject" resultType="java.lang.Long">
+        SELECT id FROM project_task
+        WHERE project_id = #{projectId} AND deleted = 0
+    </select>
+
+</mapper>

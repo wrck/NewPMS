@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.delivery.mapper.WorkOrderMapper">
+
+    <resultMap id="workOrderVoMap" type="com.vibe.delivery.vo.WorkOrderVO">
+        <id property="id" column="id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="taskName" column="task_name"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="engineerId" column="engineer_id"/>
+        <result property="engineerName" column="engineer_name"/>
+        <result property="checkinTime" column="checkin_time"/>
+        <result property="checkoutTime" column="checkout_time"/>
+        <result property="checkinLocation" column="checkin_location"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"
+                javaType="com.vibe.delivery.bo.GpsLocation"/>
+        <result property="checkoutLocation" column="checkout_location"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"
+                javaType="com.vibe.delivery.bo.GpsLocation"/>
+        <result property="checkinPhotoUrl" column="checkin_photo"/>
+        <result property="status" column="status"/>
+        <result property="totalDuration" column="total_duration"/>
+        <result property="photoCount" column="photo_count"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="baseColumns">
+        wo.id, wo.task_id, wo.engineer_id, wo.checkin_time, wo.checkout_time,
+        wo.checkin_location, wo.checkout_location, wo.checkin_photo,
+        wo.status, wo.total_duration, wo.photo_count, wo.remark, wo.create_time,
+        t.task_name, p.id AS project_id, p.project_name,
+        u.real_name AS engineer_name
+    </sql>
+
+    <select id="selectWorkOrderPage" resultMap="workOrderVoMap">
+        SELECT <include refid="baseColumns"/>
+        FROM work_order wo
+        LEFT JOIN project_task t ON t.id = wo.task_id AND t.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN sys_user u ON u.id = wo.engineer_id AND u.deleted = 0
+        <where>
+            wo.deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (t.task_name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR p.project_name LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.engineerId != null">
+                AND wo.engineer_id = #{query.engineerId}
+            </if>
+            <if test="query.taskId != null">
+                AND wo.task_id = #{query.taskId}
+            </if>
+            <if test="query.projectId != null">
+                AND t.project_id = #{query.projectId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND wo.status = #{query.status}
+            </if>
+            <if test="query.checkinStart != null">
+                AND wo.checkin_time &gt;= #{query.checkinStart}
+            </if>
+            <if test="query.checkinEnd != null">
+                AND wo.checkin_time &lt; DATE_ADD(#{query.checkinEnd}, INTERVAL 1 DAY)
+            </if>
+        </where>
+        ORDER BY wo.create_time DESC
+    </select>
+
+    <select id="selectVoById" resultMap="workOrderVoMap">
+        SELECT <include refid="baseColumns"/>
+        FROM work_order wo
+        LEFT JOIN project_task t ON t.id = wo.task_id AND t.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN sys_user u ON u.id = wo.engineer_id AND u.deleted = 0
+        WHERE wo.id = #{id} AND wo.deleted = 0
+    </select>
+
+    <select id="selectByEngineer" resultMap="workOrderVoMap">
+        SELECT <include refid="baseColumns"/>
+        FROM work_order wo
+        LEFT JOIN project_task t ON t.id = wo.task_id AND t.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN sys_user u ON u.id = wo.engineer_id AND u.deleted = 0
+        WHERE wo.deleted = 0
+        <if test="engineerId != null">
+            AND wo.engineer_id = #{engineerId}
+        </if>
+        <if test="status != null and status != ''">
+            AND wo.status = #{status}
+        </if>
+        ORDER BY wo.create_time DESC
+    </select>
+
+    <select id="selectByTaskId" resultType="com.vibe.delivery.entity.WorkOrderEntity">
+        SELECT id, task_id, engineer_id, checkin_time, checkout_time,
+               checkin_location, checkout_location, checkin_photo,
+               status, total_duration, photo_count, remark, version,
+               create_by, create_time, update_by, update_time, deleted
+        FROM work_order
+        WHERE task_id = #{taskId} AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

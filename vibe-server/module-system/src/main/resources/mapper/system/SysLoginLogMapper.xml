@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysLoginLogMapper">
+
+    <select id="selectLoginLogPage" resultType="com.vibe.system.vo.SysLoginLogVO">
+        SELECT id, username, login_time AS loginTime, login_ip AS loginIp,
+               login_location AS loginLocation, browser, os, status, msg
+        FROM sys_login_log
+        <where>
+            deleted = 0
+            <if test="query.username != null and query.username != ''">
+                AND username LIKE CONCAT('%', #{query.username}, '%')
+            </if>
+            <if test="query.status != null">
+                AND status = #{query.status}
+            </if>
+            <if test="query.beginTime != null">
+                AND login_time &gt;= #{query.beginTime}
+            </if>
+            <if test="query.endTime != null">
+                AND login_time &lt;= #{query.endTime}
+            </if>
+        </where>
+        ORDER BY login_time DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysOrgMapper">
+
+    <select id="selectAllOrgVo" resultType="com.vibe.system.vo.SysOrgVO">
+        SELECT id, parent_id AS parentId, org_name AS orgName, org_code AS orgCode,
+               sort_order AS sortOrder, status, create_time AS createTime
+        FROM sys_org
+        WHERE deleted = 0
+        ORDER BY sort_order ASC, id ASC
+    </select>
+
+</mapper>

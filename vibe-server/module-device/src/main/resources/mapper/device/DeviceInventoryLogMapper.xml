@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.device.mapper.DeviceInventoryLogMapper">
+
+    <select id="selectLogListByDevice" resultType="com.vibe.device.vo.DeviceInventoryLogVO">
+        SELECT l.id, l.device_id AS deviceId, d.serial_number AS serialNumber,
+               l.action_type AS actionType,
+               l.from_warehouse_id AS fromWarehouseId, fw.warehouse_name AS fromWarehouseName,
+               l.to_warehouse_id AS toWarehouseId, tw.warehouse_name AS toWarehouseName,
+               l.from_project_id AS fromProjectId, fp.project_name AS fromProjectName,
+               l.to_project_id AS toProjectId, tp.project_name AS toProjectName,
+               l.operator_id AS operatorId, l.quantity, l.remark, l.create_time AS createTime
+        FROM device_inventory_log l
+        LEFT JOIN device_instance d ON d.id = l.device_id AND d.deleted = 0
+        LEFT JOIN warehouse fw ON fw.id = l.from_warehouse_id AND fw.deleted = 0
+        LEFT JOIN warehouse tw ON tw.id = l.to_warehouse_id AND tw.deleted = 0
+        LEFT JOIN project fp ON fp.id = l.from_project_id AND fp.deleted = 0
+        LEFT JOIN project tp ON tp.id = l.to_project_id AND tp.deleted = 0
+        WHERE l.deleted = 0 AND l.device_id = #{deviceId}
+        ORDER BY l.create_time DESC, l.id DESC
+    </select>
+
+    <select id="selectLogList" resultType="com.vibe.device.vo.DeviceInventoryLogVO">
+        SELECT l.id, l.device_id AS deviceId, d.serial_number AS serialNumber,
+               l.action_type AS actionType,
+               l.from_warehouse_id AS fromWarehouseId, fw.warehouse_name AS fromWarehouseName,
+               l.to_warehouse_id AS toWarehouseId, tw.warehouse_name AS toWarehouseName,
+               l.from_project_id AS fromProjectId, fp.project_name AS fromProjectName,
+               l.to_project_id AS toProjectId, tp.project_name AS toProjectName,
+               l.operator_id AS operatorId, l.quantity, l.remark, l.create_time AS createTime
+        FROM device_inventory_log l
+        LEFT JOIN device_instance d ON d.id = l.device_id AND d.deleted = 0
+        LEFT JOIN warehouse fw ON fw.id = l.from_warehouse_id AND fw.deleted = 0
+        LEFT JOIN warehouse tw ON tw.id = l.to_warehouse_id AND tw.deleted = 0
+        LEFT JOIN project fp ON fp.id = l.from_project_id AND fp.deleted = 0
+        LEFT JOIN project tp ON tp.id = l.to_project_id AND tp.deleted = 0
+        <where>
+            l.deleted = 0
+            <if test="warehouseId != null">
+                AND (l.from_warehouse_id = #{warehouseId} OR l.to_warehouse_id = #{warehouseId})
+            </if>
+            <if test="projectId != null">
+                AND (l.from_project_id = #{projectId} OR l.to_project_id = #{projectId})
+            </if>
+            <if test="actionType != null and actionType != ''">
+                AND l.action_type = #{actionType}
+            </if>
+        </where>
+        ORDER BY l.create_time DESC, l.id DESC
+    </select>
+
+</mapper>

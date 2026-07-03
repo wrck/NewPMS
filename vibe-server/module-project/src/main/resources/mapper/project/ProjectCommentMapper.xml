@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.project.mapper.ProjectCommentMapper">
+
+    <resultMap id="commentVoMap" type="com.vibe.project.vo.ProjectCommentVO">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="content" column="content"/>
+        <result property="authorId" column="author_id"/>
+        <result property="authorName" column="author_name"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectByProjectId" resultMap="commentVoMap">
+        SELECT pc.id, pc.project_id, pc.task_id, pc.content, pc.author_id,
+               pc.parent_id, pc.create_time,
+               u.real_name AS author_name
+        FROM project_comment pc
+        LEFT JOIN sys_user u ON u.id = pc.author_id AND u.deleted = 0
+        WHERE pc.project_id = #{projectId} AND pc.deleted = 0
+        ORDER BY pc.create_time ASC
+    </select>
+
+    <select id="selectByTaskId" resultMap="commentVoMap">
+        SELECT pc.id, pc.project_id, pc.task_id, pc.content, pc.author_id,
+               pc.parent_id, pc.create_time,
+               u.real_name AS author_name
+        FROM project_comment pc
+        LEFT JOIN sys_user u ON u.id = pc.author_id AND u.deleted = 0
+        WHERE pc.task_id = #{taskId} AND pc.deleted = 0
+        ORDER BY pc.create_time ASC
+    </select>
+
+</mapper>

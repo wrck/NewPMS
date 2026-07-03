@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.resource.mapper.EngineerSkillMapper">
+
+    <select id="selectByEngineerId" resultType="com.vibe.resource.entity.EngineerSkillEntity">
+        SELECT id, engineer_id, skill_tag, level, create_by, create_time, update_by, update_time, deleted
+        FROM engineer_skill
+        WHERE engineer_id = #{engineerId} AND deleted = 0
+        ORDER BY id
+    </select>
+
+    <select id="selectByEngineerIds" resultType="com.vibe.resource.entity.EngineerSkillEntity">
+        SELECT id, engineer_id, skill_tag, level
+        FROM engineer_skill
+        WHERE deleted = 0
+        AND engineer_id IN
+        <foreach collection="engineerIds" item="eid" open="(" separator="," close=")">
+            #{eid}
+        </foreach>
+        ORDER BY engineer_id, id
+    </select>
+
+    <update id="deleteByEngineerId">
+        UPDATE engineer_skill SET deleted = 1
+        WHERE engineer_id = #{engineerId} AND deleted = 0
+    </update>
+
+</mapper>

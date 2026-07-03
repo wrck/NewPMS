@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.vibe</groupId>
+        <artifactId>vibe-server</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>vibe-server-bootstrap</artifactId>
+    <packaging>jar</packaging>
+    <name>vibe-server-bootstrap</name>
+    <description>主启动模块：聚合所有业务模块，提供 VibeApplication 启动类与配置</description>
+
+    <dependencies>
+        <!-- 公共模块 -->
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-common</artifactId>
+        </dependency>
+        <!-- 认证授权 -->
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-auth</artifactId>
+        </dependency>
+        <!-- 业务模块 -->
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-system</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-project</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-device</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-resource</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-delivery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-agent</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-acceptance</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-finance</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-collaboration</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-integration</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-report</artifactId>
+        </dependency>
+
+        <!-- Spring Boot 测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>vibe-server</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.vibe.VibeApplication</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

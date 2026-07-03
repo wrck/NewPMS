@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysRoleMapper">
+
+    <select id="selectRolesByUserId" resultType="com.vibe.system.vo.RoleSimpleVO">
+        SELECT r.id, r.role_name AS roleName, r.role_code AS roleCode, r.data_scope AS dataScope
+        FROM sys_role r
+        INNER JOIN sys_user_role ur ON ur.role_id = r.id AND ur.deleted = 0
+        WHERE ur.user_id = #{userId} AND r.deleted = 0
+        ORDER BY r.id
+    </select>
+
+    <select id="selectRoleCodesByUserId" resultType="java.lang.String">
+        SELECT r.role_code
+        FROM sys_role r
+        INNER JOIN sys_user_role ur ON ur.role_id = r.id AND ur.deleted = 0
+        WHERE ur.user_id = #{userId} AND r.deleted = 0
+    </select>
+
+    <select id="selectRolePage" resultType="com.vibe.system.vo.SysRoleVO">
+        SELECT r.id, r.role_name AS roleName, r.role_code AS roleCode, r.description,
+               r.status, r.data_scope AS dataScope, r.create_time AS createTime
+        FROM sys_role r
+        <where>
+            r.deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (r.role_name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR r.role_code LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null">
+                AND r.status = #{query.status}
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="selectMenuIdsByRoleId" resultType="java.lang.Long">
+        SELECT rm.menu_id
+        FROM sys_role_menu rm
+        WHERE rm.role_id = #{roleId} AND rm.deleted = 0
+    </select>
+
+</mapper>

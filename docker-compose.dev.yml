@@ -1,0 +1,152 @@
+# ============================================================================
+# 网络设备原厂实施项目管理系统 - 纯中间件开发版 Docker Compose
+# ============================================================================
+# 仅启动 mysql / redis / minio / rabbitmq 四个中间件，
+# 应用服务（vibe-server / vibe-web）由开发者本地运行，便于断点调试与热重载。
+#
+# 启动命令：
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# 停止：
+#   docker compose -f docker-compose.dev.yml down
+#
+# 清理数据卷（慎用，会删除全部持久化数据）：
+#   docker compose -f docker-compose.dev.yml down -v
+# ============================================================================
+
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # MySQL 8.0 数据库
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: vibe-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: vibe123
+      MYSQL_DATABASE: vibe_db
+      MYSQL_CHARSET: utf8mb4
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      # 挂载数据库初始化脚本（schema.sql / data.sql）供 init.sql 引用
+      - ./vibe-server/vibe-server-bootstrap/src/main/resources/db:/docker-entrypoint-initdb.d/db-scripts:ro
+    healthcheck:
+      test:
+        - "CMD"
+        - "mysqladmin"
+        - "ping"
+        - "-h"
+        - "127.0.0.1"
+        - "-uroot"
+        - "-pvibe123"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - vibe-net
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 缓存
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: vibe-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - vibe123
+    volumes:
+      - ./docker/redis/data:/data
+    healthcheck:
+      test:
+        - "CMD"
+        - "redis-cli"
+        - "-a"
+        - "vibe123"
+        - "ping"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - vibe-net
+
+  # ---------------------------------------------------------------------------
+  # MinIO 对象存储
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: vibe-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # 管理控制台
+    environment:
+      MINIO_ROOT_USER: vibe
+      MINIO_ROOT_PASSWORD: vibe123456
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./docker/minio/data:/data
+    healthcheck:
+      test:
+        - "CMD"
+        - "curl"
+        - "-f"
+        - "http://localhost:9000/minio/health/ready"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - vibe-net
+
+  # ---------------------------------------------------------------------------
+  # RabbitMQ 3.12 消息队列（含管理界面）
+  # ---------------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: vibe-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # 管理界面
+    environment:
+      RABBITMQ_DEFAULT_USER: vibe
+      RABBITMQ_DEFAULT_PASS: vibe123
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - ./docker/rabbitmq/data:/var/lib/rabbitmq
+    healthcheck:
+      test:
+        - "CMD"
+        - "rabbitmq-diagnostics"
+        - "-q"
+        - "ping"
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
+    networks:
+      - vibe-net
+
+networks:
+  vibe-net:
+    name: vibe-net
+    driver: bridge

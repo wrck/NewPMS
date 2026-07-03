@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.device.mapper.SparePartLogMapper">
+
+    <select id="selectLogList" resultType="com.vibe.device.vo.SparePartLogVO">
+        SELECT l.id, l.spare_part_id AS sparePartId, s.part_name AS partName, s.part_code AS partCode,
+               l.action_type AS actionType, l.quantity, l.project_id AS projectId,
+               p.project_name AS projectName, l.operator_id AS operatorId, l.remark,
+               l.create_time AS createTime
+        FROM spare_part_log l
+        LEFT JOIN spare_part s ON s.id = l.spare_part_id AND s.deleted = 0
+        LEFT JOIN project p ON p.id = l.project_id AND p.deleted = 0
+        <where>
+            l.deleted = 0
+            <if test="sparePartId != null">
+                AND l.spare_part_id = #{sparePartId}
+            </if>
+            <if test="projectId != null">
+                AND l.project_id = #{projectId}
+            </if>
+            <if test="actionType != null and actionType != ''">
+                AND l.action_type = #{actionType}
+            </if>
+        </where>
+        ORDER BY l.create_time DESC, l.id DESC
+    </select>
+
+</mapper>

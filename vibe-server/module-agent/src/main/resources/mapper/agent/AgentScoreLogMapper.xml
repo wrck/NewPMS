@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.agent.mapper.AgentScoreLogMapper">
+
+    <resultMap id="scoreLogVoMap" type="com.vibe.agent.vo.AgentScoreLogVO">
+        <id property="id" column="id"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="outsourceTaskId" column="outsource_task_id"/>
+        <result property="scoreTimeliness" column="score_timeliness"/>
+        <result property="scoreQuality" column="score_quality"/>
+        <result property="scoreCommunication" column="score_communication"/>
+        <result property="scoreIssue" column="score_issue"/>
+        <result property="scorerId" column="scorer_id"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="agentCompanyName" column="agent_company_name"/>
+        <result property="taskName" column="task_name"/>
+        <result property="projectName" column="project_name"/>
+        <result property="scorerName" column="scorer_name"/>
+    </resultMap>
+
+    <select id="selectScoreHistory" resultMap="scoreLogVoMap">
+        SELECT s.id, s.agent_company_id, s.outsource_task_id,
+               s.score_timeliness, s.score_quality, s.score_communication, s.score_issue,
+               s.scorer_id, s.remark,
+               s.create_by, s.create_time, s.update_by, s.update_time,
+               ac.company_name AS agent_company_name,
+               pt.task_name,
+               p.project_name,
+               su.real_name AS scorer_name
+        FROM agent_score_log s
+        LEFT JOIN agent_company ac ON ac.id = s.agent_company_id AND ac.deleted = 0
+        LEFT JOIN outsource_task t ON t.id = s.outsource_task_id AND t.deleted = 0
+        LEFT JOIN project_task pt ON pt.id = t.task_id AND pt.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN sys_user su ON su.id = s.scorer_id AND su.deleted = 0
+        WHERE s.agent_company_id = #{companyId} AND s.deleted = 0
+        ORDER BY s.create_time DESC
+    </select>
+
+    <select id="selectWeightedAvgScore" resultType="java.math.BigDecimal">
+        SELECT AVG(
+            (IFNULL(score_timeliness, 0) * 0.30) +
+            (IFNULL(score_quality, 0) * 0.30) +
+            (IFNULL(score_communication, 0) * 0.20) +
+            (IFNULL(score_issue, 0) * 0.20)
+        )
+        FROM agent_score_log
+        WHERE agent_company_id = #{companyId} AND deleted = 0
+    </select>
+
+    <select id="selectByTaskId" resultMap="scoreLogVoMap">
+        SELECT s.id, s.agent_company_id, s.outsource_task_id,
+               s.score_timeliness, s.score_quality, s.score_communication, s.score_issue,
+               s.scorer_id, s.remark,
+               s.create_by, s.create_time, s.update_by, s.update_time,
+               ac.company_name AS agent_company_name,
+               pt.task_name,
+               p.project_name,
+               su.real_name AS scorer_name
+        FROM agent_score_log s
+        LEFT JOIN agent_company ac ON ac.id = s.agent_company_id AND ac.deleted = 0
+        LEFT JOIN outsource_task t ON t.id = s.outsource_task_id AND t.deleted = 0
+        LEFT JOIN project_task pt ON pt.id = t.task_id AND pt.deleted = 0
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN sys_user su ON su.id = s.scorer_id AND su.deleted = 0
+        WHERE s.outsource_task_id = #{taskId} AND s.deleted = 0
+        LIMIT 1
+    </select>
+
+</mapper>

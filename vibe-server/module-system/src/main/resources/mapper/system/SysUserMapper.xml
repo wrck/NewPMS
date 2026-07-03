@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysUserMapper">
+
+    <resultMap id="userVoMap" type="com.vibe.system.vo.SysUserVO">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+        <result property="realName" column="real_name"/>
+        <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="avatar" column="avatar"/>
+        <result property="status" column="status"/>
+        <result property="tenantType" column="tenant_type"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="orgId" column="org_id"/>
+        <result property="orgName" column="org_name"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+        <result property="createTime" column="create_time"/>
+        <collection property="roles" ofType="com.vibe.system.vo.RoleSimpleVO">
+            <id property="id" column="r_id"/>
+            <result property="roleName" column="r_role_name"/>
+            <result property="roleCode" column="r_role_code"/>
+            <result property="dataScope" column="r_data_scope"/>
+        </collection>
+    </resultMap>
+
+    <select id="selectByUsernameWithRoles" resultMap="userVoMap">
+        SELECT u.id, u.username, u.password, u.real_name, u.phone, u.email, u.avatar,
+               u.status, u.tenant_type, u.tenant_id, u.org_id, u.last_login_time, u.create_time,
+               o.org_name,
+               r.id AS r_id, r.role_name AS r_role_name, r.role_code AS r_role_code, r.data_scope AS r_data_scope
+        FROM sys_user u
+        LEFT JOIN sys_org o ON o.id = u.org_id AND o.deleted = 0
+        LEFT JOIN sys_user_role ur ON ur.user_id = u.id AND ur.deleted = 0
+        LEFT JOIN sys_role r ON r.id = ur.role_id AND r.deleted = 0
+        WHERE u.username = #{username} AND u.deleted = 0
+    </select>
+
+    <select id="selectByPhoneWithRoles" resultMap="userVoMap">
+        SELECT u.id, u.username, u.password, u.real_name, u.phone, u.email, u.avatar,
+               u.status, u.tenant_type, u.tenant_id, u.org_id, u.last_login_time, u.create_time,
+               o.org_name,
+               r.id AS r_id, r.role_name AS r_role_name, r.role_code AS r_role_code, r.data_scope AS r_data_scope
+        FROM sys_user u
+        LEFT JOIN sys_org o ON o.id = u.org_id AND o.deleted = 0
+        LEFT JOIN sys_user_role ur ON ur.user_id = u.id AND ur.deleted = 0
+        LEFT JOIN sys_role r ON r.id = ur.role_id AND r.deleted = 0
+        WHERE u.phone = #{phone} AND u.deleted = 0
+    </select>
+
+    <select id="selectVoById" resultMap="userVoMap">
+        SELECT u.id, u.username, u.real_name, u.phone, u.email, u.avatar,
+               u.status, u.tenant_type, u.tenant_id, u.org_id, u.last_login_time, u.create_time,
+               o.org_name,
+               r.id AS r_id, r.role_name AS r_role_name, r.role_code AS r_role_code, r.data_scope AS r_data_scope
+        FROM sys_user u
+        LEFT JOIN sys_org o ON o.id = u.org_id AND o.deleted = 0
+        LEFT JOIN sys_user_role ur ON ur.user_id = u.id AND ur.deleted = 0
+        LEFT JOIN sys_role r ON r.id = ur.role_id AND r.deleted = 0
+        WHERE u.id = #{id} AND u.deleted = 0
+    </select>
+
+    <select id="selectUserPage" resultType="com.vibe.system.vo.SysUserVO">
+        SELECT u.id, u.username, u.real_name, u.phone, u.email, u.avatar,
+               u.status, u.tenant_type, u.tenant_id, u.org_id, u.last_login_time, u.create_time,
+               o.org_name
+        FROM sys_user u
+        LEFT JOIN sys_org o ON o.id = u.org_id AND o.deleted = 0
+        <where>
+            u.deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (u.username LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR u.real_name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR u.phone LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND u.status = #{query.status}
+            </if>
+            <if test="query.tenantType != null and query.tenantType != ''">
+                AND u.tenant_type = #{query.tenantType}
+            </if>
+            <if test="query.orgId != null">
+                AND u.org_id = #{query.orgId}
+            </if>
+            <if test="query.roleId != null">
+                AND EXISTS (SELECT 1 FROM sys_user_role ur2
+                            WHERE ur2.user_id = u.id AND ur2.role_id = #{query.roleId} AND ur2.deleted = 0)
+            </if>
+        </where>
+        ORDER BY u.create_time DESC
+    </select>
+
+    <select id="selectRolesByUserId" resultType="com.vibe.system.vo.RoleSimpleVO">
+        SELECT r.id, r.role_name AS roleName, r.role_code AS roleCode, r.data_scope AS dataScope
+        FROM sys_role r
+        INNER JOIN sys_user_role ur ON ur.role_id = r.id AND ur.deleted = 0
+        WHERE ur.user_id = #{userId} AND r.deleted = 0
+        ORDER BY r.id
+    </select>
+
+</mapper>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.delivery.mapper.WorkOrderStepMapper">
+
+    <select id="selectByWorkOrderId" resultType="com.vibe.delivery.vo.WorkOrderStepVO">
+        SELECT id, work_order_id, step_no, step_name, status,
+               completed_time, duration, remark, create_time
+        FROM work_order_step
+        WHERE work_order_id = #{workOrderId} AND deleted = 0
+        ORDER BY step_no ASC
+    </select>
+
+    <select id="selectEntitiesByWorkOrderId" resultType="com.vibe.delivery.entity.WorkOrderStepEntity">
+        SELECT id, work_order_id, step_no, step_name, status,
+               completed_time, duration, remark, version,
+               create_by, create_time, update_by, update_time, deleted
+        FROM work_order_step
+        WHERE work_order_id = #{workOrderId} AND deleted = 0
+        ORDER BY step_no ASC
+    </select>
+
+</mapper>

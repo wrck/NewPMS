@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 公共模块 Mapper 占位文件，复杂 SQL 统一放置于各业务模块 resources/mapper/ 下 -->
+<mapper namespace="com.vibe.common.placeholder">
+</mapper>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.project.mapper.ProjectChangeLogMapper">
+
+    <select id="selectByProjectId" resultType="com.vibe.project.entity.ProjectChangeLogEntity">
+        SELECT id, project_id, change_type, change_content, reason, impact_analysis,
+               status, applicant_id, approver_id, approve_time,
+               create_by, create_time, update_by, update_time, deleted
+        FROM project_change_log
+        WHERE project_id = #{projectId} AND deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.delivery.mapper.WorkOrderPhotoMapper">
+
+    <resultMap id="photoVoMap" type="com.vibe.delivery.vo.WorkOrderPhotoVO">
+        <id property="id" column="id"/>
+        <result property="workOrderId" column="work_order_id"/>
+        <result property="stepId" column="step_id"/>
+        <result property="photoUrl" column="photo_url"/>
+        <result property="thumbnailUrl" column="thumbnail_url"/>
+        <result property="gps" column="gps"
+                typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"
+                javaType="com.vibe.delivery.bo.GpsLocation"/>
+        <result property="takenTime" column="taken_time"/>
+        <result property="uploadedBy" column="uploaded_by"/>
+        <result property="uploadedByName" column="uploaded_by_name"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectByWorkOrderId" resultMap="photoVoMap">
+        SELECT p.id, p.work_order_id, p.step_id, p.photo_url, p.thumbnail_url,
+               p.gps, p.taken_time, p.uploaded_by, p.create_time,
+               u.real_name AS uploaded_by_name
+        FROM work_order_photo p
+        LEFT JOIN sys_user u ON u.id = p.uploaded_by AND u.deleted = 0
+        WHERE p.work_order_id = #{workOrderId} AND p.deleted = 0
+        ORDER BY p.create_time DESC
+    </select>
+
+    <select id="selectByStepId" resultMap="photoVoMap">
+        SELECT p.id, p.work_order_id, p.step_id, p.photo_url, p.thumbnail_url,
+               p.gps, p.taken_time, p.uploaded_by, p.create_time,
+               u.real_name AS uploaded_by_name
+        FROM work_order_photo p
+        LEFT JOIN sys_user u ON u.id = p.uploaded_by AND u.deleted = 0
+        WHERE p.step_id = #{stepId} AND p.deleted = 0
+        ORDER BY p.create_time DESC
+    </select>
+
+    <select id="countByWorkOrderId" resultType="int">
+        SELECT COUNT(1) FROM work_order_photo
+        WHERE work_order_id = #{workOrderId} AND deleted = 0
+    </select>
+
+</mapper>

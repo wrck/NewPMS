@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysConfigMapper">
+
+    <select id="selectConfigPage" resultType="com.vibe.system.vo.SysConfigVO">
+        SELECT id, config_name AS configName, config_key AS configKey, config_value AS configValue,
+               config_type AS configType, remark, create_time AS createTime
+        FROM sys_config
+        <where>
+            deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (config_name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR config_key LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.configType != null and query.configType != ''">
+                AND config_type = #{query.configType}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByConfigKey" resultType="com.vibe.system.entity.SysConfigEntity">
+        SELECT id, config_name AS configName, config_key AS configKey, config_value AS configValue,
+               config_type AS configType, remark,
+               create_by, create_time, update_by, update_time, deleted
+        FROM sys_config
+        WHERE config_key = #{configKey} AND deleted = 0
+        LIMIT 1
+    </select>
+
+</mapper>

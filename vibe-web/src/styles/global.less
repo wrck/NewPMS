@@ -1,0 +1,223 @@
+/**
+ * 全局样式（按系统设计文档 3.1.3）
+ * 全局重置 / 8px 间距网格工具类 / 字体 / 圆角 / 阴影
+ */
+
+/* ============ 全局重置 ============ */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: @font-family-zh;
+  font-size: @font-size-body;
+  color: @text-primary;
+  background-color: @bg-page;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+a {
+  color: @brand-primary;
+  text-decoration: none;
+  transition: color 0.2s;
+
+  &:hover {
+    color: @brand-hover;
+  }
+}
+
+/* 数字 / 数据展示使用等宽数字字体 */
+.num,
+.din {
+  font-family: @font-family-num;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 代码 / 编号 */
+.mono {
+  font-family: @font-family-mono;
+}
+
+/* ============ 字号工具类 ============ */
+.text-page-title {
+  font-size: @font-size-page-title;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.text-card-title {
+  font-size: @font-size-card-title;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.text-body {
+  font-size: @font-size-body;
+}
+
+.text-auxiliary {
+  font-size: @font-size-auxiliary;
+  color: @text-auxiliary;
+}
+
+.text-tag {
+  font-size: @font-size-tag;
+}
+
+.text-statistic {
+  font-size: @font-size-statistic;
+  font-family: @font-family-num;
+  font-variant-numeric: tabular-nums;
+  line-height: 36px;
+  font-weight: 600;
+}
+
+/* ============ 文字色工具类 ============ */
+.text-primary {
+  color: @text-primary;
+}
+
+.text-regular {
+  color: @text-regular;
+}
+
+.text-auxiliary-color {
+  color: @text-auxiliary;
+}
+
+.text-disabled {
+  color: @text-disabled;
+}
+
+/* ============ 8px 网格间距工具类 ============ */
+// padding
+.p-xs { padding: @spacing-xs; }
+.p-sm { padding: @spacing-sm; }
+.p-md { padding: @spacing-md; }
+.p-lg { padding: @spacing-lg; }
+.p-xl { padding: @spacing-xl; }
+
+.px-md { padding-left: @spacing-md; padding-right: @spacing-md; }
+.px-lg { padding-left: @spacing-lg; padding-right: @spacing-lg; }
+.py-md { padding-top: @spacing-md; padding-bottom: @spacing-md; }
+.py-lg { padding-top: @spacing-lg; padding-bottom: @spacing-lg; }
+
+// margin
+.m-xs { margin: @spacing-xs; }
+.m-sm { margin: @spacing-sm; }
+.m-md { margin: @spacing-md; }
+.m-lg { margin: @spacing-lg; }
+.m-xl { margin: @spacing-xl; }
+
+.mx-md { margin-left: @spacing-md; margin-right: @spacing-md; }
+.my-md { margin-top: @spacing-md; margin-bottom: @spacing-md; }
+.my-lg { margin-top: @spacing-lg; margin-bottom: @spacing-lg; }
+
+.mt-xs { margin-top: @spacing-xs; }
+.mt-sm { margin-top: @spacing-sm; }
+.mt-md { margin-top: @spacing-md; }
+.mt-lg { margin-top: @spacing-lg; }
+.mt-xl { margin-top: @spacing-xl; }
+
+.mb-xs { margin-bottom: @spacing-xs; }
+.mb-sm { margin-bottom: @spacing-sm; }
+.mb-md { margin-bottom: @spacing-md; }
+.mb-lg { margin-bottom: @spacing-lg; }
+.mb-xl { margin-bottom: @spacing-xl; }
+
+.mr-sm { margin-right: @spacing-sm; }
+.mr-md { margin-right: @spacing-md; }
+.mr-lg { margin-right: @spacing-lg; }
+
+.ml-sm { margin-left: @spacing-sm; }
+.ml-md { margin-left: @spacing-md; }
+.ml-lg { margin-left: @spacing-lg; }
+
+/* ============ 圆角工具类 ============ */
+.radius-card { border-radius: @radius-card; }
+.radius-button { border-radius: @radius-button; }
+.radius-tag { border-radius: @radius-tag; }
+.radius-tag-pill { border-radius: @radius-tag-pill; }
+.radius-modal { border-radius: @radius-modal; }
+
+/* ============ 阴影工具类 ============ */
+.shadow-card { box-shadow: @shadow-card; }
+.shadow-hover { box-shadow: @shadow-hover; }
+.shadow-modal { box-shadow: @shadow-modal; }
+
+/* ============ 通用容器 ============ */
+.page-container {
+  padding: @spacing-lg;
+  min-height: 100%;
+}
+
+.page-card {
+  background-color: @bg-card;
+  border-radius: @radius-card;
+  box-shadow: @shadow-card;
+  padding: @spacing-lg;
+}
+
+/* 页面标题区（带操作按钮） */
+.page-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-md;
+}
+
+/* 卡片标题区 */
+.card-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: @spacing-md;
+  font-size: @font-size-card-title;
+  font-weight: 600;
+}
+
+/* ============ 滚动条美化 ============ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.25);
+  }
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* ============ Ant Design 微调 ============ */
+// 表格斑马纹
+.ant-table-tbody > tr:nth-child(even) td {
+  background-color: @bg-stripe;
+}
+
+// 表头背景色
+.ant-table-thead > tr > th {
+  background-color: @bg-stripe !important;
+}
+
+// 行悬浮高亮
+.ant-table-tbody > tr:hover > td {
+  background-color: @bg-selected !important;
+}

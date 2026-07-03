@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.device.mapper.DeviceInstanceMapper">
+
+    <resultMap id="instanceVOMap" type="com.vibe.device.vo.DeviceInstanceVO">
+        <id property="id" column="id"/>
+        <result property="serialNumber" column="serial_number"/>
+        <result property="macAddress" column="mac_address"/>
+        <result property="modelId" column="model_id"/>
+        <result property="modelName" column="model_name"/>
+        <result property="modelCode" column="model_code"/>
+        <result property="firmwareVersion" column="firmware_version"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="projectCode" column="project_code"/>
+        <result property="phaseId" column="phase_id"/>
+        <result property="siteName" column="site_name"/>
+        <result property="installLocation" column="install_location"/>
+        <result property="status" column="status"/>
+        <result property="warehouseId" column="warehouse_id"/>
+        <result property="warehouseName" column="warehouse_name"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="configFileUrl" column="config_file_url"/>
+        <result property="configVersion" column="config_version"/>
+        <result property="installDate" column="install_date"/>
+        <result property="onlineDate" column="online_date"/>
+        <result property="installerId" column="installer_id"/>
+        <result property="remark" column="remark"/>
+        <result property="version" column="version"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <!-- 公共关联片段：型号 + 项目 + 仓库 -->
+    <sql id="instanceColumns">
+        d.id, d.serial_number, d.mac_address, d.model_id, d.firmware_version,
+        d.project_id, d.phase_id, d.site_name, d.install_location, d.status,
+        d.warehouse_id, d.agent_company_id, d.config_file_url, d.config_version,
+        d.install_date, d.online_date, d.installer_id, d.remark, d.version,
+        d.create_time, d.update_time,
+        m.model_name, m.model_code,
+        p.project_name, p.project_code,
+        w.warehouse_name
+    </sql>
+
+    <select id="selectInstancePage" resultMap="instanceVOMap">
+        SELECT <include refid="instanceColumns"/>
+        FROM device_instance d
+        LEFT JOIN device_model m ON m.id = d.model_id AND m.deleted = 0
+        LEFT JOIN project p ON p.id = d.project_id AND p.deleted = 0
+        LEFT JOIN warehouse w ON w.id = d.warehouse_id AND w.deleted = 0
+        <where>
+            d.deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (d.serial_number LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR d.mac_address LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND d.status = #{query.status}
+            </if>
+            <if test="query.modelId != null">
+                AND d.model_id = #{query.modelId}
+            </if>
+            <if test="query.projectId != null">
+                AND d.project_id = #{query.projectId}
+            </if>
+            <if test="query.warehouseId != null">
+                AND d.warehouse_id = #{query.warehouseId}
+            </if>
+            <if test="query.agentCompanyId != null">
+                AND d.agent_company_id = #{query.agentCompanyId}
+            </if>
+            <if test="query.siteName != null and query.siteName != ''">
+                AND d.site_name LIKE CONCAT('%', #{query.siteName}, '%')
+            </if>
+        </where>
+        ORDER BY d.create_time DESC, d.id DESC
+    </select>
+
+    <select id="selectVoById" resultMap="instanceVOMap">
+        SELECT <include refid="instanceColumns"/>
+        FROM device_instance d
+        LEFT JOIN device_model m ON m.id = d.model_id AND m.deleted = 0
+        LEFT JOIN project p ON p.id = d.project_id AND p.deleted = 0
+        LEFT JOIN warehouse w ON w.id = d.warehouse_id AND w.deleted = 0
+        WHERE d.id = #{id} AND d.deleted = 0
+    </select>
+
+    <select id="selectStatusTrail" resultType="com.vibe.device.vo.DeviceStatusLogVO">
+        SELECT id, device_id AS deviceId, from_status AS fromStatus, to_status AS toStatus,
+               operator_id AS operatorId, remark, create_time AS createTime
+        FROM device_status_log
+        WHERE deleted = 0 AND device_id = #{deviceId}
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <select id="selectStatusDistribution" resultType="java.util.Map">
+        SELECT status, COUNT(*) AS cnt
+        FROM device_instance
+        WHERE deleted = 0
+        <if test="projectId != null">
+            AND project_id = #{projectId}
+        </if>
+        GROUP BY status
+    </select>
+
+    <select id="selectCountByModel" resultType="java.util.Map">
+        SELECT d.model_id AS modelId, m.model_name AS modelName, m.model_code AS modelCode,
+               COUNT(*) AS cnt
+        FROM device_instance d
+        LEFT JOIN device_model m ON m.id = d.model_id AND m.deleted = 0
+        WHERE d.deleted = 0
+        <if test="projectId != null">
+            AND d.project_id = #{projectId}
+        </if>
+        GROUP BY d.model_id, m.model_name, m.model_code
+        ORDER BY cnt DESC
+    </select>
+
+    <select id="selectCountByStatusInProject" resultType="java.util.Map">
+        SELECT status, COUNT(*) AS cnt
+        FROM device_instance
+        WHERE deleted = 0 AND project_id = #{projectId}
+        GROUP BY status
+    </select>
+
+</mapper>

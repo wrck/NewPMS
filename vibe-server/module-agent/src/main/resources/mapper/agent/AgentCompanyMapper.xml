@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.agent.mapper.AgentCompanyMapper">
+
+    <resultMap id="companyVoMap" type="com.vibe.agent.vo.AgentCompanyVO">
+        <id property="id" column="id"/>
+        <result property="companyName" column="company_name"/>
+        <result property="companyCode" column="company_code"/>
+        <result property="qualification" column="qualification"/>
+        <result property="contactName" column="contact_name"/>
+        <result property="contactPhone" column="contact_phone"/>
+        <result property="serviceRegions" column="service_regions"/>
+        <result property="productLines" column="product_lines"/>
+        <result property="status" column="status"/>
+        <result property="overallScore" column="overall_score"/>
+        <result property="cooperationStart" column="cooperation_start"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <select id="selectCompanyPage" resultMap="companyVoMap">
+        SELECT id, company_name, company_code, qualification, contact_name, contact_phone,
+               service_regions, product_lines, status, overall_score, cooperation_start,
+               create_by, create_time, update_by, update_time
+        FROM agent_company
+        <where>
+            deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (company_name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR company_code LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR contact_name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR contact_phone LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND status = #{query.status}
+            </if>
+            <if test="query.region != null and query.region != ''">
+                AND JSON_CONTAINS(service_regions, JSON_QUOTE(#{query.region}))
+            </if>
+            <if test="query.productLine != null and query.productLine != ''">
+                AND JSON_CONTAINS(product_lines, JSON_QUOTE(#{query.productLine}))
+            </if>
+        </where>
+        ORDER BY
+        <choose>
+            <when test="query.sortField == 'overall_score'">
+                overall_score
+            </when>
+            <when test="query.sortField == 'company_name'">
+                company_name
+            </when>
+            <otherwise>
+                create_time
+            </otherwise>
+        </choose>
+        <choose>
+            <when test="query.sortOrder == 'ASC'">
+                ASC
+            </when>
+            <otherwise>
+                DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectVoById" resultMap="companyVoMap">
+        SELECT id, company_name, company_code, qualification, contact_name, contact_phone,
+               service_regions, product_lines, status, overall_score, cooperation_start,
+               create_by, create_time, update_by, update_time
+        FROM agent_company
+        WHERE id = #{id} AND deleted = 0
+    </select>
+
+    <select id="selectByRegion" resultMap="companyVoMap">
+        SELECT id, company_name, company_code, qualification, contact_name, contact_phone,
+               service_regions, product_lines, status, overall_score, cooperation_start,
+               create_by, create_time, update_by, update_time
+        FROM agent_company
+        WHERE deleted = 0
+          AND status = 'ACTIVE'
+          AND JSON_CONTAINS(service_regions, JSON_QUOTE(#{region}))
+        ORDER BY overall_score DESC
+    </select>
+
+    <select id="selectRanking" resultMap="companyVoMap">
+        SELECT id, company_name, company_code, qualification, contact_name, contact_phone,
+               service_regions, product_lines, status, overall_score, cooperation_start,
+               create_by, create_time, update_by, update_time
+        FROM agent_company
+        WHERE deleted = 0
+          AND status = 'ACTIVE'
+          AND overall_score IS NOT NULL
+        ORDER BY overall_score DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectAvgScoreByCompanyId" resultType="java.math.BigDecimal">
+        SELECT AVG(
+            (IFNULL(score_timeliness, 0) * 0.30) +
+            (IFNULL(score_quality, 0) * 0.30) +
+            (IFNULL(score_communication, 0) * 0.20) +
+            (IFNULL(score_issue, 0) * 0.20)
+        )
+        FROM agent_score_log
+        WHERE agent_company_id = #{companyId} AND deleted = 0
+    </select>
+
+</mapper>

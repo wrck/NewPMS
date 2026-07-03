@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysDictTypeMapper">
+
+    <select id="selectDictTypePage" resultType="com.vibe.system.vo.SysDictTypeVO">
+        SELECT id, dict_name AS dictName, dict_type AS dictType, status, remark, create_time AS createTime
+        FROM sys_dict_type
+        <where>
+            deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (dict_name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR dict_type LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null">
+                AND status = #{query.status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByDictType" resultType="com.vibe.system.entity.SysDictTypeEntity">
+        SELECT id, dict_name AS dictName, dict_type AS dictType, status, remark,
+               create_by, create_time, update_by, update_time, deleted
+        FROM sys_dict_type
+        WHERE dict_type = #{dictType} AND deleted = 0
+        LIMIT 1
+    </select>
+
+</mapper>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.resource.mapper.EngineerMapper">
+
+    <resultMap id="engineerVoMap" type="com.vibe.resource.vo.EngineerVO">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="username" column="username"/>
+        <result property="employeeNo" column="employee_no"/>
+        <result property="name" column="name"/>
+        <result property="phone" column="phone"/>
+        <result property="region" column="region"/>
+        <result property="status" column="status"/>
+        <result property="hireDate" column="hire_date"/>
+        <result property="skills" column="skills"/>
+        <result property="certifications" column="certifications"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="engineerColumns">
+        e.id, e.user_id, e.employee_no, e.name, e.phone, e.region, e.status,
+        e.hire_date, e.skills, e.certifications, e.create_time
+    </sql>
+
+    <select id="selectEngineerPage" resultMap="engineerVoMap">
+        SELECT <include refid="engineerColumns"/>, u.username
+        FROM engineer e
+        LEFT JOIN sys_user u ON u.id = e.user_id AND u.deleted = 0
+        <where>
+            e.deleted = 0
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (e.name LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR e.employee_no LIKE CONCAT('%', #{query.keyword}, '%')
+                  OR e.phone LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND e.status = #{query.status}
+            </if>
+            <if test="query.region != null and query.region != ''">
+                AND e.region = #{query.region}
+            </if>
+            <if test="query.userId != null">
+                AND e.user_id = #{query.userId}
+            </if>
+            <if test="query.skillTag != null and query.skillTag != ''">
+                AND EXISTS (
+                    SELECT 1 FROM engineer_skill s
+                    WHERE s.engineer_id = e.id
+                      AND s.skill_tag = #{query.skillTag}
+                      AND s.deleted = 0
+                    <if test="query.skillLevel != null and query.skillLevel != ''">
+                        AND s.level = #{query.skillLevel}
+                    </if>
+                )
+            </if>
+        </where>
+        ORDER BY e.create_time DESC
+    </select>
+
+    <select id="selectVoById" resultMap="engineerVoMap">
+        SELECT <include refid="engineerColumns"/>, u.username
+        FROM engineer e
+        LEFT JOIN sys_user u ON u.id = e.user_id AND u.deleted = 0
+        WHERE e.id = #{id} AND e.deleted = 0
+    </select>
+
+    <select id="selectByUserId" resultType="com.vibe.resource.entity.EngineerEntity">
+        SELECT id, user_id, employee_no, name, phone, region, status, hire_date,
+               skills, certifications, version, create_by, create_time, update_by, update_time, deleted
+        FROM engineer
+        WHERE user_id = #{userId} AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="selectAvailableEngineers" resultMap="engineerVoMap">
+        SELECT DISTINCT <include refid="engineerColumns"/>, u.username
+        FROM engineer e
+        LEFT JOIN sys_user u ON u.id = e.user_id AND u.deleted = 0
+        <where>
+            e.deleted = 0
+            AND e.status = <choose>
+                <when test="status != null and status != ''">#{status}</when>
+                <otherwise>'ACTIVE'</otherwise>
+            </choose>
+            <if test="region != null and region != ''">
+                AND e.region = #{region}
+            </if>
+            <if test="skillTags != null and skillTags.size() > 0">
+                AND EXISTS (
+                    SELECT 1 FROM engineer_skill s
+                    WHERE s.engineer_id = e.id
+                      AND s.deleted = 0
+                      AND s.skill_tag IN
+                      <foreach collection="skillTags" item="tag" open="(" separator="," close=")">
+                          #{tag}
+                      </foreach>
+                )
+            </if>
+        </where>
+        ORDER BY e.create_time DESC
+    </select>
+
+    <select id="selectWorkloadHeatmap" resultType="com.vibe.resource.vo.WorkloadHeatmapVO">
+        SELECT
+            e.id AS engineerId,
+            e.name AS engineerName,
+            e.region AS region,
+            DATE(es.start_time) AS date,
+            COUNT(es.id) AS taskCount
+        FROM engineer e
+        LEFT JOIN engineer_schedule es
+            ON es.engineer_id = e.id
+            AND es.deleted = 0
+            AND es.schedule_type = 'TASK'
+            AND es.start_time &lt; #{endTime}
+            AND es.end_time &gt; #{startTime}
+        <where>
+            e.deleted = 0
+            AND e.status = 'ACTIVE'
+            <if test="region != null and region != ''">
+                AND e.region = #{region}
+            </if>
+            <if test="engineerIds != null and engineerIds.size() > 0">
+                AND e.id IN
+                <foreach collection="engineerIds" item="eid" open="(" separator="," close=")">
+                    #{eid}
+                </foreach>
+            </if>
+        </where>
+        GROUP BY e.id, e.name, e.region, DATE(es.start_time)
+        HAVING taskCount &gt; 0
+        ORDER BY e.id, date
+    </select>
+
+    <select id="countByUserId" resultType="java.lang.Long">
+        SELECT COUNT(1) FROM engineer
+        WHERE user_id = #{userId} AND deleted = 0
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+</mapper>

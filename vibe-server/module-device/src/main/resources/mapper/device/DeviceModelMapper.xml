@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.device.mapper.DeviceModelMapper">
+
+    <resultMap id="modelVOMap" type="com.vibe.device.vo.DeviceModelVO">
+        <id property="id" column="id"/>
+        <result property="modelCode" column="model_code"/>
+        <result property="modelName" column="model_name"/>
+        <result property="productLine" column="product_line"/>
+        <result property="vendor" column="vendor"/>
+        <result property="category" column="category"/>
+        <result property="specifications" column="specifications"/>
+        <result property="configTemplate" column="config_template"/>
+        <result property="manualUrl" column="manual_url"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectModelList" resultMap="modelVOMap">
+        SELECT id, model_code, model_name, product_line, vendor, category,
+               specifications, config_template, manual_url, image_url, create_time
+        FROM device_model
+        <where>
+            deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (model_name LIKE CONCAT('%', #{keyword}, '%')
+                  OR model_code LIKE CONCAT('%', #{keyword}, '%')
+                  OR vendor LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="productLine != null and productLine != ''">
+                AND product_line = #{productLine}
+            </if>
+            <if test="category != null and category != ''">
+                AND category = #{category}
+            </if>
+        </where>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+    <select id="selectVoById" resultMap="modelVOMap">
+        SELECT id, model_code, model_name, product_line, vendor, category,
+               specifications, config_template, manual_url, image_url, create_time
+        FROM device_model
+        WHERE id = #{id} AND deleted = 0
+    </select>
+
+    <!-- 库存台账聚合：各仓库各型号在库（IN_FACTORY）设备数量 -->
+    <select id="selectInventoryLedger" resultType="com.vibe.device.vo.InventoryLedgerRow">
+        SELECT d.warehouse_id AS warehouseId,
+               w.warehouse_name AS warehouseName,
+               d.model_id AS modelId,
+               m.model_name AS modelName,
+               m.model_code AS modelCode,
+               COUNT(*) AS inStockQty
+        FROM device_instance d
+        LEFT JOIN warehouse w ON w.id = d.warehouse_id AND w.deleted = 0
+        LEFT JOIN device_model m ON m.id = d.model_id AND m.deleted = 0
+        WHERE d.deleted = 0 AND d.status = 'IN_FACTORY'
+        <if test="warehouseId != null">
+            AND d.warehouse_id = #{warehouseId}
+        </if>
+        <if test="modelId != null">
+            AND d.model_id = #{modelId}
+        </if>
+        GROUP BY d.warehouse_id, w.warehouse_name, d.model_id, m.model_name, m.model_code
+        ORDER BY d.warehouse_id, d.model_id
+    </select>
+
+</mapper>

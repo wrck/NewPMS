@@ -1,0 +1,83 @@
+# ==================== 开发环境 (dev) ====================
+# 数据库 / Redis / RabbitMQ 连接信息，均支持环境变量覆盖
+
+spring:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+  # MySQL 8.0
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${VIBE_DB_HOST:localhost}:${VIBE_DB_PORT:3306}/${VIBE_DB_NAME:vibe_db}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+    username: ${VIBE_DB_USER:root}
+    password: ${VIBE_DB_PASSWORD:!Q@W3e4r}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      pool-name: VibeHikariPool
+
+  # Redis 7
+  data:
+    redis:
+      host: ${VIBE_REDIS_HOST:localhost}
+      port: ${VIBE_REDIS_PORT:6379}
+      database: ${VIBE_REDIS_DB:0}
+      password:
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 3000ms
+
+  redis:
+    redisson:
+      config: |
+        singleServerConfig:
+          address: "redis://localhost:6379"
+          password: null
+          database: 0
+          timeout: 5000
+          connectionPoolSize: 16
+          connectionMinimumIdleSize: 2
+
+  # RabbitMQ 3.12（消息通知引擎用，MVP 阶段可暂不启动）
+  rabbitmq:
+    host: ${VIBE_RABBITMQ_HOST:localhost}
+    port: ${VIBE_RABBITMQ_PORT:5672}
+    username: ${VIBE_RABBITMQ_USER:guest}
+    password: ${VIBE_RABBITMQ_PASSWORD:guest}
+    virtual-host: /vibe
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 10
+        retry:
+          enabled: true
+          max-attempts: 3
+
+# 日志级别（dev 详细输出）
+logging:
+  level:
+    com.vibe: debug
+    org.springframework.security: info
+    # MyBatis SQL 调试时可改为 debug
+    com.vibe.**.mapper: debug
+
+# ==================== 消息通知引擎配置 ====================
+# Webhook URL 默认值（也可在 sys_config 表中配置：configKey = notification.feishu.webhook 等）
+# sys_config 优先级高于此处；MVP 阶段未配置时适配器仅记日志，不报错
+vibe:
+  notification:
+    feishu:
+      webhook: ${VIBE_FEISHU_WEBHOOK:}
+    dingtalk:
+      webhook: ${VIBE_DINGTALK_WEBHOOK:}

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysLogMapper">
+
+    <select id="selectLogPage" resultType="com.vibe.system.vo.SysLogVO">
+        SELECT l.id, l.title, l.business_type AS businessType, l.method, l.request_url AS requestUrl,
+               l.request_param AS requestParam, l.response_result AS responseResult,
+               l.operator_id AS operatorId, u.real_name AS operatorName,
+               l.oper_time AS operTime, l.oper_ip AS operIp
+        FROM sys_log l
+        LEFT JOIN sys_user u ON u.id = l.operator_id AND u.deleted = 0
+        <where>
+            l.deleted = 0
+            <if test="query.title != null and query.title != ''">
+                AND l.title LIKE CONCAT('%', #{query.title}, '%')
+            </if>
+            <if test="query.businessType != null and query.businessType != ''">
+                AND l.business_type = #{query.businessType}
+            </if>
+            <if test="query.operatorId != null">
+                AND l.operator_id = #{query.operatorId}
+            </if>
+            <if test="query.beginTime != null">
+                AND l.oper_time &gt;= #{query.beginTime}
+            </if>
+            <if test="query.endTime != null">
+                AND l.oper_time &lt;= #{query.endTime}
+            </if>
+        </where>
+        ORDER BY l.oper_time DESC
+    </select>
+
+</mapper>

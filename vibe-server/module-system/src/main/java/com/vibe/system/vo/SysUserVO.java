@@ -1,6 +1,9 @@
 package com.vibe.system.vo;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.vibe.common.serializer.UserStatusSerializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -11,6 +14,14 @@ import java.util.List;
 
 /**
  * 用户视图对象（含角色列表）
+ *
+ * <p>JSON 字段命名与前端 vibe-web 的 {@code SysUser} 类型对齐：
+ * <ul>
+ *   <li>{@code userName} —— 登录账号（Java 字段为 {@code username}）</li>
+ *   <li>{@code status} —— 序列化为数字 1/0（通过 {@link UserStatusSerializer}，
+ *       Java 字段仍为 String ACTIVE/DISABLED）</li>
+ *   <li>{@code roleNames} —— 角色名称列表（前端期望字段）</li>
+ * </ul>
  *
  * @author vibe
  */
@@ -25,6 +36,7 @@ public class SysUserVO implements Serializable {
     private Long id;
 
     @Schema(description = "登录账号")
+    @JsonProperty("userName")
     private String username;
 
     /**
@@ -47,7 +59,12 @@ public class SysUserVO implements Serializable {
     @Schema(description = "头像地址")
     private String avatar;
 
-    @Schema(description = "状态 ACTIVE/DISABLED")
+    /**
+     * 状态 ACTIVE/DISABLED（数据库存储值）。
+     * <p>序列化时通过 {@link UserStatusSerializer} 转为数字 1/0，与前端对齐。</p>
+     */
+    @Schema(description = "状态 1-启用 0-禁用")
+    @JsonSerialize(using = UserStatusSerializer.class)
     private String status;
 
     @Schema(description = "租户类型 INTERNAL/AGENT/CUSTOMER")

@@ -47,4 +47,12 @@ public interface SysRoleService {
      * 按用户ID查询角色编码列表
      */
     List<String> getRoleCodesByUserId(Long userId);
+
+    /**
+     * 按角色编码列表查询角色ID列表
+     *
+     * @param roleCodes 角色编码列表
+     * @return 角色ID列表（与输入顺序一致；不存在的编码会被忽略）
+     */
+    List<Long> getRoleIdsByCodes(List<String> roleCodes);
 }

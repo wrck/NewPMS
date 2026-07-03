@@ -161,6 +161,37 @@ public class SysMenuServiceImpl implements SysMenuService {
         return perms != null ? perms : Collections.emptyList();
     }
 
+    @Override
+    public List<Long> getMenuIdsByPermissionCodes(List<String> permissionCodes) {
+        if (permissionCodes == null || permissionCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> menuIds = new ArrayList<>();
+        List<String> permsToQuery = new ArrayList<>();
+        // 区分数字字符串（菜单ID）和权限标识
+        for (String code : permissionCodes) {
+            if (code == null || code.isBlank()) {
+                continue;
+            }
+            try {
+                menuIds.add(Long.parseLong(code));
+            } catch (NumberFormatException e) {
+                // 非数字，作为权限标识查询
+                permsToQuery.add(code);
+            }
+        }
+        // 按权限标识查询菜单ID
+        if (!permsToQuery.isEmpty()) {
+            LambdaQueryWrapper<SysMenuEntity> wrapper = new LambdaQueryWrapper<SysMenuEntity>()
+                    .in(SysMenuEntity::getPerms, permsToQuery);
+            List<SysMenuEntity> menus = sysMenuMapper.selectList(wrapper);
+            for (SysMenuEntity m : menus) {
+                menuIds.add(m.getId());
+            }
+        }
+        return menuIds;
+    }
+
     private void copyDtoToEntity(SysMenuDTO dto, SysMenuEntity entity) {
         entity.setParentId(dto.getParentId() == null ? SystemConstant.ROOT_PARENT_ID : dto.getParentId());
         entity.setMenuName(dto.getMenuName());

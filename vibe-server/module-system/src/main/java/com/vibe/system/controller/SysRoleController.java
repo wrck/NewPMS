@@ -87,20 +87,23 @@ public class SysRoleController {
         return Result.success(sysRoleService.getDetail(id));
     }
 
-    @Operation(summary = "分配角色菜单权限")
-    @OperationLog(module = "角色管理", type = "UPDATE", description = "分配角色菜单")
+    @Operation(summary = "分配角色权限")
+    @OperationLog(module = "角色管理", type = "UPDATE", description = "分配角色权限")
     @PreAuthorize("@ss.hasPermi('system:role:assign') or hasRole('SUPER_ADMIN')")
-    @PutMapping("/{id}/menus")
-    public Result<Void> assignMenus(@PathVariable Long id, @Valid @RequestBody SysRoleMenuDTO dto) {
+    @PutMapping("/{id}/permissions")
+    public Result<Void> assignPermissions(@PathVariable Long id, @Valid @RequestBody SysRoleMenuDTO dto) {
         sysRoleService.assignMenus(id, dto);
         return Result.success();
     }
 
-    @Operation(summary = "查询角色关联菜单ID列表")
+    @Operation(summary = "查询角色权限标识列表")
     @PreAuthorize("@ss.hasPermi('system:role') or hasRole('SUPER_ADMIN')")
-    @GetMapping("/{id}/menus")
-    public Result<List<Long>> roleMenus(@PathVariable Long id) {
-        return Result.success(sysRoleService.getRoleMenuIds(id));
+    @GetMapping("/{id}/permissions")
+    public Result<List<String>> rolePermissions(@PathVariable Long id) {
+        // 返回权限标识列表（前端期望 permissionCodes: string[]）
+        List<Long> menuIds = sysRoleService.getRoleMenuIds(id);
+        // 菜单ID列表转为字符串形式返回（前端可接受数字字符串）
+        return Result.success(menuIds.stream().map(String::valueOf).toList());
     }
 
     @Operation(summary = "按用户ID查询角色列表")

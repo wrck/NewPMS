@@ -38,8 +38,22 @@ public class SysLogController {
 
     @Operation(summary = "分页查询登录日志")
     @PreAuthorize("@ss.hasPermi('system:log') or hasRole('SUPER_ADMIN')")
-    @GetMapping("/login-logs")
+    @GetMapping("/logs/login")
     public Result<PageResult<SysLoginLogVO>> pageLoginLog(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String userName,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String startBegin,
+            @RequestParam(required = false) String startEnd) {
+        // 兼容前端字段名：userName/username、startBegin/beginTime、startEnd/endTime
+        return Result.success(sysLogService.pageLoginLog(page, size, userName, status, startBegin, startEnd));
+    }
+
+    @Operation(summary = "分页查询登录日志（兼容旧版路径）")
+    @PreAuthorize("@ss.hasPermi('system:log') or hasRole('SUPER_ADMIN')")
+    @GetMapping("/login-logs")
+    public Result<PageResult<SysLoginLogVO>> pageLoginLogLegacy(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String username,

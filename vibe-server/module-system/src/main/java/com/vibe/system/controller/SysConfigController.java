@@ -44,8 +44,15 @@ public class SysConfigController {
 
     @Operation(summary = "按 configKey 查询配置值（带缓存）")
     @PreAuthorize("isAuthenticated()")
-    @GetMapping("/by-key/{configKey}")
+    @GetMapping("/key/{configKey}")
     public Result<String> getByKey(@PathVariable String configKey) {
+        return Result.success(sysConfigService.getConfigValue(configKey));
+    }
+
+    @Operation(summary = "按 configKey 查询配置值（带缓存，兼容旧版路径）")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/by-key/{configKey}")
+    public Result<String> getByKeyLegacy(@PathVariable String configKey) {
         return Result.success(sysConfigService.getConfigValue(configKey));
     }
 

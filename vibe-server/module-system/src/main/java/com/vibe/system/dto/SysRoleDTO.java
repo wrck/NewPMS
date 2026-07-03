@@ -12,6 +12,11 @@ import java.util.List;
 /**
  * 角色新增/编辑 DTO
  *
+ * <p>JSON 字段命名与前端 vibe-web 的 {@code SysRoleDTO} 类型对齐：
+ * <ul>
+ *   <li>{@code permissionCodes} —— 权限标识列表（前端字段名，Java 字段仍为 {@code menuIds}）</li>
+ * </ul>
+ *
  * @author vibe
  */
 @Data
@@ -44,6 +49,11 @@ public class SysRoleDTO implements Serializable {
     @Schema(description = "数据权限范围 ALL/DEPT/SELF/CUSTOM")
     private String dataScope;
 
-    @Schema(description = "关联菜单ID列表")
-    private List<Long> menuIds;
+    /**
+     * 权限标识列表（前端字段名）。
+     * <p>前端传字符串数组，Service 层负责转换为菜单ID列表。
+     * 支持两种格式：菜单ID的字符串形式（如 ["1","2"]）或权限标识（如 ["system:user"]）。</p>
+     */
+    @Schema(description = "权限标识列表")
+    private List<String> permissionCodes;
 }

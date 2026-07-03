@@ -1,5 +1,6 @@
 package com.vibe.system.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -12,6 +13,13 @@ import java.util.List;
 
 /**
  * 用户新增/编辑 DTO
+ *
+ * <p>JSON 字段命名与前端 vibe-web 的 {@code SysUserDTO} 类型对齐：
+ * <ul>
+ *   <li>{@code userName} —— 登录账号（Java 字段为 {@code username}，JSON 名对齐前端）</li>
+ *   <li>{@code status} —— 1-启用 0-禁用（数字类型，Service 层转为 ACTIVE/DISABLED）</li>
+ *   <li>{@code roleCodes} —— 角色编码列表（字符串数组，Service 层转为 roleId）</li>
+ * </ul>
  *
  * @author vibe
  */
@@ -28,6 +36,7 @@ public class SysUserDTO implements Serializable {
     @Schema(description = "登录账号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "登录账号不能为空")
     @Size(max = 64, message = "登录账号长度不能超过64")
+    @JsonProperty("userName")
     private String username;
 
     @Schema(description = "密码（新增时必填，明文，BCrypt 加密存储）")
@@ -50,8 +59,8 @@ public class SysUserDTO implements Serializable {
     @Schema(description = "头像地址")
     private String avatar;
 
-    @Schema(description = "状态 ACTIVE/DISABLED")
-    private String status;
+    @Schema(description = "状态 1-启用 0-禁用")
+    private Integer status;
 
     @Schema(description = "租户类型 INTERNAL/AGENT/CUSTOMER")
     private String tenantType;
@@ -62,6 +71,6 @@ public class SysUserDTO implements Serializable {
     @Schema(description = "所属组织ID")
     private Long orgId;
 
-    @Schema(description = "角色ID列表")
-    private List<Long> roleIds;
+    @Schema(description = "角色编码列表")
+    private List<String> roleCodes;
 }

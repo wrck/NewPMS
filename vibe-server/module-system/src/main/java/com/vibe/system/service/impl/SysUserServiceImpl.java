@@ -93,16 +93,16 @@ public class SysUserServiceImpl implements SysUserService {
         entity.setPhone(dto.getPhone());
         entity.setEmail(dto.getEmail());
         entity.setAvatar(dto.getAvatar());
-        entity.setStatus(StringUtils.hasText(dto.getStatus())
-                ? dto.getStatus() : SystemConstant.USER_STATUS_ACTIVE);
+        entity.setStatus(resolveStatus(dto.getStatus(), SystemConstant.USER_STATUS_ACTIVE));
         entity.setTenantType(StringUtils.hasText(dto.getTenantType())
                 ? dto.getTenantType() : SystemConstant.TENANT_INTERNAL);
         entity.setTenantId(dto.getTenantId());
         entity.setOrgId(dto.getOrgId());
         sysUserMapper.insert(entity);
 
-        // 保存角色关联
-        saveUserRoles(entity.getId(), dto.getRoleIds());
+        // 保存角色关联（roleCodes → roleIds 转换）
+        List<Long> roleIds = sysRoleService.getRoleIdsByCodes(dto.getRoleCodes());
+        saveUserRoles(entity.getId(), roleIds);
         return entity.getId();
     }
 
@@ -128,8 +128,8 @@ public class SysUserServiceImpl implements SysUserService {
         exist.setRealName(dto.getRealName());
         exist.setEmail(dto.getEmail());
         exist.setAvatar(dto.getAvatar());
-        if (StringUtils.hasText(dto.getStatus())) {
-            exist.setStatus(dto.getStatus());
+        if (dto.getStatus() != null) {
+            exist.setStatus(resolveStatus(dto.getStatus(), null));
         }
         if (StringUtils.hasText(dto.getTenantType())) {
             exist.setTenantType(dto.getTenantType());
@@ -138,9 +138,10 @@ public class SysUserServiceImpl implements SysUserService {
         exist.setOrgId(dto.getOrgId());
         sysUserMapper.updateById(exist);
 
-        // 重新分配角色
-        if (dto.getRoleIds() != null) {
-            saveUserRoles(dto.getId(), dto.getRoleIds());
+        // 重新分配角色（roleCodes → roleIds 转换）
+        if (dto.getRoleCodes() != null) {
+            List<Long> roleIds = sysRoleService.getRoleIdsByCodes(dto.getRoleCodes());
+            saveUserRoles(dto.getId(), roleIds);
         }
     }
 
@@ -178,7 +179,9 @@ public class SysUserServiceImpl implements SysUserService {
         if (sysUserMapper.selectById(userId) == null) {
             throw BusinessException.of(ResultCode.USER_NOT_FOUND);
         }
-        saveUserRoles(userId, dto.getRoleIds());
+        // roleCodes → roleIds 转换
+        List<Long> roleIds = sysRoleService.getRoleIdsByCodes(dto.getRoleCodes());
+        saveUserRoles(userId, roleIds);
     }
 
     @Override
@@ -195,7 +198,7 @@ public class SysUserServiceImpl implements SysUserService {
         }
         SysUserEntity update = new SysUserEntity();
         update.setId(userId);
-        update.setStatus(dto.getStatus());
+        update.setStatus(resolveStatus(dto.getStatus(), null));
         sysUserMapper.updateById(update);
     }
 
@@ -290,6 +293,20 @@ public class SysUserServiceImpl implements SysUserService {
     }
 
     /* ============ 私有方法 ============ */
+
+    /**
+     * 将前端传入的数字状态（1/0）转为实体状态字符串（ACTIVE/DISABLED）。
+     *
+     * @param status        前端传入的状态值（1-启用 0-禁用，可为 null）
+     * @param defaultStatus 当 status 为 null 时使用的默认值（如 "ACTIVE"）
+     * @return 实体状态字符串
+     */
+    private String resolveStatus(Integer status, String defaultStatus) {
+        if (status == null) {
+            return defaultStatus;
+        }
+        return status == 1 ? SystemConstant.USER_STATUS_ACTIVE : SystemConstant.USER_STATUS_DISABLED;
+    }
 
     private void checkUsernameUnique(String username, Long excludeId) {
         LambdaQueryWrapper<SysUserEntity> wrapper = new LambdaQueryWrapper<SysUserEntity>()

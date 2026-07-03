@@ -10,6 +10,9 @@ import java.io.Serializable;
 /**
  * 用户状态变更 DTO
  *
+ * <p>字段类型为 Integer（1-启用 0-禁用），与前端 vibe-web 对齐。
+ * Service 层负责将 1/0 转为 ACTIVE/DISABLED。</p>
+ *
  * @author vibe
  */
 @Data
@@ -19,7 +22,7 @@ public class SysUserStatusDTO implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    @Schema(description = "状态 ACTIVE/DISABLED", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "状态 1-启用 0-禁用", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "状态不能为空")
-    private String status;
+    private Integer status;
 }

@@ -10,9 +10,11 @@ import com.vibe.system.constant.SystemConstant;
 import com.vibe.system.dto.SysRoleDTO;
 import com.vibe.system.dto.SysRoleMenuDTO;
 import com.vibe.system.dto.SysRoleQueryDTO;
+import com.vibe.system.entity.SysMenuEntity;
 import com.vibe.system.entity.SysRoleEntity;
 import com.vibe.system.entity.SysRoleMenuEntity;
 import com.vibe.system.entity.SysUserRoleEntity;
+import com.vibe.system.mapper.SysMenuMapper;
 import com.vibe.system.mapper.SysRoleMapper;
 import com.vibe.system.mapper.SysRoleMenuMapper;
 import com.vibe.system.mapper.SysUserRoleMapper;
@@ -27,7 +29,9 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 系统角色服务实现
@@ -42,6 +46,7 @@ public class SysRoleServiceImpl implements SysRoleService {
     private final SysRoleMapper sysRoleMapper;
     private final SysRoleMenuMapper sysRoleMenuMapper;
     private final SysUserRoleMapper sysUserRoleMapper;
+    private final SysMenuMapper sysMenuMapper;
 
     @Override
     public PageResult<SysRoleVO> page(SysRoleQueryDTO query) {
@@ -84,8 +89,10 @@ public class SysRoleServiceImpl implements SysRoleService {
                 ? dto.getDataScope() : SystemConstant.DATA_SCOPE_ALL);
         sysRoleMapper.insert(entity);
 
-        if (dto.getMenuIds() != null) {
-            saveRoleMenus(entity.getId(), dto.getMenuIds());
+        // permissionCodes → menuIds 转换
+        if (dto.getPermissionCodes() != null) {
+            List<Long> menuIds = resolveMenuIds(dto.getPermissionCodes());
+            saveRoleMenus(entity.getId(), menuIds);
         }
         return entity.getId();
     }
@@ -118,8 +125,10 @@ public class SysRoleServiceImpl implements SysRoleService {
         }
         sysRoleMapper.updateById(exist);
 
-        if (dto.getMenuIds() != null) {
-            saveRoleMenus(dto.getId(), dto.getMenuIds());
+        // permissionCodes → menuIds 转换
+        if (dto.getPermissionCodes() != null) {
+            List<Long> menuIds = resolveMenuIds(dto.getPermissionCodes());
+            saveRoleMenus(dto.getId(), menuIds);
         }
     }
 
@@ -158,7 +167,9 @@ public class SysRoleServiceImpl implements SysRoleService {
         if (sysRoleMapper.selectById(roleId) == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "角色不存在");
         }
-        saveRoleMenus(roleId, dto.getMenuIds());
+        // permissionCodes → menuIds 转换
+        List<Long> menuIds = resolveMenuIds(dto.getPermissionCodes());
+        saveRoleMenus(roleId, menuIds);
     }
 
     @Override
@@ -176,7 +187,56 @@ public class SysRoleServiceImpl implements SysRoleService {
         return sysRoleMapper.selectRoleCodesByUserId(userId);
     }
 
+    @Override
+    public List<Long> getRoleIdsByCodes(List<String> roleCodes) {
+        if (roleCodes == null || roleCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<SysRoleEntity> wrapper = new LambdaQueryWrapper<SysRoleEntity>()
+                .in(SysRoleEntity::getRoleCode, roleCodes);
+        List<SysRoleEntity> roles = sysRoleMapper.selectList(wrapper);
+        return roles.stream()
+                .map(SysRoleEntity::getId)
+                .collect(Collectors.toList());
+    }
+
     /* ============ 私有方法 ============ */
+
+    /**
+     * 将前端传入的 permissionCodes（权限标识或菜单ID字符串）转换为菜单ID列表。
+     *
+     * <p>支持两种格式：
+     * <ul>
+     *   <li>数字字符串（如 ["1","2"]）—— 直接解析为 Long</li>
+     *   <li>权限标识（如 ["system:user"]）—— 通过 perms 字段查询菜单ID</li>
+     * </ul>
+     */
+    private List<Long> resolveMenuIds(List<String> permissionCodes) {
+        if (permissionCodes == null || permissionCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> menuIds = new ArrayList<>();
+        List<String> permsToQuery = new ArrayList<>();
+        for (String code : permissionCodes) {
+            if (code == null || code.isBlank()) {
+                continue;
+            }
+            try {
+                menuIds.add(Long.parseLong(code));
+            } catch (NumberFormatException e) {
+                permsToQuery.add(code);
+            }
+        }
+        if (!permsToQuery.isEmpty()) {
+            LambdaQueryWrapper<SysMenuEntity> wrapper = new LambdaQueryWrapper<SysMenuEntity>()
+                    .in(SysMenuEntity::getPerms, permsToQuery);
+            List<SysMenuEntity> menus = sysMenuMapper.selectList(wrapper);
+            for (SysMenuEntity m : menus) {
+                menuIds.add(m.getId());
+            }
+        }
+        return menuIds;
+    }
 
     private void checkRoleCodeUnique(String roleCode, Long excludeId) {
         LambdaQueryWrapper<SysRoleEntity> wrapper = new LambdaQueryWrapper<SysRoleEntity>()

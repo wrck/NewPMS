@@ -75,8 +75,17 @@
                   OR u.real_name LIKE CONCAT('%', #{query.keyword}, '%')
                   OR u.phone LIKE CONCAT('%', #{query.keyword}, '%'))
             </if>
-            <if test="query.status != null and query.status != ''">
-                AND u.status = #{query.status}
+            <if test="query.userName != null and query.userName != ''">
+                AND u.username LIKE CONCAT('%', #{query.userName}, '%')
+            </if>
+            <if test="query.realName != null and query.realName != ''">
+                AND u.real_name LIKE CONCAT('%', #{query.realName}, '%')
+            </if>
+            <if test="query.phone != null and query.phone != ''">
+                AND u.phone LIKE CONCAT('%', #{query.phone}, '%')
+            </if>
+            <if test="query.status != null">
+                AND u.status = CASE #{query.status} WHEN 1 THEN 'ACTIVE' WHEN 0 THEN 'DISABLED' END
             </if>
             <if test="query.tenantType != null and query.tenantType != ''">
                 AND u.tenant_type = #{query.tenantType}
@@ -84,9 +93,11 @@
             <if test="query.orgId != null">
                 AND u.org_id = #{query.orgId}
             </if>
-            <if test="query.roleId != null">
+            <if test="query.roleCode != null and query.roleCode != ''">
                 AND EXISTS (SELECT 1 FROM sys_user_role ur2
-                            WHERE ur2.user_id = u.id AND ur2.role_id = #{query.roleId} AND ur2.deleted = 0)
+                            INNER JOIN sys_role r2 ON r2.id = ur2.role_id AND r2.deleted = 0
+                            WHERE ur2.user_id = u.id AND ur2.deleted = 0
+                            AND r2.role_code = #{query.roleCode})
             </if>
         </where>
         ORDER BY u.create_time DESC

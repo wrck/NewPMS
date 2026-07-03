@@ -44,7 +44,14 @@ public class SysDictDataController {
         return Result.success(sysDictDataService.page(query));
     }
 
-    @Operation(summary = "按 dictType 查询启用的字典数据（带缓存，公开）")
+    @Operation(summary = "按字典编码查询启用的字典数据（带缓存，公开）")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/code/{dictCode}")
+    public Result<List<SysDictDataVO>> listByCode(@PathVariable String dictCode) {
+        return Result.success(sysDictDataService.listByDictType(dictCode));
+    }
+
+    @Operation(summary = "按 dictType 查询启用的字典数据（带缓存，兼容旧版）")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/by-type/{dictType}")
     public Result<List<SysDictDataVO>> listByType(@PathVariable String dictType) {

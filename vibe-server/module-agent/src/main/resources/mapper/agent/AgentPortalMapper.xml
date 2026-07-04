@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.agent.mapper.AgentPortalMapper">
+
+    <!-- 复用 OutsourceTaskMapper 中的 taskVoMap 定义，避免重复 -->
+    <resultMap id="taskVoMap" type="com.vibe.agent.vo.OutsourceTaskVO">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="agentEngineerId" column="agent_engineer_id"/>
+        <result property="taskScope" column="task_scope"/>
+        <result property="deadline" column="deadline"/>
+        <result property="status" column="status"/>
+        <result property="submitCount" column="submit_count"/>
+        <result property="confirmedBy" column="confirmed_by"/>
+        <result property="confirmedTime" column="confirmed_time"/>
+        <result property="rejectReason" column="reject_reason"/>
+        <result property="version" column="version"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="projectName" column="project_name"/>
+        <result property="taskName" column="task_name"/>
+        <result property="agentCompanyName" column="agent_company_name"/>
+        <result property="agentEngineerName" column="agent_engineer_name"/>
+    </resultMap>
+
+    <!-- ============ 工作台统计 ============ -->
+    <select id="countByStatus" resultType="int">
+        SELECT COUNT(*)
+        FROM outsource_task t
+        WHERE t.deleted = 0
+          AND t.agent_company_id = #{agentCompanyId}
+          AND t.status = #{status}
+    </select>
+
+    <!-- ============ 工作台 top N 任务列表（不含敏感字段） ============ -->
+    <select id="selectTopNByStatus" resultMap="taskVoMap">
+        SELECT t.id, t.project_id, t.task_id, t.agent_company_id, t.agent_engineer_id,
+               t.task_scope, t.deadline, t.status, t.submit_count,
+               t.confirmed_by, t.confirmed_time, t.reject_reason, t.version,
+               t.create_by, t.create_time, t.update_by, t.update_time,
+               p.project_name,
+               pt.task_name,
+               ac.company_name AS agent_company_name,
+               ae.name AS agent_engineer_name
+        FROM outsource_task t
+                LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+                LEFT JOIN project_task pt ON pt.id = t.task_id AND pt.deleted = 0
+                LEFT JOIN agent_company ac ON ac.id = t.agent_company_id AND ac.deleted = 0
+                LEFT JOIN agent_engineer ae ON ae.id = t.agent_engineer_id AND ae.deleted = 0
+        WHERE t.deleted = 0
+          AND t.agent_company_id = #{agentCompanyId}
+          AND t.status = #{status}
+        ORDER BY t.create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- ============ 代理商消息 ============ -->
+    <resultMap id="agentMessageMap" type="com.vibe.agent.vo.AgentMessageVO">
+        <id property="id" column="id"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="messageType" column="message_type"/>
+        <result property="businessId" column="business_id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="isRead" column="is_read"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectMessages" resultMap="agentMessageMap">
+        SELECT id, agent_company_id, message_type, business_id, project_id,
+               title, content, is_read, create_time
+        FROM agent_message
+        WHERE agent_company_id = #{agentCompanyId}
+        ORDER BY is_read ASC, create_time DESC
+        LIMIT 200
+    </select>
+
+    <select id="countUnreadMessages" resultType="int">
+        SELECT COUNT(*) FROM agent_message
+        WHERE agent_company_id = #{agentCompanyId} AND is_read = 0
+    </select>
+
+    <update id="markMessageRead">
+        UPDATE agent_message
+        SET is_read = 1
+        WHERE id = #{messageId}
+          AND agent_company_id = #{agentCompanyId}
+          AND is_read = 0
+    </update>
+
+    <update id="markAllMessagesRead">
+        UPDATE agent_message
+        SET is_read = 1
+        WHERE agent_company_id = #{agentCompanyId}
+          AND is_read = 0
+    </update>
+
+    <insert id="insertMessage">
+        INSERT INTO agent_message (id, agent_company_id, message_type, business_id, project_id,
+                                    title, content, is_read, create_time)
+        VALUES (#{id}, #{agentCompanyId}, #{messageType}, #{businessId}, #{projectId},
+                #{title}, #{content}, 0, NOW())
+    </insert>
+</mapper>

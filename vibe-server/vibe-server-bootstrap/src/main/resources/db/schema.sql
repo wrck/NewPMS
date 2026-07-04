@@ -1616,4 +1616,22 @@ CREATE TABLE `customer_message` (
   KEY `idx_customer_message_type` (`customer_id`, `message_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='客户消息表';
 
+--- 代理商消息表：代理商收到的任务派发/超期/审核结果通知
+DROP TABLE IF EXISTS `agent_message`;
+CREATE TABLE `agent_message` (
+  `id`                BIGINT       NOT NULL                 COMMENT '主键',
+  `agent_company_id`  BIGINT       NOT NULL                 COMMENT '代理商公司ID',
+  `message_type`      VARCHAR(32)  NOT NULL                 COMMENT '消息类型 TASK_ASSIGNED/TASK_EXPIRING/TASK_OVERDUE/DELIVERABLE_RETURNED/DELIVERABLE_CONFIRMED/WORKLOAD_CONFIRMED',
+  `business_id`       BIGINT                DEFAULT NULL    COMMENT '业务ID（任务ID/交付物ID/工作量ID）',
+  `project_id`        BIGINT                DEFAULT NULL    COMMENT '关联项目ID',
+  `title`             VARCHAR(128) NOT NULL                 COMMENT '消息标题',
+  `content`           TEXT                  DEFAULT NULL    COMMENT '消息内容',
+  `is_read`           TINYINT      NOT NULL DEFAULT 0       COMMENT '是否已读 0-未读 1-已读',
+  `create_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_agent_message_company_id` (`agent_company_id`),
+  KEY `idx_agent_message_is_read` (`agent_company_id`, `is_read`),
+  KEY `idx_agent_message_type` (`agent_company_id`, `message_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='代理商消息表';
+
 SET FOREIGN_KEY_CHECKS = 1;

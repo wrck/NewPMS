@@ -114,6 +114,7 @@ function handleBusinessError(res: Result) {
 
 /**
  * 重定向到登录页（清空本地登录态，避免重复跳转）
+ * 根据当前路径自动判断跳 PC 登录页还是 H5 登录页
  */
 function redirectToLogin() {
   if (isRedirecting) return
@@ -123,7 +124,16 @@ function redirectToLogin() {
   // 使用 location 而非 router，避免在拦截器中引入 router 实例造成循环依赖
   const currentPath = window.location.pathname + window.location.search
   const redirect = encodeURIComponent(currentPath)
-  window.location.href = `/login?redirect=${redirect}`
+
+  // 根据当前路径判断跳转到哪个登录页
+  let loginPath = '/login'
+  if (currentPath.startsWith('/h5/customer')) {
+    loginPath = '/h5/customer/login'
+  } else if (currentPath.startsWith('/h5/agent')) {
+    loginPath = '/h5/agent/login'
+  }
+
+  window.location.href = `${loginPath}?redirect=${redirect}`
 
   setTimeout(() => {
     isRedirecting = false

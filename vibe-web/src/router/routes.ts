@@ -467,6 +467,115 @@ export const routes: RouteRecordRaw[] = [
       }
     ]
   },
+  /* ============ H5 客户门户（独立布局，无 PC 菜单） ============ */
+  {
+    path: '/h5/customer',
+    name: 'H5Customer',
+    component: () => import('@/layouts/H5Layout.vue'),
+    redirect: '/h5/customer/projects',
+    meta: { title: '客户门户', requireAuth: false, hideInMenu: true },
+    children: [
+      {
+        path: 'login',
+        name: 'H5CustomerLogin',
+        component: () => import('@/views/h5/customer/login.vue'),
+        meta: { title: '客户登录', requireAuth: false, hideInMenu: true }
+      },
+      {
+        path: 'projects',
+        name: 'H5CustomerProjects',
+        component: () => import('@/views/h5/customer/projects.vue'),
+        meta: { title: '我的项目', requireAuth: true, hideInMenu: true, roles: ['CUSTOMER', 'SUPER_ADMIN'] }
+      },
+      {
+        path: 'projects/:projectId/progress',
+        name: 'H5CustomerProgress',
+        component: () => import('@/views/h5/customer/progress.vue'),
+        meta: { title: '项目进度', requireAuth: true, hideInMenu: true, roles: ['CUSTOMER', 'SUPER_ADMIN'] }
+      },
+      {
+        path: 'projects/:projectId/documents',
+        name: 'H5CustomerDocuments',
+        component: () => import('@/views/h5/customer/documents.vue'),
+        meta: { title: '项目文档', requireAuth: true, hideInMenu: true, roles: ['CUSTOMER', 'SUPER_ADMIN'] }
+      },
+      {
+        path: 'cutover/:token',
+        name: 'H5CustomerCutoverApproval',
+        component: () => import('@/views/h5/customer/cutover-approval.vue'),
+        meta: { title: '割接审批', requireAuth: false, hideInMenu: true }
+      },
+      {
+        path: 'acceptance/:token',
+        name: 'H5CustomerAcceptanceSign',
+        component: () => import('@/views/h5/customer/acceptance-sign.vue'),
+        meta: { title: '验收签核', requireAuth: false, hideInMenu: true }
+      },
+      {
+        path: 'todos',
+        name: 'H5CustomerTodos',
+        component: () => import('@/views/h5/customer/todos.vue'),
+        meta: { title: '我的待办', requireAuth: true, hideInMenu: true, roles: ['CUSTOMER', 'SUPER_ADMIN'] }
+      },
+      {
+        path: 'messages',
+        name: 'H5CustomerMessages',
+        component: () => import('@/views/h5/customer/messages.vue'),
+        meta: { title: '消息中心', requireAuth: true, hideInMenu: true, roles: ['CUSTOMER', 'SUPER_ADMIN'] }
+      }
+    ]
+  },
+
+  /* ============ H5 代理商门户（独立布局） ============ */
+  {
+    path: '/h5/agent',
+    name: 'H5Agent',
+    component: () => import('@/layouts/H5Layout.vue'),
+    redirect: '/h5/agent/workbench',
+    meta: { title: '代理商门户', requireAuth: false, hideInMenu: true },
+    children: [
+      {
+        path: 'login',
+        name: 'H5AgentLogin',
+        component: () => import('@/views/h5/agent/login.vue'),
+        meta: { title: '代理商登录', requireAuth: false, hideInMenu: true }
+      },
+      {
+        path: 'workbench',
+        name: 'H5AgentWorkbench',
+        component: () => import('@/views/h5/agent/workbench.vue'),
+        meta: {
+          title: '代理商工作台',
+          requireAuth: true,
+          hideInMenu: true,
+          roles: ['AGENT_ADMIN', 'AGENT_ENGINEER', 'SUPER_ADMIN']
+        }
+      },
+      {
+        path: 'messages',
+        name: 'H5AgentMessages',
+        component: () => import('@/views/h5/agent/messages.vue'),
+        meta: {
+          title: '消息中心',
+          requireAuth: true,
+          hideInMenu: true,
+          roles: ['AGENT_ADMIN', 'AGENT_ENGINEER', 'SUPER_ADMIN']
+        }
+      },
+      {
+        path: 'deliverable-submit',
+        name: 'H5AgentDeliverableSubmit',
+        component: () => import('@/views/h5/agent/deliverable-submit.vue'),
+        meta: {
+          title: '提交交付物',
+          requireAuth: true,
+          hideInMenu: true,
+          roles: ['AGENT_ADMIN', 'AGENT_ENGINEER', 'SUPER_ADMIN']
+        }
+      }
+    ]
+  },
+
   // 兜底：未匹配到的路由跳 404
   {
     path: '/:pathMatch(.*)*',

@@ -15,6 +15,14 @@ NProgress.configure({ showSpinner: false, easing: 'ease', speed: 300 })
 // 白名单：无需登录可访问
 const WHITE_LIST = ['/login', '/404']
 
+// H5 路径前缀白名单（按前缀匹配，需手动检查 requireAuth）
+const H5_PUBLIC_PREFIXES = [
+  '/h5/customer/login',
+  '/h5/customer/cutover/', // token 访问，无需登录
+  '/h5/customer/acceptance/', // token 访问，无需登录
+  '/h5/agent/login'
+]
+
 export function setupRouterGuard(router: Router) {
   router.beforeEach(async (to, _from, next) => {
     NProgress.start()
@@ -45,6 +53,13 @@ export function setupRouterGuard(router: Router) {
       return
     }
 
+    // H5 公开路径前缀匹配（token 访问等）
+    if (H5_PUBLIC_PREFIXES.some((prefix) => to.path.startsWith(prefix))) {
+      next()
+      NProgress.done()
+      return
+    }
+
     // requireAuth=false 的路由直接放行
     if (to.meta?.requireAuth === false) {
       next()
@@ -52,9 +67,16 @@ export function setupRouterGuard(router: Router) {
       return
     }
 
-    // 未登录 → 跳登录页（携带 redirect）
+    // 未登录 → 跳登录页（携带 redirect，根据路径判断跳 PC 或 H5 登录页）
     if (!userStore.isLogin) {
-      next({ path: '/login', query: { redirect: to.fullPath } })
+      // H5 路径跳 H5 登录页，PC 路径跳 PC 登录页
+      if (to.path.startsWith('/h5/customer')) {
+        next({ path: '/h5/customer/login', query: { redirect: to.fullPath } })
+      } else if (to.path.startsWith('/h5/agent')) {
+        next({ path: '/h5/agent/login', query: { redirect: to.fullPath } })
+      } else {
+        next({ path: '/login', query: { redirect: to.fullPath } })
+      }
       NProgress.done()
       return
     }

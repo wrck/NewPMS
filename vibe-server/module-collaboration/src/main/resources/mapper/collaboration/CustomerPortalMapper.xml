@@ -119,4 +119,203 @@
           AND deleted = 0
     </select>
 
+    <!-- ============ 割接审批（3.2）：客户视角方案 VO ============ -->
+    <resultMap id="customerCutoverPlanMap" type="com.vibe.collaboration.vo.CustomerCutoverPlanVO">
+        <result property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="planName" column="plan_name"/>
+        <result property="cutoverDate" column="cutover_date"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="impactScope" column="impact_scope"/>
+        <result property="emergencyContact" column="emergency_contact"/>
+        <result property="status" column="status"/>
+        <result property="customerSignResult" column="customer_sign_result"/>
+        <result property="customerSignTime" column="customer_sign_time"/>
+        <result property="customerSignRemark" column="customer_sign_remark"/>
+        <result property="stepCount" column="step_count"/>
+        <result property="completedStepCount" column="completed_step_count"/>
+    </resultMap>
+
+    <!-- 根据 token 查询割接方案（仅 PENDING_CUSTOMER_APPROVAL） -->
+    <select id="selectCutoverPlanByToken" resultMap="customerCutoverPlanMap">
+        SELECT cp.id, cp.project_id, cp.plan_name, cp.cutover_date,
+               cp.start_time, cp.end_time, cp.impact_scope, cp.emergency_contact,
+               cp.status, cp.customer_sign_result, cp.customer_sign_time, cp.customer_sign_remark,
+               (SELECT COUNT(*) FROM cutover_step cs WHERE cs.plan_id = cp.id AND cs.deleted = 0) AS step_count,
+               (SELECT COUNT(*) FROM cutover_step cs WHERE cs.plan_id = cp.id AND cs.deleted = 0 AND cs.status = 'COMPLETED') AS completed_step_count
+        FROM cutover_plan cp
+        WHERE cp.deleted = 0
+          AND cp.customer_sign_link = #{token}
+          AND cp.status = 'PENDING_CUSTOMER_APPROVAL'
+        LIMIT 1
+    </select>
+
+    <!-- 客户视角的割接步骤 VO -->
+    <resultMap id="customerCutoverStepMap" type="com.vibe.collaboration.vo.CustomerCutoverPlanVO$CustomerCutoverStepVO">
+        <result property="id" column="id"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="stepName" column="step_name"/>
+        <result property="description" column="description"/>
+        <result property="estimatedDuration" column="estimated_duration"/>
+        <result property="ownerName" column="owner_name"/>
+        <result property="status" column="status"/>
+        <result property="actualStartTime" column="actual_start_time"/>
+        <result property="actualEndTime" column="actual_end_time"/>
+        <result property="actualDuration" column="actual_duration"/>
+    </resultMap>
+
+    <select id="selectCutoverStepsByPlanId" resultMap="customerCutoverStepMap">
+        SELECT id, sort_order, step_name, description, estimated_duration,
+               owner_name, status, actual_start_time, actual_end_time, actual_duration
+        FROM cutover_step
+        WHERE plan_id = #{planId}
+          AND deleted = 0
+        ORDER BY sort_order ASC, id ASC
+    </select>
+
+    <!-- 查询项目下待客户审批的割接方案 -->
+    <select id="selectCutoverPlansPendingApproval" resultMap="customerCutoverPlanMap">
+        SELECT cp.id, cp.project_id, cp.plan_name, cp.cutover_date,
+               cp.start_time, cp.end_time, cp.impact_scope, cp.emergency_contact,
+               cp.status, cp.customer_sign_result, cp.customer_sign_time, cp.customer_sign_remark,
+               (SELECT COUNT(*) FROM cutover_step cs WHERE cs.plan_id = cp.id AND cs.deleted = 0) AS step_count,
+               (SELECT COUNT(*) FROM cutover_step cs WHERE cs.plan_id = cp.id AND cs.deleted = 0 AND cs.status = 'COMPLETED') AS completed_step_count
+        FROM cutover_plan cp
+        WHERE cp.deleted = 0
+          AND cp.project_id = #{projectId}
+          AND cp.status = 'PENDING_CUSTOMER_APPROVAL'
+        ORDER BY cp.create_time DESC
+    </select>
+
+    <!-- 客户提交割接审批结果（直接 UPDATE cutover_plan） -->
+    <update id="updateCutoverPlanCustomerApproval">
+        UPDATE cutover_plan
+        SET customer_sign_result = #{result},
+            customer_sign_user   = #{signUser},
+            customer_sign_time   = #{signTime},
+            customer_sign_remark = #{remark},
+            status               = #{newStatus},
+            update_time          = #{signTime},
+            version              = version + 1
+        WHERE id = #{planId}
+          AND deleted = 0
+          AND status = 'PENDING_CUSTOMER_APPROVAL'
+    </update>
+
+    <!-- ============ 验收签核（3.3）：客户视角任务 VO ============ -->
+    <resultMap id="customerAcceptanceTaskMap" type="com.vibe.collaboration.vo.CustomerAcceptanceTaskVO">
+        <result property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="name" column="name"/>
+        <result property="status" column="status"/>
+        <result property="applyTime" column="apply_time"/>
+        <result property="internalAuditTime" column="internal_audit_time"/>
+        <result property="customerSignTime" column="customer_sign_time"/>
+        <result property="customerSignResult" column="customer_sign_result"/>
+        <result property="customerSignRemark" column="customer_sign_remark"/>
+    </resultMap>
+
+    <!-- 根据 token 查询验收任务（仅 CUSTOMER_SIGNING） -->
+    <select id="selectAcceptanceTaskByToken" resultMap="customerAcceptanceTaskMap">
+        SELECT id, project_id, name, status, apply_time,
+               internal_audit_time, customer_sign_time, customer_sign_result, customer_sign_remark
+        FROM acceptance_task
+        WHERE deleted = 0
+          AND customer_sign_link = #{token}
+          AND status = 'CUSTOMER_SIGNING'
+        LIMIT 1
+    </select>
+
+    <!-- 客户视角的测试记录 VO -->
+    <resultMap id="customerTestRecordMap" type="com.vibe.collaboration.vo.CustomerAcceptanceTaskVO$CustomerTestRecordVO">
+        <result property="id" column="id"/>
+        <result property="testType" column="test_type"/>
+        <result property="testName" column="test_name"/>
+        <result property="testResult" column="test_result"/>
+        <result property="testValue" column="test_value"/>
+        <result property="testTime" column="test_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <select id="selectAcceptanceTestRecords" resultMap="customerTestRecordMap">
+        SELECT id, test_type, test_name, test_result, test_value, test_time, remark
+        FROM acceptance_test_record
+        WHERE task_id = #{taskId}
+          AND deleted = 0
+        ORDER BY test_type ASC, id ASC
+    </select>
+
+    <!-- 查询项目下待客户签核的验收任务 -->
+    <select id="selectAcceptanceTasksPendingSign" resultMap="customerAcceptanceTaskMap">
+        SELECT id, project_id, name, status, apply_time,
+               internal_audit_time, customer_sign_time, customer_sign_result, customer_sign_remark
+        FROM acceptance_task
+        WHERE deleted = 0
+          AND project_id = #{projectId}
+          AND status = 'CUSTOMER_SIGNING'
+        ORDER BY apply_time DESC
+    </select>
+
+    <!-- 客户提交验收签核结果 -->
+    <update id="updateAcceptanceTaskCustomerSign">
+        UPDATE acceptance_task
+        SET customer_sign_result = #{result},
+            customer_sign_user    = #{signUser},
+            customer_sign_time    = #{signTime},
+            customer_sign_remark  = #{remark},
+            status                = #{newStatus},
+            update_time           = #{signTime},
+            version               = version + 1
+        WHERE id = #{taskId}
+          AND deleted = 0
+          AND status = 'CUSTOMER_SIGNING'
+    </update>
+
+    <!-- ============ 客户消息（3.5） ============ -->
+    <resultMap id="customerMessageMap" type="com.vibe.collaboration.vo.CustomerMessageVO">
+        <result property="id" column="id"/>
+        <result property="customerId" column="customer_id"/>
+        <result property="messageType" column="message_type"/>
+        <result property="businessId" column="business_id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="isRead" column="is_read"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="selectCustomerMessages" resultMap="customerMessageMap">
+        SELECT id, customer_id, message_type, business_id, project_id,
+               title, content, is_read, create_time
+        FROM customer_message
+        WHERE customer_id = #{customerId}
+        ORDER BY is_read ASC, create_time DESC
+        LIMIT 200
+    </select>
+
+    <select id="countUnreadMessages" resultType="int">
+        SELECT COUNT(*) FROM customer_message
+        WHERE customer_id = #{customerId} AND is_read = 0
+    </select>
+
+    <update id="markMessageRead">
+        UPDATE customer_message
+        SET is_read = 1
+        WHERE id = #{messageId} AND customer_id = #{customerId} AND is_read = 0
+    </update>
+
+    <update id="markAllMessagesRead">
+        UPDATE customer_message
+        SET is_read = 1
+        WHERE customer_id = #{customerId} AND is_read = 0
+    </update>
+
+    <insert id="insertCustomerMessage" parameterType="com.vibe.collaboration.vo.CustomerMessageVO">
+        INSERT INTO customer_message (id, customer_id, message_type, business_id, project_id,
+                                      title, content, is_read, create_time)
+        VALUES (#{id}, #{customerId}, #{messageType}, #{businessId}, #{projectId},
+                #{title}, #{content}, 0, NOW())
+    </insert>
+
 </mapper>

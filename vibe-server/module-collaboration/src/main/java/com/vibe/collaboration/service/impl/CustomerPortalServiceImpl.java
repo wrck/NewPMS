@@ -3,9 +3,15 @@ package com.vibe.collaboration.service.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vibe.collaboration.bo.PhaseDeliverableRow;
+import com.vibe.collaboration.dto.CustomerAcceptanceSignDTO;
+import com.vibe.collaboration.dto.CustomerCutoverApprovalDTO;
 import com.vibe.collaboration.mapper.CustomerPortalMapper;
 import com.vibe.collaboration.service.CustomerPortalService;
+import com.vibe.collaboration.vo.CustomerAcceptanceTaskVO;
+import com.vibe.collaboration.vo.CustomerCutoverPlanVO;
+import com.vibe.collaboration.vo.CustomerMessageVO;
 import com.vibe.collaboration.vo.CustomerProjectVO;
+import com.vibe.collaboration.vo.CustomerTodoVO;
 import com.vibe.collaboration.vo.DocumentVO;
 import com.vibe.collaboration.vo.PhaseTimelineVO;
 import com.vibe.collaboration.vo.ProjectProgressVO;
@@ -17,6 +23,7 @@ import com.vibe.utils.MinioUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -109,9 +116,6 @@ public class CustomerPortalServiceImpl implements CustomerPortalService {
 
     /**
      * 校验项目归属当前客户。
-     *
-     * <p>项目不存在时抛 {@link ResultCode#PROJECT_NOT_FOUND}，
-     * 项目不属于当前客户时抛 {@link ResultCode#DATA_PERMISSION_DENIED}。</p>
      */
     private void checkProjectOwnership(Long projectId) {
         Long customerId = requireCurrentCustomerId();
@@ -123,6 +127,204 @@ public class CustomerPortalServiceImpl implements CustomerPortalService {
             throw BusinessException.of(ResultCode.DATA_PERMISSION_DENIED);
         }
     }
+
+    /* ============ 3.2 割接审批 ============ */
+
+    @Override
+    public CustomerCutoverPlanVO getCutoverPlanByToken(String token) {
+        if (!StringUtils.hasText(token)) {
+            throw BusinessException.of(ResultCode.PARAM_MISSING);
+        }
+        CustomerCutoverPlanVO plan = customerPortalMapper.selectCutoverPlanByToken(token);
+        if (plan == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        // 拉取步骤列表（脱敏）
+        List<CustomerCutoverPlanVO.CustomerCutoverStepVO> steps =
+                customerPortalMapper.selectCutoverStepsByPlanId(plan.getId());
+        plan.setSteps(steps == null ? Collections.emptyList() : steps);
+        return plan;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void submitCutoverApproval(CustomerCutoverApprovalDTO dto) {
+        if (dto == null || !StringUtils.hasText(dto.getToken()) || !StringUtils.hasText(dto.getResult())) {
+            throw BusinessException.of(ResultCode.PARAM_MISSING);
+        }
+        // 校验 result 取值
+        String result = dto.getResult().toUpperCase(Locale.ROOT);
+        if (!"APPROVED".equals(result) && !"REJECTED".equals(result)) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "审批结果仅支持 APPROVED/REJECTED");
+        }
+        // 通过 token 查方案
+        CustomerCutoverPlanVO plan = customerPortalMapper.selectCutoverPlanByToken(dto.getToken());
+        if (plan == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        // 数据隔离：校验方案所在项目归属当前客户（已登录态）
+        Long customerId = requireCurrentCustomerId();
+        Long projectCustomerId = customerPortalMapper.selectCustomerIdByProjectId(plan.getProjectId());
+        if (projectCustomerId == null) {
+            throw BusinessException.of(ResultCode.PROJECT_NOT_FOUND);
+        }
+        if (!customerId.equals(projectCustomerId)) {
+            throw BusinessException.of(ResultCode.DATA_PERMISSION_DENIED);
+        }
+        // 计算新状态
+        String newStatus = "APPROVED".equals(result) ? "CUSTOMER_APPROVED" : "CUSTOMER_REJECTED";
+        LocalDateTime now = LocalDateTime.now();
+        String signUser = StringUtils.hasText(dto.getSignUser()) ? dto.getSignUser() : resolveCurrentCustomerName();
+        int affected = customerPortalMapper.updateCutoverPlanCustomerApproval(
+                plan.getId(), result, signUser, dto.getRemark(), now, newStatus);
+        if (affected == 0) {
+            throw BusinessException.conflict("割接方案状态已变更，请刷新后重试");
+        }
+        log.info("[CustomerPortal] 客户 {} 提交割接方案 {} 审批结果: {}", customerId, plan.getId(), result);
+    }
+
+    /* ============ 3.3 验收签核 ============ */
+
+    @Override
+    public CustomerAcceptanceTaskVO getAcceptanceTaskByToken(String token) {
+        if (!StringUtils.hasText(token)) {
+            throw BusinessException.of(ResultCode.PARAM_MISSING);
+        }
+        CustomerAcceptanceTaskVO task = customerPortalMapper.selectAcceptanceTaskByToken(token);
+        if (task == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        List<CustomerAcceptanceTaskVO.CustomerTestRecordVO> records =
+                customerPortalMapper.selectAcceptanceTestRecords(task.getId());
+        task.setTestRecords(records == null ? Collections.emptyList() : records);
+        return task;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void submitAcceptanceSign(CustomerAcceptanceSignDTO dto) {
+        if (dto == null || !StringUtils.hasText(dto.getToken()) || !StringUtils.hasText(dto.getResult())) {
+            throw BusinessException.of(ResultCode.PARAM_MISSING);
+        }
+        String result = dto.getResult().toUpperCase(Locale.ROOT);
+        if (!"PASS".equals(result) && !"CONDITIONAL_PASS".equals(result) && !"REJECT".equals(result)) {
+            throw new BusinessException(ResultCode.PARAM_INVALID, "签核结果仅支持 PASS/CONDITIONAL_PASS/REJECT");
+        }
+        CustomerAcceptanceTaskVO task = customerPortalMapper.selectAcceptanceTaskByToken(dto.getToken());
+        if (task == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND);
+        }
+        // 数据隔离
+        Long customerId = requireCurrentCustomerId();
+        Long projectCustomerId = customerPortalMapper.selectCustomerIdByProjectId(task.getProjectId());
+        if (projectCustomerId == null) {
+            throw BusinessException.of(ResultCode.PROJECT_NOT_FOUND);
+        }
+        if (!customerId.equals(projectCustomerId)) {
+            throw BusinessException.of(ResultCode.DATA_PERMISSION_DENIED);
+        }
+        // 计算新状态：PASS/CONDITIONAL_PASS → COMPLETED；REJECT → REJECTED
+        String newStatus = "REJECT".equals(result) ? "REJECTED" : "COMPLETED";
+        LocalDateTime now = LocalDateTime.now();
+        String signUser = StringUtils.hasText(dto.getSignUser()) ? dto.getSignUser() : resolveCurrentCustomerName();
+        int affected = customerPortalMapper.updateAcceptanceTaskCustomerSign(
+                task.getId(), result, signUser, dto.getRemark(), now, newStatus);
+        if (affected == 0) {
+            throw BusinessException.conflict("验收任务状态已变更，请刷新后重试");
+        }
+        log.info("[CustomerPortal] 客户 {} 提交验收任务 {} 签核结果: {}", customerId, task.getId(), result);
+    }
+
+    /* ============ 3.5 消息通知 ============ */
+
+    @Override
+    public List<CustomerMessageVO> getMyMessages() {
+        Long customerId = requireCurrentCustomerId();
+        List<CustomerMessageVO> msgs = customerPortalMapper.selectCustomerMessages(customerId);
+        return msgs == null ? Collections.emptyList() : msgs;
+    }
+
+    @Override
+    public int countUnreadMessages() {
+        Long customerId = requireCurrentCustomerId();
+        return customerPortalMapper.countUnreadMessages(customerId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void markMessageRead(Long messageId) {
+        if (messageId == null) {
+            throw BusinessException.of(ResultCode.PARAM_MISSING);
+        }
+        Long customerId = requireCurrentCustomerId();
+        customerPortalMapper.markMessageRead(messageId, customerId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void markAllMessagesRead() {
+        Long customerId = requireCurrentCustomerId();
+        customerPortalMapper.markAllMessagesRead(customerId);
+    }
+
+    /* ============ 待办列表（聚合） ============ */
+
+    @Override
+    public List<CustomerTodoVO> getMyTodos() {
+        Long customerId = requireCurrentCustomerId();
+        List<CustomerProjectVO> projects = customerPortalMapper.selectCustomerProjects(customerId);
+        if (projects == null || projects.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<CustomerTodoVO> todos = new ArrayList<>();
+        for (CustomerProjectVO project : projects) {
+            // 待审批的割接方案
+            List<CustomerCutoverPlanVO> cutoverPending =
+                    customerPortalMapper.selectCutoverPlansPendingApproval(project.getProjectId());
+            if (cutoverPending != null) {
+                for (CustomerCutoverPlanVO plan : cutoverPending) {
+                    CustomerTodoVO todo = new CustomerTodoVO();
+                    todo.setType("CUTOVER_APPROVAL");
+                    todo.setBusinessId(plan.getId());
+                    todo.setProjectId(project.getProjectId());
+                    todo.setProjectName(project.getProjectName());
+                    todo.setTitle("割接方案待审批: " + plan.getPlanName());
+                    // 注意：待办列表不带 token；客户需登录后点击详情查看，token 由单独的方案详情接口返回
+                    todos.add(todo);
+                }
+            }
+            // 待签核的验收任务
+            List<CustomerAcceptanceTaskVO> acceptancePending =
+                    customerPortalMapper.selectAcceptanceTasksPendingSign(project.getProjectId());
+            if (acceptancePending != null) {
+                for (CustomerAcceptanceTaskVO task : acceptancePending) {
+                    CustomerTodoVO todo = new CustomerTodoVO();
+                    todo.setType("ACCEPTANCE_SIGN");
+                    todo.setBusinessId(task.getId());
+                    todo.setProjectId(project.getProjectId());
+                    todo.setProjectName(project.getProjectName());
+                    todo.setTitle("验收任务待签核: " + task.getName());
+                    todos.add(todo);
+                }
+            }
+        }
+        return todos;
+    }
+
+    /* ============ 私有辅助方法 ============ */
+
+    /**
+     * 从当前登录态获取客户姓名（用于自动填充 signUser）。
+     */
+    private String resolveCurrentCustomerName() {
+        UserContext ctx = UserContextHolder.get();
+        if (ctx == null) {
+            return "客户";
+        }
+        return StringUtils.hasText(ctx.getRealName()) ? ctx.getRealName() : "客户";
+    }
+
+    /* ============ 既有方法（文档解析等） ============ */
 
     /**
      * 解析阶段交付物 JSON，构建文档 VO 列表。

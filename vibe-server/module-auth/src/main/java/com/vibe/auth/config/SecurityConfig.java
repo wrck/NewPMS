@@ -46,6 +46,10 @@ public class SecurityConfig {
             "/api/v1/auth/captcha/**",
             "/api/v1/auth/sms/**",
             "/api/v1/auth/customer/login",
+            // 客户门户 token 访问（仅 GET，无需登录态，token 即为凭证）
+            // 注意：POST 提交审批/签核结果必须登录态，不在白名单中
+            "/api/v1/customer/cutover/*",
+            "/api/v1/customer/acceptance/*",
             // Knife4j / OpenAPI 文档
             "/doc.html",
             "/doc.html/**",

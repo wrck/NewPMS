@@ -1268,6 +1268,7 @@ CREATE TABLE `acceptance_task` (
   `customer_sign_user`     VARCHAR(64)    DEFAULT NULL    COMMENT '客户签核人姓名',
   `customer_sign_time`    DATETIME       DEFAULT NULL    COMMENT '客户签核时间',
   `customer_sign_result`  VARCHAR(16)    DEFAULT NULL    COMMENT '客户签核结果 PASS/CONDITIONAL_PASS/REJECT',
+  `customer_sign_remark`  VARCHAR(512)   DEFAULT NULL    COMMENT '客户签核意见',
   `score`           DECIMAL(5,2)          DEFAULT NULL    COMMENT '自动评分（根据检查项结果）',
   `status`          VARCHAR(24)  NOT NULL DEFAULT 'DRAFT'  COMMENT '状态 DRAFT/APPLIED/INTERNAL_AUDITED/CUSTOMER_SIGNING/COMPLETED/REJECTED',
   `remark`          VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
@@ -1596,5 +1597,23 @@ CREATE TABLE `cutover_execution_log` (
   KEY `idx_cutover_log_step_id` (`step_id`),
   KEY `idx_cutover_log_time` (`log_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='割接操作日志表';
+
+--- 客户消息表：客户收到的通知消息（项目进度/割接/验收提醒）
+DROP TABLE IF EXISTS `customer_message`;
+CREATE TABLE `customer_message` (
+  `id`            BIGINT       NOT NULL                 COMMENT '主键',
+  `customer_id`   BIGINT       NOT NULL                 COMMENT '客户ID',
+  `message_type`  VARCHAR(32)  NOT NULL                 COMMENT '消息类型 PROJECT_PROGRESS/CUTOVER_NOTICE/ACCEPTANCE_NOTICE/DOCUMENT_UPLOAD',
+  `business_id`   BIGINT                DEFAULT NULL    COMMENT '业务ID（项目ID/方案ID/任务ID）',
+  `project_id`    BIGINT                DEFAULT NULL    COMMENT '关联项目ID',
+  `title`         VARCHAR(128) NOT NULL                 COMMENT '消息标题',
+  `content`       TEXT                  DEFAULT NULL    COMMENT '消息内容',
+  `is_read`       TINYINT      NOT NULL DEFAULT 0       COMMENT '是否已读 0-未读 1-已读',
+  `create_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_customer_message_customer_id` (`customer_id`),
+  KEY `idx_customer_message_is_read` (`customer_id`, `is_read`),
+  KEY `idx_customer_message_type` (`customer_id`, `message_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='客户消息表';
 
 SET FOREIGN_KEY_CHECKS = 1;

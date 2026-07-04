@@ -503,4 +503,386 @@
         SELECT COUNT(*) FROM agent_company WHERE deleted = 0
     </select>
 
+    <!-- =============================================================== -->
+    <!-- ============ 业务报表（项目/设备/资源/财务） ================== -->
+    <!-- =============================================================== -->
+
+    <!--
+        项目报表通用 WHERE 片段（status/pmId/productLine/region）
+        注意：MyBatis XML 不支持 sql 片段传参，故每条 select 都显式写一遍条件
+    -->
+
+    <!-- 项目报表 - 汇总指标（单行返回） -->
+    <select id="projectReportSummary" resultType="com.vibe.report.vo.ProjectReportVO$Summary">
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status IN ('CLOSE','ARCHIVED') THEN 1 ELSE 0 END) AS completed,
+            SUM(CASE WHEN status NOT IN ('CLOSE','ARCHIVED','CANCELLED') THEN 1 ELSE 0 END) AS ongoing,
+            SUM(CASE WHEN planned_end IS NOT NULL AND planned_end &lt; CURDATE()
+                      AND status NOT IN ('CLOSE','ARCHIVED','CANCELLED') THEN 1 ELSE 0 END) AS overdue,
+            COALESCE(ROUND(AVG(progress_pct), 2), 0) AS avgProgress
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+    </select>
+
+    <!-- 项目报表 - 按状态分组 -->
+    <select id="projectReportByStatus" resultType="com.vibe.report.vo.ProjectReportVO$StatusStat">
+        SELECT
+            status,
+            CASE status
+                WHEN 'INIT' THEN '立项'
+                WHEN 'PLAN' THEN '规划'
+                WHEN 'EXECUTE' THEN '执行'
+                WHEN 'ACCEPT' THEN '验收'
+                WHEN 'CLOSE' THEN '结项'
+                WHEN 'ARCHIVED' THEN '归档'
+                WHEN 'ON_HOLD' THEN '挂起'
+                WHEN 'CANCELLED' THEN '取消'
+                ELSE status
+            END AS statusName,
+            COUNT(*) AS count
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+        GROUP BY status
+        ORDER BY count DESC
+    </select>
+
+    <!-- 项目报表 - 按产品线分组 -->
+    <select id="projectReportByProductLine" resultType="com.vibe.report.vo.ProjectReportVO$ProductLineStat">
+        SELECT COALESCE(product_line, '未分类') AS productLine, COUNT(*) AS count
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+        GROUP BY product_line
+        ORDER BY count DESC
+    </select>
+
+    <!-- 项目报表 - 按区域分组 -->
+    <select id="projectReportByRegion" resultType="com.vibe.report.vo.ProjectReportVO$RegionStat">
+        SELECT COALESCE(region, '未分类') AS region, COUNT(*) AS count
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+        GROUP BY region
+        ORDER BY count DESC
+    </select>
+
+    <!-- 项目报表 - PM 业绩统计 -->
+    <select id="projectReportByPm" resultType="com.vibe.report.vo.ProjectReportVO$PmStat">
+        SELECT
+            p.pm_id AS pmId,
+            e.name AS pmName,
+            COUNT(*) AS total,
+            SUM(CASE WHEN p.status IN ('CLOSE','ARCHIVED') THEN 1 ELSE 0 END) AS completed,
+            SUM(CASE WHEN p.planned_end IS NOT NULL AND p.planned_end &lt; CURDATE()
+                      AND p.status NOT IN ('CLOSE','ARCHIVED','CANCELLED') THEN 1 ELSE 0 END) AS overdue
+        FROM project p
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0 AND p.pm_id IS NOT NULL
+          <if test="status != null and status != ''">AND p.status = #{status}</if>
+          <if test="pmId != null">AND p.pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND p.product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND p.region = #{region}</if>
+        GROUP BY p.pm_id, e.name
+        ORDER BY total DESC
+    </select>
+
+    <!-- 项目报表 - 明细列表 -->
+    <select id="projectReportDetail" resultType="com.vibe.report.vo.ProjectReportVO$ProjectDetail">
+        SELECT
+            p.id, p.project_code AS projectCode, p.project_name AS projectName,
+            p.status, p.progress_pct AS progressPct,
+            e.name AS pmName,
+            p.planned_start AS plannedStart, p.planned_end AS plannedEnd, p.actual_end AS actualEnd,
+            CASE WHEN p.planned_end IS NOT NULL AND p.planned_end &lt; CURDATE()
+                  AND p.status NOT IN ('CLOSE','ARCHIVED','CANCELLED')
+                 THEN 1 ELSE 0 END AS overdue
+        FROM project p
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0
+          <if test="status != null and status != ''">AND p.status = #{status}</if>
+          <if test="pmId != null">AND p.pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND p.product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND p.region = #{region}</if>
+        ORDER BY overdue DESC, p.planned_end ASC
+    </select>
+
+    <!-- ============ 设备报表 ============ -->
+
+    <!-- 设备报表 - 汇总指标 -->
+    <select id="deviceReportSummary" resultType="com.vibe.report.vo.DeviceReportVO$Summary">
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status = 'ONLINE' THEN 1 ELSE 0 END) AS online,
+            SUM(CASE WHEN status IN ('IN_FACTORY','SHIPPED','DELIVERED','WAIT_INSTALL') THEN 1 ELSE 0 END) AS offline,
+            SUM(CASE WHEN status IN ('FAULT','ABNORMAL','REPAIRING') THEN 1 ELSE 0 END) AS abnormal
+        FROM device_instance
+        WHERE deleted = 0
+          <if test="productLine != null and productLine != ''">
+              AND model_id IN (SELECT id FROM device_model WHERE deleted = 0 AND product_line = #{productLine})
+          </if>
+    </select>
+
+    <!-- 设备报表 - 按状态分组 -->
+    <select id="deviceReportByStatus" resultType="com.vibe.report.vo.DeviceReportVO$StatusDist">
+        SELECT status, COUNT(*) AS count
+        FROM device_instance
+        WHERE deleted = 0
+          <if test="productLine != null and productLine != ''">
+              AND model_id IN (SELECT id FROM device_model WHERE deleted = 0 AND product_line = #{productLine})
+          </if>
+        GROUP BY status
+        ORDER BY count DESC
+    </select>
+
+    <!-- 设备报表 - 按产品线分组（关联 device_model） -->
+    <select id="deviceReportByProductLine" resultType="com.vibe.report.vo.DeviceReportVO$ProductLineDist">
+        SELECT COALESCE(m.product_line, '未分类') AS productLine, COUNT(*) AS count
+        FROM device_instance d
+        LEFT JOIN device_model m ON m.id = d.model_id AND m.deleted = 0
+        WHERE d.deleted = 0
+          <if test="productLine != null and productLine != ''">AND m.product_line = #{productLine}</if>
+        GROUP BY m.product_line
+        ORDER BY count DESC
+    </select>
+
+    <!-- 设备报表 - 各项目 BOM 完成率 -->
+    <select id="deviceReportBomCompletion" resultType="com.vibe.report.vo.DeviceReportVO$BomCompletion">
+        SELECT
+            p.id AS projectId,
+            p.project_name AS projectName,
+            SUM(b.planned_qty) AS totalQty,
+            SUM(b.received_qty) AS completedQty,
+            CASE WHEN SUM(b.planned_qty) > 0
+                 THEN ROUND(SUM(b.received_qty) / SUM(b.planned_qty) * 100, 2)
+                 ELSE 0
+            END AS rate
+        FROM device_bom b
+        INNER JOIN project p ON p.id = b.project_id AND p.deleted = 0
+        WHERE b.deleted = 0
+        GROUP BY p.id, p.project_name
+        ORDER BY rate ASC
+    </select>
+
+    <!-- 设备报表 - 库存状态（按仓库汇总在库设备数） -->
+    <select id="deviceReportInventory" resultType="com.vibe.report.vo.DeviceReportVO$InventoryStatus">
+        SELECT
+            COALESCE(w.warehouse_name, '未分配仓库') AS warehouseName,
+            COUNT(d.id) AS totalQty,
+            0 AS warningQty
+        FROM device_instance d
+        LEFT JOIN warehouse w ON w.id = d.warehouse_id AND w.deleted = 0
+        WHERE d.deleted = 0 AND d.warehouse_id IS NOT NULL
+        GROUP BY w.id, w.warehouse_name
+        ORDER BY totalQty DESC
+    </select>
+
+    <!-- ============ 资源报表 ============ -->
+
+    <!-- 资源报表 - 汇总指标（按工程师筛选；总工时来自 timesheet，平均利用率=totalHours/(engineers*176)*100） -->
+    <select id="resourceReportSummary" resultType="com.vibe.report.vo.ResourceReportVO$Summary">
+        SELECT
+            COUNT(DISTINCT e.id) AS totalEngineers,
+            COALESCE(SUM(ts.hours), 0) AS totalHours,
+            COALESCE(SUM(ts.overtime_hours), 0) AS overtimeHours,
+            CASE WHEN COUNT(DISTINCT e.id) > 0
+                 THEN ROUND(COALESCE(SUM(ts.hours), 0) / COUNT(DISTINCT e.id) / 176 * 100, 2)
+                 ELSE 0
+            END AS avgUtilization
+        FROM engineer e
+        LEFT JOIN timesheet ts ON ts.engineer_id = e.id AND ts.deleted = 0
+        WHERE e.deleted = 0
+          <if test="engineerId != null">AND e.id = #{engineerId}</if>
+    </select>
+
+    <!-- 资源报表 - 工程师维度统计 -->
+    <select id="resourceReportByEngineer" resultType="com.vibe.report.vo.ResourceReportVO$EngineerStat">
+        SELECT
+            e.id AS engineerId,
+            e.name AS engineerName,
+            (SELECT COUNT(*) FROM project_task t
+              WHERE t.deleted = 0 AND t.assignee_id = e.id) AS taskCount,
+            COALESCE(ts.hours, 0) AS hours,
+            COALESCE(ts.overtime_hours, 0) AS overtimeHours,
+            CASE WHEN COALESCE(ts.hours, 0) > 0
+                 THEN LEAST(100, ROUND(COALESCE(ts.hours, 0) / 176 * 100, 2))
+                 ELSE 0
+            END AS utilization,
+            CASE WHEN COALESCE(done.completed, 0) > 0
+                 THEN ROUND(COALESCE(done.ontime, 0) / done.completed * 100, 2)
+                 ELSE 0
+            END AS onTimeRate
+        FROM engineer e
+        LEFT JOIN (
+            SELECT engineer_id,
+                   SUM(hours) AS hours,
+                   SUM(overtime_hours) AS overtime_hours
+            FROM timesheet
+            WHERE deleted = 0
+            GROUP BY engineer_id
+        ) ts ON ts.engineer_id = e.id
+        LEFT JOIN (
+            SELECT t.assignee_id,
+                   SUM(CASE WHEN t.status IN ('COMPLETED','CONFIRMED') THEN 1 ELSE 0 END) AS completed,
+                   SUM(CASE WHEN t.status IN ('COMPLETED','CONFIRMED')
+                             AND t.planned_end IS NOT NULL
+                             AND t.actual_end IS NOT NULL
+                             AND t.actual_end &lt;= t.planned_end
+                            THEN 1 ELSE 0 END) AS ontime
+            FROM project_task t
+            WHERE t.deleted = 0 AND t.assignee_id IS NOT NULL
+            GROUP BY t.assignee_id
+        ) done ON done.assignee_id = e.id
+        WHERE e.deleted = 0
+          <if test="engineerId != null">AND e.id = #{engineerId}</if>
+        ORDER BY hours DESC
+    </select>
+
+    <!-- 资源报表 - 项目维度统计 -->
+    <select id="resourceReportByProject" resultType="com.vibe.report.vo.ResourceReportVO$ProjectStat">
+        SELECT
+            p.id AS projectId,
+            p.project_name AS projectName,
+            COALESCE(SUM(ts.hours), 0) AS hours,
+            COUNT(DISTINCT ts.engineer_id) AS engineerCount
+        FROM project p
+        LEFT JOIN timesheet ts ON ts.project_id = p.id AND ts.deleted = 0
+        WHERE p.deleted = 0
+        GROUP BY p.id, p.project_name
+        HAVING hours > 0 OR engineerCount > 0
+        ORDER BY hours DESC
+    </select>
+
+    <!-- ============ 财务报表 ============ -->
+
+    <!--
+        财务报表 - 汇总指标
+        收入代理：finance_budget.total_amount（审批通过的预算视为项目预计收入）
+        成本：finance_cost.amount
+    -->
+    <select id="financeReportSummary" resultType="com.vibe.report.vo.FinanceReportVO$Summary">
+        SELECT
+            COALESCE(rev.total, 0) AS totalRevenue,
+            COALESCE(cost.total, 0) AS totalCost,
+            COALESCE(rev.total, 0) - COALESCE(cost.total, 0) AS totalProfit,
+            CASE WHEN COALESCE(rev.total, 0) > 0
+                 THEN ROUND((COALESCE(rev.total, 0) - COALESCE(cost.total, 0)) / rev.total * 100, 2)
+                 ELSE 0
+            END AS profitMargin
+        FROM (
+            SELECT COALESCE(SUM(b.total_amount), 0) AS total
+            FROM finance_budget b
+            INNER JOIN project p ON p.id = b.project_id AND p.deleted = 0
+            WHERE b.deleted = 0 AND b.approval_status = 'APPROVED'
+              <if test="customerId != null">AND p.customer_id = #{customerId}</if>
+        ) rev,
+        (
+            SELECT COALESCE(SUM(c.amount), 0) AS total
+            FROM finance_cost c
+            INNER JOIN project p ON p.id = c.project_id AND p.deleted = 0
+            WHERE c.deleted = 0
+              <if test="customerId != null">AND p.customer_id = #{customerId}</if>
+        ) cost
+    </select>
+
+    <!-- 财务报表 - 按客户维度利润 -->
+    <select id="financeReportByCustomer" resultType="com.vibe.report.vo.FinanceReportVO$CustomerProfit">
+        SELECT
+            c.id AS customerId,
+            c.customer_name AS customerName,
+            COALESCE(rev.amount, 0) AS revenue,
+            COALESCE(cost.amount, 0) AS cost,
+            COALESCE(rev.amount, 0) - COALESCE(cost.amount, 0) AS profit
+        FROM customer c
+        INNER JOIN project p ON p.customer_id = c.id AND p.deleted = 0
+        LEFT JOIN (
+            SELECT p2.customer_id, SUM(b.total_amount) AS amount
+            FROM finance_budget b
+            INNER JOIN project p2 ON p2.id = b.project_id AND p2.deleted = 0
+            WHERE b.deleted = 0 AND b.approval_status = 'APPROVED'
+            GROUP BY p2.customer_id
+        ) rev ON rev.customer_id = c.id
+        LEFT JOIN (
+            SELECT p3.customer_id, SUM(c2.amount) AS amount
+            FROM finance_cost c2
+            INNER JOIN project p3 ON p3.id = c2.project_id AND p3.deleted = 0
+            WHERE c2.deleted = 0
+            GROUP BY p3.customer_id
+        ) cost ON cost.customer_id = c.id
+        WHERE c.deleted = 0
+          <if test="customerId != null">AND c.id = #{customerId}</if>
+        GROUP BY c.id, c.customer_name, rev.amount, cost.amount
+        HAVING revenue > 0 OR cost > 0
+        ORDER BY profit DESC
+    </select>
+
+    <!-- 财务报表 - 按区域维度利润 -->
+    <select id="financeReportByRegion" resultType="com.vibe.report.vo.FinanceReportVO$RegionProfit">
+        SELECT
+            COALESCE(p.region, '未分类') AS region,
+            COALESCE(SUM(b.total_amount), 0) AS revenue,
+            COALESCE(cost.cnt, 0) AS cost,
+            COALESCE(SUM(b.total_amount), 0) - COALESCE(cost.cnt, 0) AS profit
+        FROM project p
+        LEFT JOIN finance_budget b ON b.project_id = p.id AND b.deleted = 0 AND b.approval_status = 'APPROVED'
+        LEFT JOIN (
+            SELECT project_id, SUM(amount) AS cnt
+            FROM finance_cost
+            WHERE deleted = 0
+            GROUP BY project_id
+        ) cost ON cost.project_id = p.id
+        WHERE p.deleted = 0
+        GROUP BY p.region, cost.cnt
+        ORDER BY profit DESC
+    </select>
+
+    <!-- 财务报表 - 按产品线维度利润 -->
+    <select id="financeReportByProductLine" resultType="com.vibe.report.vo.FinanceReportVO$ProductLineProfit">
+        SELECT
+            COALESCE(p.product_line, '未分类') AS productLine,
+            COALESCE(SUM(b.total_amount), 0) AS revenue,
+            COALESCE(cost.cnt, 0) AS cost,
+            COALESCE(SUM(b.total_amount), 0) - COALESCE(cost.cnt, 0) AS profit
+        FROM project p
+        LEFT JOIN finance_budget b ON b.project_id = p.id AND b.deleted = 0 AND b.approval_status = 'APPROVED'
+        LEFT JOIN (
+            SELECT project_id, SUM(amount) AS cnt
+            FROM finance_cost
+            WHERE deleted = 0
+            GROUP BY project_id
+        ) cost ON cost.project_id = p.id
+        WHERE p.deleted = 0
+        GROUP BY p.product_line, cost.cnt
+        ORDER BY profit DESC
+    </select>
+
+    <!-- 财务报表 - 代理商结算汇总（来自 finance_workload_confirmation） -->
+    <select id="financeReportAgentSettlement" resultType="com.vibe.report.vo.FinanceReportVO$AgentSettlement">
+        SELECT
+            w.agent_company_id AS agentCompanyId,
+            ac.company_name AS agentCompanyName,
+            COALESCE(SUM(w.total_amount), 0) AS totalAmount,
+            COALESCE(SUM(CASE WHEN w.payment_status = 'PAID' THEN w.total_amount ELSE 0 END), 0) AS paidAmount,
+            COALESCE(SUM(CASE WHEN w.payment_status IN ('UNPAID','PAYING') THEN w.total_amount ELSE 0 END), 0) AS pendingAmount
+        FROM finance_workload_confirmation w
+        LEFT JOIN agent_company ac ON ac.id = w.agent_company_id AND ac.deleted = 0
+        WHERE w.deleted = 0
+        GROUP BY w.agent_company_id, ac.company_name
+        ORDER BY totalAmount DESC
+    </select>
+
 </mapper>

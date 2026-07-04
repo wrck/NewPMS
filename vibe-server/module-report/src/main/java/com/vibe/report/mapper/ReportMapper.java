@@ -2,8 +2,12 @@ package com.vibe.report.mapper;
 
 import com.vibe.report.vo.ChartDataVO;
 import com.vibe.report.vo.DeliverableItemVO;
+import com.vibe.report.vo.DeviceReportVO;
+import com.vibe.report.vo.FinanceReportVO;
 import com.vibe.report.vo.OutsourceTaskItemVO;
 import com.vibe.report.vo.ProjectItemVO;
+import com.vibe.report.vo.ProjectReportVO;
+import com.vibe.report.vo.ResourceReportVO;
 import com.vibe.report.vo.RiskProjectVO;
 import com.vibe.report.vo.TaskItemVO;
 import org.apache.ibatis.annotations.Mapper;
@@ -287,4 +291,125 @@ public interface ReportMapper {
      * 统计代理商总数
      */
     Long countAllAgentCompanies();
+
+    /* ============ 业务报表（项目/设备/资源/财务） ============ */
+
+    /**
+     * 项目报表 - 汇总指标（按筛选条件）
+     *
+     * @param status      状态（可空）
+     * @param pmId        PM 用户ID（可空）
+     * @param productLine 产品线（可空）
+     * @param region      区域（可空）
+     * @return 单行汇总：total/completed/ongoing/overdue/avgProgress
+     */
+    ProjectReportVO.Summary projectReportSummary(@Param("status") String status,
+                                                  @Param("pmId") Long pmId,
+                                                  @Param("productLine") String productLine,
+                                                  @Param("region") String region);
+
+    /**
+     * 项目报表 - 按状态分组
+     */
+    List<ProjectReportVO.StatusStat> projectReportByStatus(@Param("status") String status,
+                                                            @Param("pmId") Long pmId,
+                                                            @Param("productLine") String productLine,
+                                                            @Param("region") String region);
+
+    /**
+     * 项目报表 - 按产品线分组
+     */
+    List<ProjectReportVO.ProductLineStat> projectReportByProductLine(@Param("status") String status,
+                                                                     @Param("pmId") Long pmId,
+                                                                     @Param("productLine") String productLine,
+                                                                     @Param("region") String region);
+
+    /**
+     * 项目报表 - 按区域分组
+     */
+    List<ProjectReportVO.RegionStat> projectReportByRegion(@Param("status") String status,
+                                                            @Param("pmId") Long pmId,
+                                                            @Param("productLine") String productLine,
+                                                            @Param("region") String region);
+
+    /**
+     * 项目报表 - PM 业绩统计
+     */
+    List<ProjectReportVO.PmStat> projectReportByPm(@Param("status") String status,
+                                                    @Param("pmId") Long pmId,
+                                                    @Param("productLine") String productLine,
+                                                    @Param("region") String region);
+
+    /**
+     * 项目报表 - 明细列表（含超期标识）
+     */
+    List<ProjectReportVO.ProjectDetail> projectReportDetail(@Param("status") String status,
+                                                             @Param("pmId") Long pmId,
+                                                             @Param("productLine") String productLine,
+                                                             @Param("region") String region);
+
+    /**
+     * 设备报表 - 汇总指标
+     */
+    DeviceReportVO.Summary deviceReportSummary(@Param("productLine") String productLine);
+
+    /**
+     * 设备报表 - 按状态分组
+     */
+    List<DeviceReportVO.StatusDist> deviceReportByStatus(@Param("productLine") String productLine);
+
+    /**
+     * 设备报表 - 按产品线分组（关联 device_model）
+     */
+    List<DeviceReportVO.ProductLineDist> deviceReportByProductLine(@Param("productLine") String productLine);
+
+    /**
+     * 设备报表 - 各项目 BOM 完成率
+     */
+    List<DeviceReportVO.BomCompletion> deviceReportBomCompletion();
+
+    /**
+     * 设备报表 - 库存状态（按仓库汇总设备数）
+     */
+    List<DeviceReportVO.InventoryStatus> deviceReportInventory();
+
+    /**
+     * 资源报表 - 汇总指标
+     */
+    ResourceReportVO.Summary resourceReportSummary(@Param("engineerId") Long engineerId);
+
+    /**
+     * 资源报表 - 工程师维度统计（任务数/工时/加班/利用率/按时率）
+     */
+    List<ResourceReportVO.EngineerStat> resourceReportByEngineer(@Param("engineerId") Long engineerId);
+
+    /**
+     * 资源报表 - 项目维度统计
+     */
+    List<ResourceReportVO.ProjectStat> resourceReportByProject();
+
+    /**
+     * 财务报表 - 汇总指标（预算作为收入代理，成本来自 finance_cost）
+     */
+    FinanceReportVO.Summary financeReportSummary(@Param("customerId") Long customerId);
+
+    /**
+     * 财务报表 - 按客户维度利润
+     */
+    List<FinanceReportVO.CustomerProfit> financeReportByCustomer(@Param("customerId") Long customerId);
+
+    /**
+     * 财务报表 - 按区域维度利润
+     */
+    List<FinanceReportVO.RegionProfit> financeReportByRegion();
+
+    /**
+     * 财务报表 - 按产品线维度利润
+     */
+    List<FinanceReportVO.ProductLineProfit> financeReportByProductLine();
+
+    /**
+     * 财务报表 - 代理商结算汇总（来自 finance_workload_confirmation）
+     */
+    List<FinanceReportVO.AgentSettlement> financeReportAgentSettlement();
 }

@@ -341,6 +341,39 @@ export const routes: RouteRecordRaw[] = [
               keepAlive: true,
               roles: ['SUPER_ADMIN', 'DIRECTOR', 'PM', 'FINANCE']
             }
+          },
+          {
+            path: 'device',
+            name: 'ReportDevice',
+            component: () => import('@/views/report/device.vue'),
+            meta: {
+              title: '设备报表',
+              requireAuth: true,
+              keepAlive: true,
+              roles: ['SUPER_ADMIN', 'DIRECTOR', 'PM', 'FINANCE']
+            }
+          },
+          {
+            path: 'resource',
+            name: 'ReportResource',
+            component: () => import('@/views/report/resource.vue'),
+            meta: {
+              title: '资源报表',
+              requireAuth: true,
+              keepAlive: true,
+              roles: ['SUPER_ADMIN', 'DIRECTOR', 'PM', 'FINANCE']
+            }
+          },
+          {
+            path: 'finance',
+            name: 'ReportFinance',
+            component: () => import('@/views/report/finance.vue'),
+            meta: {
+              title: '财务报表',
+              requireAuth: true,
+              keepAlive: true,
+              roles: ['SUPER_ADMIN', 'DIRECTOR', 'FINANCE']
+            }
           }
         ]
       },

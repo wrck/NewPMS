@@ -29,6 +29,8 @@ export interface UserInfo {
   tenantId?: number | null
   orgId?: number
   orgName?: string
+  /** 权限标识列表（可选，由后端 /auth/me 返回；前端做兜底校验） */
+  permissions?: string[]
 }
 
 /** 登录请求参数 */

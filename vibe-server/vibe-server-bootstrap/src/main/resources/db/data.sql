@@ -35,9 +35,9 @@ INSERT INTO `sys_org` (`id`, `parent_id`, `org_name`, `org_code`, `sort_order`, 
 (1, 0, '网络设备实施本部', 'HQ', 1, 1, 1, NOW(), 1, NOW(), 0);
 
 -- 默认超级管理员（username: admin / password: admin123，密码为 BCrypt 加密）
--- BCrypt hash 对应明文：admin123
+-- BCrypt hash 对应明文：admin123（已使用 Python bcrypt 库验证）
 INSERT INTO `sys_user` (`id`, `username`, `password`, `real_name`, `phone`, `email`, `avatar`, `status`, `tenant_type`, `tenant_id`, `org_id`, `last_login_time`, `create_by`, `create_time`, `update_by`, `update_time`, `deleted`) VALUES
-(1, 'admin', '$2a$10$7JB720yubVSZvUI0E5equu1nWJ.dT6bB.j8LsX6JWyJUvJL6HRsK.', '超级管理员', '13800000000', 'admin@vibe.com', NULL, 'ACTIVE', 'INTERNAL', NULL, 1, NULL, 1, NOW(), 1, NOW(), 0);
+(1, 'admin', '$2a$10$VV2l4ZaqyUWJJD4.HBC16.2LzQgkE2KJ0rS3s/dA44NmPa0KFu/rK', '超级管理员', '13800000000', 'admin@vibe.com', NULL, 'ACTIVE', 'INTERNAL', NULL, 1, NULL, 1, NOW(), 1, NOW(), 0);
 
 -- 内置角色（10 个）
 INSERT INTO `sys_role` (`id`, `role_name`, `role_code`, `description`, `status`, `data_scope`, `create_by`, `create_time`, `update_by`, `update_time`, `deleted`) VALUES

@@ -84,24 +84,188 @@ export interface CockpitData {
   recentActivities: Activity[]
 }
 
+/* ============ Dashboard 类型（与后端 DashboardVO 对齐） ============ */
+
+/** 驾驶舱核心指标（CockpitStatVO） */
+export interface CockpitStat {
+  projectCount: number
+  activeProjectCount: number
+  lastMonthProjectCount: number
+  projectGrowthRate: number
+  deviceCount: number
+  onlineDeviceCount: number
+  lastMonthDeviceCount: number
+  deviceGrowthRate: number
+  engineerCount: number
+  activeEngineerCount: number
+  lastMonthEngineerCount: number
+  engineerGrowthRate: number
+  agentCompanyCount: number
+  activeAgentCount: number
+  lastMonthAgentCount: number
+  agentGrowthRate: number
+}
+
+/** 图表数据项（ChartDataVO） */
+export interface ChartDataItem {
+  name?: string
+  value?: number
+  month?: string
+  newCount?: number
+  completedCount?: number
+}
+
+/** 项目列表项（ProjectItemVO） */
+export interface ProjectItem {
+  projectId: number
+  projectCode?: string
+  projectName: string
+  status: string
+  currentPhase?: string
+  projectType?: string
+  priority?: string
+  progressPct?: number
+  region?: string
+  plannedStart?: string
+  plannedEnd?: string
+  pmName?: string
+  customerName?: string
+}
+
+/** 任务列表项（TaskItemVO） */
+export interface TaskItem {
+  taskId: number
+  taskName: string
+  taskType?: string
+  status: string
+  projectId?: number
+  projectName?: string
+  projectCode?: string
+  executeMode?: string
+  priority?: string
+  plannedStart?: string
+  plannedEnd?: string
+  overdue?: number
+}
+
+/** 风险项目（RiskProjectVO） */
+export interface RiskProject {
+  projectId: number
+  projectCode?: string
+  projectName: string
+  riskType: string
+  riskTypeName?: string
+  description?: string
+  progressPct?: number
+  pmName?: string
+  plannedEnd?: string
+  status: string
+}
+
+/** 交付物列表项（DeliverableItemVO） */
+export interface DeliverableItem {
+  deliverableId: number
+  outsourceTaskId?: number
+  projectTaskId?: number
+  deliverableType?: string
+  fileName?: string
+  fileUrl?: string
+  remark?: string
+  submitTime?: string
+  projectId?: number
+  projectName?: string
+  taskName?: string
+  agentCompanyId?: number
+  agentCompanyName?: string
+  outsourceStatus?: string
+  deadline?: string
+}
+
+/** 转包任务列表项（OutsourceTaskItemVO） */
+export interface OutsourceTaskItem {
+  outsourceTaskId: number
+  projectTaskId?: number
+  taskName: string
+  projectId?: number
+  projectCode?: string
+  projectName?: string
+  agentCompanyId?: number
+  agentCompanyName?: string
+  agentEngineerId?: number
+  agentEngineerName?: string
+  status: string
+  taskScope?: string
+  deadline?: string
+  submitCount?: number
+  createTime?: string
+  overdue?: number
+}
+
+/** 总监首页数据（DirectorDashboardVO） */
+export interface DirectorDashboard {
+  stats: CockpitStat
+  pendingApprovalCount: number
+  pendingChangeCount: number
+  pendingWorkloadCount: number
+  projectStatusDist: ChartDataItem[]
+  projectTrend: ChartDataItem[]
+  riskProjects: RiskProject[]
+}
+
+/** PM 首页数据（PmDashboardVO） */
+export interface PmDashboard {
+  myProjectCount: number
+  activeProjectCount: number
+  pendingDispatchCount: number
+  pendingReviewCount: number
+  riskProjectCount: number
+  myProjects: ProjectItem[]
+  pendingDispatchTasks: TaskItem[]
+  pendingReviewDeliverables: DeliverableItem[]
+}
+
+/** 工程师首页数据（EngineerDashboardVO） */
+export interface EngineerDashboard {
+  todayTaskCount: number
+  pendingTaskCount: number
+  overdueTaskCount: number
+  todayWorkHours: number
+  weekWorkHours: number
+  monthWorkHours: number
+  todayTasks: TaskItem[]
+  overdueTasks: TaskItem[]
+}
+
+/** 代理商首页数据（AgentDashboardVO） */
+export interface AgentDashboard {
+  totalCount: number
+  pendingCount: number
+  inProgressCount: number
+  submittedCount: number
+  overdueCount: number
+  pendingTasks: OutsourceTaskItem[]
+  inProgressTasks: OutsourceTaskItem[]
+  submittedTasks: OutsourceTaskItem[]
+}
+
+/** 工作台首页统一 VO（DashboardVO） */
+export interface DashboardVO {
+  role: string
+  realName: string
+  director?: DirectorDashboard
+  pm?: PmDashboard
+  engineer?: EngineerDashboard
+  agent?: AgentDashboard
+}
+
 /** 获取管理驾驶舱数据 */
 export function getCockpit() {
   return http.get<CockpitData>(COCKPIT_BASE)
 }
 
-/** 仪表盘数据（首页） */
+/** 仪表盘数据（首页）- 按当前用户角色差异化返回 */
 export function getDashboard() {
-  return http.get<{
-    myTasks: Array<{ id: number; name: string; dueDate?: string; status: string; projectName?: string }>
-    myProjects: Array<{ id: number; projectName: string; status: string; progressPct: number; role: string }>
-    notices: Array<{ id: number; title: string; type: string; createdAt: string; read: boolean }>
-    stats: {
-      ongoingProjects: number
-      riskProjects: number
-      monthDueProjects: number
-      pendingDispatchTasks: number
-    }
-  }>(DASHBOARD_BASE)
+  return http.get<DashboardVO>(DASHBOARD_BASE)
 }
 
 /** 项目报表 */

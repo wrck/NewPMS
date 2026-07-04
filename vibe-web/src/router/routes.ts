@@ -239,6 +239,74 @@ export const routes: RouteRecordRaw[] = [
         ]
       },
 
+      /* ============ 验收管理 ============ */
+      {
+        path: '/acceptance',
+        name: 'Acceptance',
+        redirect: '/acceptance/standard',
+        meta: { title: '验收管理', icon: 'CheckCircleOutlined', requireAuth: true, permission: 'acceptance:view' },
+        children: [
+          {
+            path: 'standard',
+            name: 'AcceptanceStandard',
+            component: () => import('@/views/acceptance/standard.vue'),
+            meta: { title: '验收标准', requireAuth: true, keepAlive: true, permission: 'acceptance:view' }
+          },
+          {
+            path: 'task',
+            name: 'AcceptanceTask',
+            component: () => import('@/views/acceptance/task.vue'),
+            meta: { title: '验收任务', requireAuth: true, keepAlive: true, permission: 'acceptance:view' }
+          },
+          {
+            path: 'issue',
+            name: 'AcceptanceIssue',
+            component: () => import('@/views/acceptance/issue.vue'),
+            meta: { title: '遗留问题', requireAuth: true, keepAlive: true, permission: 'acceptance:view' }
+          },
+          {
+            path: 'doc',
+            name: 'AcceptanceDoc',
+            component: () => import('@/views/acceptance/doc.vue'),
+            meta: { title: '竣工文档', requireAuth: true, keepAlive: true, permission: 'acceptance:view' }
+          }
+        ]
+      },
+
+      /* ============ 财务核算 ============ */
+      {
+        path: '/finance',
+        name: 'Finance',
+        redirect: '/finance/budget',
+        meta: { title: '财务核算', icon: 'MoneyCollectOutlined', requireAuth: true, permission: 'finance:view' },
+        children: [
+          {
+            path: 'budget',
+            name: 'FinanceBudget',
+            component: () => import('@/views/finance/budget.vue'),
+            meta: { title: '项目预算', requireAuth: true, keepAlive: true, permission: 'finance:view' }
+          },
+          {
+            path: 'cost',
+            name: 'FinanceCost',
+            component: () => import('@/views/finance/cost.vue'),
+            meta: { title: '成本归集', requireAuth: true, keepAlive: true, permission: 'finance:view' }
+          },
+          {
+            path: 'agent',
+            name: 'FinanceAgent',
+            component: () => import('@/views/finance/agent.vue'),
+            meta: { title: '代理商结算', requireAuth: true, keepAlive: true, permission: 'finance:view' }
+          },
+          {
+            path: 'profit',
+            name: 'FinanceProfit',
+            component: () => import('@/views/finance/profit.vue'),
+            meta: { title: '利润分析', requireAuth: true, keepAlive: true, permission: 'finance:view' }
+          }
+        ]
+      },
+
       /* ============ 报表中心 ============ */
       {
         path: '/report',

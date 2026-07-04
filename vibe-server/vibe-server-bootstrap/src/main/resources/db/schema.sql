@@ -1209,4 +1209,235 @@ CREATE TABLE `sys_notice_template` (
   UNIQUE KEY `uk_sys_notice_template_code` (`template_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='通知模板表';
 
+-- =====================================================================================
+-- 验收管理模块（设计文档 2.7）
+-- =====================================================================================
+
+-- 验收标准模板表
+DROP TABLE IF EXISTS `acceptance_standard`;
+CREATE TABLE `acceptance_standard` (
+  `id`            BIGINT       NOT NULL                 COMMENT '主键',
+  `name`          VARCHAR(128) NOT NULL                 COMMENT '标准名称',
+  `project_type`  VARCHAR(32)           DEFAULT NULL    COMMENT '适用项目类型（按产品线/项目类型预设）',
+  `standard_version` VARCHAR(16)  NOT NULL DEFAULT '1.0.0' COMMENT '标准版本',
+  `description`   VARCHAR(512)          DEFAULT NULL    COMMENT '标准说明',
+  `status`        TINYINT      NOT NULL DEFAULT 1       COMMENT '状态 1-启用 0-禁用',
+  `version`       INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`     BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`     BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`       TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_acceptance_standard_type` (`project_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='验收标准模板表';
+
+-- 验收检查项表
+DROP TABLE IF EXISTS `acceptance_standard_item`;
+CREATE TABLE `acceptance_standard_item` (
+  `id`              BIGINT       NOT NULL                 COMMENT '主键',
+  `standard_id`     BIGINT       NOT NULL                 COMMENT '所属验收标准ID',
+  `name`            VARCHAR(128) NOT NULL                 COMMENT '检查项名称',
+  `requirement`     VARCHAR(512)          DEFAULT NULL    COMMENT '检查要求',
+  `test_method`     VARCHAR(256)          DEFAULT NULL    COMMENT '测试方法',
+  `weight`          DECIMAL(5,2)          DEFAULT 1.00    COMMENT '权重',
+  `sort_order`      INT          NOT NULL DEFAULT 0       COMMENT '排序',
+  `create_by`       BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`       BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`         TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_acceptance_item_standard` (`standard_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='验收检查项表';
+
+-- 验收任务表（验收流程：申请→内部审核→客户验收→签核）
+DROP TABLE IF EXISTS `acceptance_task`;
+CREATE TABLE `acceptance_task` (
+  `id`              BIGINT       NOT NULL                 COMMENT '主键',
+  `project_id`      BIGINT       NOT NULL                 COMMENT '关联项目ID',
+  `standard_id`     BIGINT                DEFAULT NULL    COMMENT '适用的验收标准ID',
+  `name`            VARCHAR(128) NOT NULL                 COMMENT '验收任务名称',
+  `apply_user_id`   BIGINT                DEFAULT NULL    COMMENT '验收申请人（PM）ID',
+  `apply_time`      DATETIME              DEFAULT NULL    COMMENT '申请时间',
+  `internal_audit_user_id` BIGINT         DEFAULT NULL    COMMENT '内部技术审核人ID',
+  `internal_audit_time`    DATETIME       DEFAULT NULL    COMMENT '内部审核时间',
+  `internal_audit_result`  VARCHAR(16)    DEFAULT NULL    COMMENT '内部审核结果 PASS/REJECT',
+  `customer_sign_link`     VARCHAR(255)   DEFAULT NULL    COMMENT '客户签核链接token',
+  `customer_sign_user`     VARCHAR(64)    DEFAULT NULL    COMMENT '客户签核人姓名',
+  `customer_sign_time`    DATETIME       DEFAULT NULL    COMMENT '客户签核时间',
+  `customer_sign_result`  VARCHAR(16)    DEFAULT NULL    COMMENT '客户签核结果 PASS/CONDITIONAL_PASS/REJECT',
+  `score`           DECIMAL(5,2)          DEFAULT NULL    COMMENT '自动评分（根据检查项结果）',
+  `status`          VARCHAR(24)  NOT NULL DEFAULT 'DRAFT'  COMMENT '状态 DRAFT/APPLIED/INTERNAL_AUDITED/CUSTOMER_SIGNING/COMPLETED/REJECTED',
+  `remark`          VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
+  `version`         INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`       BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`       BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`         TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_acceptance_task_project` (`project_id`),
+  KEY `idx_acceptance_task_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='验收任务表';
+
+-- 测试记录表（功能/性能/冗余切换等测试项结果记录）
+DROP TABLE IF EXISTS `acceptance_test_record`;
+CREATE TABLE `acceptance_test_record` (
+  `id`              BIGINT       NOT NULL                 COMMENT '主键',
+  `task_id`         BIGINT       NOT NULL                 COMMENT '所属验收任务ID',
+  `item_id`         BIGINT                DEFAULT NULL    COMMENT '关联检查项ID（可选）',
+  `test_type`       VARCHAR(32)  NOT NULL DEFAULT 'FUNCTION' COMMENT '测试类型 FUNCTION/PERFORMANCE/REDUNDANCY/OTHER',
+  `test_name`       VARCHAR(128) NOT NULL                 COMMENT '测试项名称',
+  `test_result`     VARCHAR(16)  NOT NULL DEFAULT 'PENDING' COMMENT '测试结果 PENDING/PASS/FAIL/NA',
+  `test_value`      VARCHAR(255)          DEFAULT NULL    COMMENT '测试值（性能指标等）',
+  `evidence_url`   VARCHAR(512)          DEFAULT NULL    COMMENT '测试截图/证明材料URL（MinIO）',
+  `tester_id`       BIGINT                DEFAULT NULL    COMMENT '测试人ID',
+  `test_time`       DATETIME              DEFAULT NULL    COMMENT '测试时间',
+  `remark`          VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
+  `create_by`       BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`       BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`         TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_acceptance_record_task` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='验收测试记录表';
+
+-- 验收遗留问题表
+DROP TABLE IF EXISTS `acceptance_issue`;
+CREATE TABLE `acceptance_issue` (
+  `id`               BIGINT       NOT NULL                 COMMENT '主键',
+  `task_id`          BIGINT       NOT NULL                 COMMENT '所属验收任务ID',
+  `project_id`       BIGINT       NOT NULL                 COMMENT '关联项目ID',
+  `name`             VARCHAR(128) NOT NULL                 COMMENT '遗留问题名称',
+  `description`      VARCHAR(512)          DEFAULT NULL    COMMENT '问题描述',
+  `severity`         VARCHAR(16)  NOT NULL DEFAULT 'MEDIUM' COMMENT '严重等级 LOW/MEDIUM/HIGH/CRITICAL',
+  `assignee_id`      BIGINT                DEFAULT NULL    COMMENT '整改责任人ID',
+  `due_date`         DATE                  DEFAULT NULL    COMMENT '整改截止日期',
+  `resolved_time`    DATETIME              DEFAULT NULL    COMMENT '整改完成时间',
+  `status`           VARCHAR(16)  NOT NULL DEFAULT 'OPEN'  COMMENT '状态 OPEN/IN_PROGRESS/RESOLVED/CLOSED',
+  `close_user_id`    BIGINT                DEFAULT NULL    COMMENT '闭环确认人ID',
+  `close_time`       DATETIME              DEFAULT NULL    COMMENT '闭环确认时间',
+  `remark`           VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
+  `version`          INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`        BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`        BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`          TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_acceptance_issue_task` (`task_id`),
+  KEY `idx_acceptance_issue_project` (`project_id`),
+  KEY `idx_acceptance_issue_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='验收遗留问题表';
+
+-- 竣工文档表
+DROP TABLE IF EXISTS `acceptance_doc`;
+CREATE TABLE `acceptance_doc` (
+  `id`            BIGINT       NOT NULL                 COMMENT '主键',
+  `task_id`       BIGINT       NOT NULL                 COMMENT '所属验收任务ID',
+  `project_id`   BIGINT       NOT NULL                 COMMENT '关联项目ID',
+  `doc_type`     VARCHAR(32)  NOT NULL                 COMMENT '文档类型 TOPOLOGY/DEVICE_LIST/CONFIG_BACKUP/TEST_REPORT/MAINTENANCE_MANUAL/OTHER',
+  `name`         VARCHAR(128) NOT NULL                 COMMENT '文档名称',
+  `file_url`     VARCHAR(512) NOT NULL                 COMMENT '文档URL（MinIO objectName）',
+  `file_size`    BIGINT                DEFAULT 0       COMMENT '文件大小（字节）',
+  `doc_version`  VARCHAR(16)           DEFAULT '1.0.0' COMMENT '文档版本',
+  `uploader_id`  BIGINT                DEFAULT NULL    COMMENT '上传人ID',
+  `remark`       VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
+  `create_by`    BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`    BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`      TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_acceptance_doc_task` (`task_id`),
+  KEY `idx_acceptance_doc_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='竣工文档表';
+
+-- =====================================================================================
+-- 财务核算模块（设计文档 2.8）
+-- =====================================================================================
+
+-- 项目预算表
+DROP TABLE IF EXISTS `finance_budget`;
+CREATE TABLE `finance_budget` (
+  `id`               BIGINT       NOT NULL                 COMMENT '主键',
+  `project_id`       BIGINT       NOT NULL                 COMMENT '关联项目ID',
+  `year`             INT          NOT NULL                 COMMENT '预算年度',
+  `labor_amount`     DECIMAL(14,2) NOT NULL DEFAULT 0.00  COMMENT '人工预算',
+  `travel_amount`    DECIMAL(14,2) NOT NULL DEFAULT 0.00  COMMENT '差旅预算',
+  `agent_amount`     DECIMAL(14,2) NOT NULL DEFAULT 0.00  COMMENT '代理商预算',
+  `other_amount`     DECIMAL(14,2) NOT NULL DEFAULT 0.00  COMMENT '其他预算',
+  `total_amount`     DECIMAL(14,2) NOT NULL DEFAULT 0.00  COMMENT '预算总额（冗余字段，自动计算）',
+  `approval_status`  VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '审批状态 DRAFT/PENDING/APPROVED/REJECTED',
+  `approver_id`      BIGINT                DEFAULT NULL    COMMENT '审批人ID',
+  `approve_time`     DATETIME              DEFAULT NULL    COMMENT '审批时间',
+  `remark`           VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
+  `version`          INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`        BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`        BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`          TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_finance_budget_project_year` (`project_id`, `year`),
+  KEY `idx_finance_budget_status` (`approval_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='项目预算表';
+
+-- 成本归集表（人工/差旅/代理商/其他费用）
+DROP TABLE IF EXISTS `finance_cost`;
+CREATE TABLE `finance_cost` (
+  `id`            BIGINT       NOT NULL                 COMMENT '主键',
+  `project_id`   BIGINT       NOT NULL                 COMMENT '关联项目ID',
+  `cost_type`    VARCHAR(32)  NOT NULL                 COMMENT '成本类型 LABOR/TRAVEL/AGENT/OTHER',
+  `amount`       DECIMAL(14,2) NOT NULL               COMMENT '金额',
+  `cost_date`    DATE         NOT NULL                 COMMENT '发生日期',
+  `ref_type`    VARCHAR(32)           DEFAULT NULL    COMMENT '关联业务类型 TIMESHEET/BUSINESS_TRIP/OUTSOURCE_TASK/MANUAL',
+  `ref_id`      BIGINT                DEFAULT NULL    COMMENT '关联业务ID',
+  `description`  VARCHAR(256)          DEFAULT NULL    COMMENT '费用说明',
+  `version`      INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`    BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`    BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`      TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_finance_cost_project` (`project_id`),
+  KEY `idx_finance_cost_type` (`cost_type`),
+  KEY `idx_finance_cost_date` (`cost_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='成本归集表';
+
+-- 代理商工作量确认单表
+DROP TABLE IF EXISTS `finance_workload_confirmation`;
+CREATE TABLE `finance_workload_confirmation` (
+  `id`               BIGINT       NOT NULL                 COMMENT '主键',
+  `project_id`       BIGINT       NOT NULL                 COMMENT '关联项目ID',
+  `outsource_task_id` BIGINT                DEFAULT NULL   COMMENT '关联转包任务ID',
+  `agent_company_id` BIGINT       NOT NULL                 COMMENT '代理商ID',
+  `period`           VARCHAR(16)  NOT NULL                 COMMENT '对账周期 YYYY-MM 或 PROJECT',
+  `workload_days`    DECIMAL(8,2) NOT NULL                 COMMENT '工作量（人天）',
+  `unit_price`       DECIMAL(14,2) NOT NULL                 COMMENT '人天单价',
+  `travel_amount`    DECIMAL(14,2) NOT NULL DEFAULT 0.00   COMMENT '差旅费用',
+  `other_amount`     DECIMAL(14,2) NOT NULL DEFAULT 0.00   COMMENT '其他费用',
+  `total_amount`     DECIMAL(14,2) NOT NULL DEFAULT 0.00   COMMENT '结算总额（自动计算）',
+  `pm_confirm_user_id`  BIGINT              DEFAULT NULL   COMMENT 'PM 确认人ID',
+  `pm_confirm_time`     DATETIME            DEFAULT NULL   COMMENT 'PM 确认时间',
+  `agent_confirm_user_id` BIGINT            DEFAULT NULL   COMMENT '代理商确认人ID',
+  `agent_confirm_time`   DATETIME          DEFAULT NULL   COMMENT '代理商确认时间',
+  `approval_status`  VARCHAR(16)  NOT NULL DEFAULT 'DRAFT' COMMENT '审批状态 DRAFT/PM_CONFIRMED/AGENT_CONFIRMED/PENDING/DIRECTOR_APPROVED/FINANCE_APPROVED/REJECTED',
+  `payment_status`   VARCHAR(16)  NOT NULL DEFAULT 'UNPAID' COMMENT '付款状态 UNPAID/PAYING/PAID',
+  `remark`           VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
+  `version`          INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`        BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`        BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`          TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_finance_wc_project` (`project_id`),
+  KEY `idx_finance_wc_agent` (`agent_company_id`),
+  KEY `idx_finance_wc_status` (`approval_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='代理商工作量确认单表';
+
 SET FOREIGN_KEY_CHECKS = 1;

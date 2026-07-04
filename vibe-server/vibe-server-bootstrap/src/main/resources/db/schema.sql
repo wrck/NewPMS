@@ -1443,4 +1443,66 @@ CREATE TABLE `finance_workload_confirmation` (
   KEY `idx_finance_wc_status` (`approval_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='代理商工作量确认单表';
 
+-- =====================================================================================
+-- 六、集成管理表
+-- =====================================================================================
+
+-- 集成配置表：外部系统连接信息
+DROP TABLE IF EXISTS `integration_config`;
+CREATE TABLE `integration_config` (
+  `id`              BIGINT       NOT NULL                 COMMENT '主键',
+  `system_code`     VARCHAR(64)  NOT NULL                 COMMENT '系统编码（如 ERP/NMS/FEISHU/DINGTALK/OA/LOGISTICS）',
+  `system_name`     VARCHAR(128) NOT NULL                COMMENT '系统名称',
+  `adapter_type`    VARCHAR(64)  NOT NULL DEFAULT 'REST_API' COMMENT '适配器类型 REST_API/WEBHOOK/DATABASE/MESSAGE_QUEUE',
+  `endpoint_url`    VARCHAR(512) NOT NULL                COMMENT '接入点 URL',
+  `auth_type`       VARCHAR(32)  NOT NULL DEFAULT 'NONE' COMMENT '认证方式 NONE/BASIC/BEARER/API_KEY/OAUTH2',
+  `auth_config`     TEXT                  DEFAULT NULL    COMMENT '认证配置（JSON，敏感字段加密存储）',
+  `timeout_ms`      INT          NOT NULL DEFAULT 10000  COMMENT '调用超时（毫秒）',
+  `retry_count`     INT          NOT NULL DEFAULT 0       COMMENT '重试次数',
+  `enabled`         TINYINT      NOT NULL DEFAULT 1       COMMENT '是否启用 1-是 0-否',
+  `description`     VARCHAR(512)          DEFAULT NULL    COMMENT '描述',
+  `last_call_time`  DATETIME              DEFAULT NULL    COMMENT '最近调用时间',
+  `last_call_status` VARCHAR(16)          DEFAULT NULL    COMMENT '最近调用状态 SUCCESS/FAIL',
+  `version`         INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`       BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`       BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`         TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_integration_config_code` (`system_code`),
+  KEY `idx_integration_config_enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='集成配置表';
+
+-- 集成调用日志表：外部系统调用历史
+DROP TABLE IF EXISTS `integration_call_log`;
+CREATE TABLE `integration_call_log` (
+  `id`              BIGINT       NOT NULL                 COMMENT '主键',
+  `config_id`       BIGINT                DEFAULT NULL    COMMENT '关联配置ID',
+  `system_code`     VARCHAR(64)  NOT NULL                 COMMENT '系统编码（冗余）',
+  `call_scene`      VARCHAR(64)  NOT NULL                 COMMENT '调用场景（如 PUSH_EVENT/SYNC_DATA/QUERY/AUTH）',
+  `request_method`  VARCHAR(16)           DEFAULT NULL    COMMENT 'HTTP 方法',
+  `request_url`     VARCHAR(512)          DEFAULT NULL    COMMENT '请求 URL',
+  `request_headers` TEXT                  DEFAULT NULL    COMMENT '请求头（脱敏）',
+  `request_body`    TEXT                  DEFAULT NULL    COMMENT '请求体（脱敏）',
+  `response_status` INT                   DEFAULT NULL    COMMENT 'HTTP 响应码',
+  `response_body`   TEXT                  DEFAULT NULL    COMMENT '响应体（截断）',
+  `status`          VARCHAR(16)  NOT NULL DEFAULT 'SUCCESS' COMMENT '调用状态 SUCCESS/FAIL/TIMEOUT',
+  `error_msg`       VARCHAR(1024)         DEFAULT NULL    COMMENT '错误信息',
+  `cost_ms`         INT                   DEFAULT NULL    COMMENT '耗时（毫秒）',
+  `caller_ip`       VARCHAR(64)           DEFAULT NULL    COMMENT '调用方 IP',
+  `operated_at`     DATETIME     NOT NULL                COMMENT '调用时间',
+  `version`         INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`       BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`       BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`         TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_integration_call_log_config` (`config_id`),
+  KEY `idx_integration_call_log_system` (`system_code`),
+  KEY `idx_integration_call_log_status` (`status`),
+  KEY `idx_integration_call_log_time` (`operated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='集成调用日志表';
+
 SET FOREIGN_KEY_CHECKS = 1;

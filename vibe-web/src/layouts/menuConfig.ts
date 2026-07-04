@@ -9,7 +9,8 @@ import {
   CheckCircleOutlined,
   MoneyCollectOutlined,
   BarChartOutlined,
-  SettingOutlined
+  SettingOutlined,
+  ApiOutlined
 } from '@ant-design/icons-vue'
 
 /** 菜单项 */
@@ -167,7 +168,9 @@ export const menuConfig: MenuItem[] = [
       { key: 'system-notice-template', label: '通知模板', path: '/system/notice-template' },
       { key: 'system-notice', label: '站内信', path: '/system/notice' },
       { key: 'system-log', label: '操作日志', path: '/system/log' },
-      { key: 'system-login-log', label: '登录日志', path: '/system/login-log' }
+      { key: 'system-login-log', label: '登录日志', path: '/system/login-log' },
+      { key: 'integration-config', label: '集成配置', path: '/integration/config' },
+      { key: 'integration-call-log', label: '集成调用日志', path: '/integration/call-log' }
     ]
   }
 ]

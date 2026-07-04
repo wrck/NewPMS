@@ -411,6 +411,18 @@ export const routes: RouteRecordRaw[] = [
             name: 'SystemLoginLog',
             component: () => import('@/views/system/login-log.vue'),
             meta: { title: '登录日志', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: '/integration/config',
+            name: 'IntegrationConfig',
+            component: () => import('@/views/integration/config.vue'),
+            meta: { title: '集成配置', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: '/integration/call-log',
+            name: 'IntegrationCallLog',
+            component: () => import('@/views/integration/call-log.vue'),
+            meta: { title: '集成调用日志', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
           }
         ]
       }

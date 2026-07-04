@@ -6,3 +6,6 @@ vibe-server/build.log
 *.log
 vibe-web/tsc.log
 vibe-web/tsc-full.log
+
+# 测试用 token 文件，不应提交
+token.txt

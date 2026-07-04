@@ -365,6 +365,18 @@ export const routes: RouteRecordRaw[] = [
             meta: { title: '角色权限', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
           },
           {
+            path: 'org',
+            name: 'SystemOrg',
+            component: () => import('@/views/system/org.vue'),
+            meta: { title: '组织架构', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: 'position',
+            name: 'SystemPosition',
+            component: () => import('@/views/system/position.vue'),
+            meta: { title: '岗位管理', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
             path: 'dict',
             name: 'SystemDict',
             component: () => import('@/views/system/dict.vue'),
@@ -377,10 +389,28 @@ export const routes: RouteRecordRaw[] = [
             meta: { title: '系统配置', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
           },
           {
+            path: 'notice-template',
+            name: 'SystemNoticeTemplate',
+            component: () => import('@/views/system/notice-template.vue'),
+            meta: { title: '通知模板', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: 'notice',
+            name: 'SystemNotice',
+            component: () => import('@/views/system/notice.vue'),
+            meta: { title: '站内信', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
             path: 'log',
             name: 'SystemLog',
             component: () => import('@/views/system/log.vue'),
             meta: { title: '操作日志', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: 'login-log',
+            name: 'SystemLoginLog',
+            component: () => import('@/views/system/login-log.vue'),
+            meta: { title: '登录日志', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
           }
         ]
       }

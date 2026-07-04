@@ -161,9 +161,13 @@ export const menuConfig: MenuItem[] = [
       { key: 'system-user', label: '用户管理', path: '/system/user' },
       { key: 'system-role', label: '角色权限', path: '/system/role' },
       { key: 'system-org', label: '组织架构', path: '/system/org' },
+      { key: 'system-position', label: '岗位管理', path: '/system/position' },
       { key: 'system-dict', label: '数据字典', path: '/system/dict' },
       { key: 'system-config', label: '系统配置', path: '/system/config' },
-      { key: 'system-log', label: '操作日志', path: '/system/log' }
+      { key: 'system-notice-template', label: '通知模板', path: '/system/notice-template' },
+      { key: 'system-notice', label: '站内信', path: '/system/notice' },
+      { key: 'system-log', label: '操作日志', path: '/system/log' },
+      { key: 'system-login-log', label: '登录日志', path: '/system/login-log' }
     ]
   }
 ]

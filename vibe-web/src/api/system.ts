@@ -316,6 +316,182 @@ export function getLogDetail(id: number) {
 }
 
 /** 登录日志 */
-export function pageLoginLogs(params: PageParams & { userName?: string; status?: 1 | 0; startBegin?: string; startEnd?: string }) {
-  return http.get<PageResult<SysLog>>(`${LOG_BASE}/login`, params as Record<string, unknown>)
+export interface SysLoginLog {
+  id: number
+  username: string
+  loginTime: string
+  loginIp?: string
+  loginLocation?: string
+  browser?: string
+  os?: string
+  status: 1 | 0
+  msg?: string
+}
+
+export interface SysLoginLogQueryParams extends PageParams {
+  userName?: string
+  status?: 1 | 0
+  startBegin?: string
+  startEnd?: string
+}
+
+export function pageLoginLogs(params: SysLoginLogQueryParams) {
+  return http.get<PageResult<SysLoginLog>>(`${LOG_BASE}/login`, params as Record<string, unknown>)
+}
+
+/* ============ 岗位管理 ============ */
+
+export interface SysPosition {
+  id: number
+  orgId?: number
+  orgName?: string
+  positionName: string
+  positionCode: string
+  sortOrder?: number
+  status: 1 | 0
+  createTime?: string
+}
+
+export interface SysPositionDTO {
+  id?: number
+  orgId?: number
+  positionName: string
+  positionCode: string
+  sortOrder?: number
+  status?: 1 | 0
+}
+
+export interface SysPositionQueryParams extends PageParams {
+  keyword?: string
+  orgId?: number
+}
+
+const POSITION_BASE = '/positions'
+
+export function pagePositions(params: SysPositionQueryParams) {
+  return http.get<PageResult<SysPosition>>(POSITION_BASE, params as Record<string, unknown>)
+}
+
+export function getPositionDetail(id: number) {
+  return http.get<SysPosition>(`${POSITION_BASE}/${id}`)
+}
+
+export function createPosition(dto: SysPositionDTO) {
+  return http.post<number>(POSITION_BASE, dto)
+}
+
+export function updatePosition(id: number, dto: SysPositionDTO) {
+  return http.put<void>(`${POSITION_BASE}/${id}`, dto)
+}
+
+export function deletePosition(id: number) {
+  return http.delete<void>(`${POSITION_BASE}/${id}`)
+}
+
+/* ============ 站内信 ============ */
+
+export interface SysNotice {
+  id: number
+  noticeTitle: string
+  noticeType: 1 | 2
+  noticeContent?: string
+  recipientId?: number
+  readStatus: 0 | 1
+  sendTime?: string
+}
+
+export interface SysNoticeDTO {
+  noticeTitle: string
+  noticeType?: 1 | 2
+  noticeContent?: string
+  recipientId: number
+}
+
+export interface SysNoticeQueryParams extends PageParams {
+  noticeType?: 1 | 2
+  readStatus?: 0 | 1
+  keyword?: string
+}
+
+const NOTICE_BASE = '/notices'
+
+export function pageMyNotices(params: SysNoticeQueryParams) {
+  return http.get<PageResult<SysNotice>>(NOTICE_BASE, params as Record<string, unknown>)
+}
+
+export function getUnreadCount() {
+  return http.get<number>(`${NOTICE_BASE}/unread-count`)
+}
+
+export function sendNotice(dto: SysNoticeDTO) {
+  return http.post<number>(NOTICE_BASE, dto)
+}
+
+export function markNoticeRead(id: number) {
+  return http.put<void>(`${NOTICE_BASE}/${id}/read`)
+}
+
+export function markAllNoticesRead() {
+  return http.put<void>(`${NOTICE_BASE}/read-all`)
+}
+
+export function deleteNotice(id: number) {
+  return http.delete<void>(`${NOTICE_BASE}/${id}`)
+}
+
+/* ============ 通知模板 ============ */
+
+export interface SysNoticeTemplate {
+  id: number
+  templateCode: string
+  templateName: string
+  titleTemplate?: string
+  contentTemplate: string
+  channels?: string
+  recipientType?: string
+  status: 1 | 0
+  createTime?: string
+}
+
+export interface SysNoticeTemplateDTO {
+  id?: number
+  templateCode: string
+  templateName: string
+  titleTemplate?: string
+  contentTemplate: string
+  channels?: string
+  recipientType?: string
+  status?: 1 | 0
+}
+
+export interface SysNoticeTemplateQueryParams extends PageParams {
+  keyword?: string
+  recipientType?: string
+  status?: 1 | 0
+}
+
+const NOTICE_TEMPLATE_BASE = '/notice-templates'
+
+export function pageNoticeTemplates(params: SysNoticeTemplateQueryParams) {
+  return http.get<PageResult<SysNoticeTemplate>>(NOTICE_TEMPLATE_BASE, params as Record<string, unknown>)
+}
+
+export function getNoticeTemplateDetail(id: number) {
+  return http.get<SysNoticeTemplate>(`${NOTICE_TEMPLATE_BASE}/${id}`)
+}
+
+export function createNoticeTemplate(dto: SysNoticeTemplateDTO) {
+  return http.post<number>(NOTICE_TEMPLATE_BASE, dto)
+}
+
+export function updateNoticeTemplate(id: number, dto: SysNoticeTemplateDTO) {
+  return http.put<void>(`${NOTICE_TEMPLATE_BASE}/${id}`, dto)
+}
+
+export function deleteNoticeTemplate(id: number) {
+  return http.delete<void>(`${NOTICE_TEMPLATE_BASE}/${id}`)
+}
+
+export function getNoticeTemplateByCode(code: string) {
+  return http.get<SysNoticeTemplate>(`${NOTICE_TEMPLATE_BASE}/by-code/${code}`)
 }

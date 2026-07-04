@@ -1,2 +1,8 @@
 target
 logs
+
+build.log
+vibe-server/build.log
+*.log
+vibe-web/tsc.log
+vibe-web/tsc-full.log

@@ -1505,4 +1505,96 @@ CREATE TABLE `integration_call_log` (
   KEY `idx_integration_call_log_time` (`operated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='集成调用日志表';
 
+-- =====================================================================================
+-- 割接管理模块（设计文档 2.6.2）
+-- =====================================================================================
+
+-- 割接方案表（核心表，含乐观锁，状态机管理割接全流程）
+DROP TABLE IF EXISTS `cutover_plan`;
+CREATE TABLE `cutover_plan` (
+  `id`                    BIGINT       NOT NULL                 COMMENT '主键',
+  `project_id`            BIGINT       NOT NULL                 COMMENT '关联项目ID',
+  `plan_name`             VARCHAR(128) NOT NULL                 COMMENT '割接方案名称',
+  `cutover_date`          DATE         NOT NULL                 COMMENT '割接日期',
+  `start_time`            DATETIME     NOT NULL                 COMMENT '计划开始时间',
+  `end_time`              DATETIME     NOT NULL                 COMMENT '计划结束时间',
+  `impact_scope`          TEXT                  DEFAULT NULL    COMMENT '影响范围说明',
+  `emergency_contact`     VARCHAR(128)          DEFAULT NULL    COMMENT '应急联系人（姓名+电话）',
+  `status`                VARCHAR(32)  NOT NULL DEFAULT 'DRAFT'   COMMENT '状态 DRAFT/PENDING_INTERNAL_APPROVAL/INTERNAL_APPROVED/INTERNAL_REJECTED/PENDING_CUSTOMER_APPROVAL/CUSTOMER_APPROVED/CUSTOMER_REJECTED/EXECUTING/COMPLETED/ABORTED',
+  `apply_user_id`         BIGINT                DEFAULT NULL    COMMENT '编制人ID（PM）',
+  `apply_time`            DATETIME              DEFAULT NULL    COMMENT '编制时间',
+  `approval_user_id`      BIGINT                DEFAULT NULL    COMMENT '内部审批人ID（技术主管/总监）',
+  `approval_time`         DATETIME              DEFAULT NULL    COMMENT '内部审批时间',
+  `approval_remark`       VARCHAR(512)          DEFAULT NULL    COMMENT '内部审批意见',
+  `customer_sign_link`    VARCHAR(255)          DEFAULT NULL    COMMENT '客户审批链接token',
+  `customer_sign_user`    VARCHAR(64)           DEFAULT NULL    COMMENT '客户签核人姓名',
+  `customer_sign_time`    DATETIME              DEFAULT NULL    COMMENT '客户签核时间',
+  `customer_sign_result`  VARCHAR(16)           DEFAULT NULL    COMMENT '客户签核结果 APPROVED/REJECTED',
+  `customer_sign_remark`  VARCHAR(512)          DEFAULT NULL    COMMENT '客户审批意见',
+  `actual_start_time`     DATETIME              DEFAULT NULL    COMMENT '实际开始时间',
+  `actual_end_time`       DATETIME              DEFAULT NULL    COMMENT '实际结束时间',
+  `summary`               TEXT                  DEFAULT NULL    COMMENT '割接总结',
+  `problem_improvement`   TEXT                  DEFAULT NULL    COMMENT '问题与改进',
+  `remark`                VARCHAR(512)          DEFAULT NULL    COMMENT '备注',
+  `version`               INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`             BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`             BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`               TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_cutover_plan_project_id` (`project_id`),
+  KEY `idx_cutover_plan_status` (`status`),
+  KEY `idx_cutover_plan_cutover_date` (`cutover_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='割接方案表';
+
+-- 割接步骤表（有序操作步骤，每步含回退方案）
+DROP TABLE IF EXISTS `cutover_step`;
+CREATE TABLE `cutover_step` (
+  `id`                BIGINT       NOT NULL                 COMMENT '主键',
+  `plan_id`           BIGINT       NOT NULL                 COMMENT '所属割接方案ID',
+  `sort_order`        INT          NOT NULL                 COMMENT '步骤序号（从1开始）',
+  `step_name`         VARCHAR(128) NOT NULL                 COMMENT '步骤名称',
+  `description`       TEXT                  DEFAULT NULL    COMMENT '详细操作说明',
+  `estimated_duration` INT                  DEFAULT NULL    COMMENT '预估耗时（分钟）',
+  `owner_id`          BIGINT                DEFAULT NULL    COMMENT '负责人ID',
+  `owner_name`        VARCHAR(64)           DEFAULT NULL    COMMENT '负责人姓名',
+  `rollback_plan`     TEXT                  DEFAULT NULL    COMMENT '回退方案（异常时执行）',
+  `status`            VARCHAR(16)  NOT NULL DEFAULT 'PENDING' COMMENT '状态 PENDING/EXECUTING/COMPLETED/ROLLED_BACK/ABORTED',
+  `actual_start_time` DATETIME              DEFAULT NULL    COMMENT '实际开始时间',
+  `actual_end_time`   DATETIME              DEFAULT NULL    COMMENT '实际结束时间',
+  `actual_duration`   INT                   DEFAULT NULL    COMMENT '实际耗时（分钟）',
+  `execution_remark`  VARCHAR(512)          DEFAULT NULL    COMMENT '执行备注',
+  `exception_remark`  VARCHAR(512)          DEFAULT NULL    COMMENT '异常说明',
+  `version`           INT          NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+  `create_by`         BIGINT                DEFAULT NULL    COMMENT '创建人ID',
+  `create_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`         BIGINT                DEFAULT NULL    COMMENT '最后修改人ID',
+  `update_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `deleted`           TINYINT      NOT NULL DEFAULT 0       COMMENT '逻辑删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  KEY `idx_cutover_step_plan_id` (`plan_id`),
+  KEY `idx_cutover_step_status` (`status`),
+  KEY `idx_cutover_step_sort` (`plan_id`, `sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='割接步骤表';
+
+-- 割接操作日志表（全程操作留痕，支持异常追溯）
+DROP TABLE IF EXISTS `cutover_execution_log`;
+CREATE TABLE `cutover_execution_log` (
+  `id`            BIGINT       NOT NULL                 COMMENT '主键',
+  `plan_id`       BIGINT       NOT NULL                 COMMENT '所属割接方案ID',
+  `step_id`       BIGINT                DEFAULT NULL    COMMENT '关联步骤ID（方案级日志为空）',
+  `operator_id`   BIGINT                DEFAULT NULL    COMMENT '操作人ID',
+  `operator_name` VARCHAR(64)           DEFAULT NULL    COMMENT '操作人姓名',
+  `action`        VARCHAR(32)  NOT NULL                 COMMENT '操作动作 CREATE/SUBMIT_INTERNAL_APPROVAL/INTERNAL_APPROVE/INTERNAL_REJECT/START_CUSTOMER_APPROVAL/CUSTOMER_APPROVE/CUSTOMER_REJECT/START_EXECUTION/STEP_EXECUTE/STEP_ROLLBACK/STEP_EXCEPTION/COMPLETE/ABORT',
+  `log_time`      DATETIME     NOT NULL                 COMMENT '操作时间',
+  `log_content`   TEXT                  DEFAULT NULL    COMMENT '操作内容/详情',
+  `log_level`     VARCHAR(8)   NOT NULL DEFAULT 'INFO'   COMMENT '日志级别 INFO/WARN/ERROR',
+  `create_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_cutover_log_plan_id` (`plan_id`),
+  KEY `idx_cutover_log_step_id` (`step_id`),
+  KEY `idx_cutover_log_time` (`log_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='割接操作日志表';
+
 SET FOREIGN_KEY_CHECKS = 1;

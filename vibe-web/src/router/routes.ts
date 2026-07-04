@@ -201,6 +201,12 @@ export const routes: RouteRecordRaw[] = [
             name: 'DeliveryBoard',
             component: () => import('@/views/delivery/board.vue'),
             meta: { title: '交付看板', requireAuth: true, keepAlive: true, permission: 'delivery:view' }
+          },
+          {
+            path: 'cutover',
+            name: 'DeliveryCutover',
+            component: () => import('@/views/delivery/cutover.vue'),
+            meta: { title: '割接管理', requireAuth: true, keepAlive: true, permission: 'delivery:view' }
           }
         ]
       },

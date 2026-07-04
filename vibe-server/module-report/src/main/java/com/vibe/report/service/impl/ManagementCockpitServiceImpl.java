@@ -4,14 +4,20 @@ import com.vibe.report.constant.ReportConstant;
 import com.vibe.report.mapper.ReportMapper;
 import com.vibe.report.service.ManagementCockpitService;
 import com.vibe.report.vo.ChartDataVO;
+import com.vibe.report.vo.CockpitAggregatedVO;
+import com.vibe.report.vo.CockpitKpiVO;
 import com.vibe.report.vo.CockpitStatVO;
+import com.vibe.report.vo.PhaseDistributionVO;
+import com.vibe.report.vo.ProjectTrendVO;
 import com.vibe.report.vo.RiskProjectVO;
+import com.vibe.report.vo.RiskWarningVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -83,6 +89,121 @@ public class ManagementCockpitServiceImpl implements ManagementCockpitService {
     @Override
     public List<RiskProjectVO> getRiskProjects() {
         return reportMapper.selectRiskProjects(ReportConstant.RISK_LIST_SIZE);
+    }
+
+    @Override
+    public CockpitAggregatedVO getAggregated() {
+        CockpitAggregatedVO vo = new CockpitAggregatedVO();
+        vo.setKpi(buildKpi());
+        vo.setPhaseDistribution(buildPhaseDistribution());
+        vo.setProjectTrend(buildProjectTrend());
+        vo.setRiskWarnings(buildRiskWarnings());
+        // todoList 和 recentActivities 默认空列表（后续接入审批/操作日志模块）
+        return vo;
+    }
+
+    /* ============ 聚合数据转换 ============ */
+
+    /**
+     * 构建 KPI（对齐前端 CockpitKpi 字段名）
+     *
+     * <p>当前数据源：在建项目数来自 countActiveProjects，
+     * 风险项目数来自 selectRiskProjects 列表大小，
+     * 其余指标暂为 0（后续接入专项统计 SQL）。</p>
+     */
+    private CockpitKpiVO buildKpi() {
+        CockpitKpiVO kpi = new CockpitKpiVO();
+        kpi.setOngoingProjects(nvl(reportMapper.countActiveProjects()));
+        List<RiskProjectVO> risks = reportMapper.selectRiskProjects(ReportConstant.RISK_LIST_SIZE);
+        kpi.setRiskProjects((long) risks.size());
+        // 超期项目数 = 风险项目中 riskType 为 PROJECT_OVERDUE 的数量
+        kpi.setOverdueProjects(risks.stream()
+                .filter(r -> "PROJECT_OVERDUE".equals(r.getRiskType()))
+                .count());
+        // 本月新增/结项暂用趋势首月数据兜底（后续接入按月统计 SQL）
+        kpi.setMonthNewProjects(0L);
+        kpi.setMonthClosedProjects(0L);
+        // 利用率/到货率/验收率暂为 0（后续接入专项计算 SQL）
+        kpi.setEngineerUtilization(0.0);
+        kpi.setDeviceArrivalRate(0.0);
+        kpi.setAcceptanceCompletionRate(0.0);
+        return kpi;
+    }
+
+    /**
+     * 构建项目阶段分布（ChartDataVO → PhaseDistributionVO）
+     *
+     * <p>后端 ChartDataVO 使用 name/value，前端 PhaseDistribution 使用 phase/phaseName/count。</p>
+     */
+    private List<PhaseDistributionVO> buildPhaseDistribution() {
+        List<ChartDataVO> charts = reportMapper.countProjectsByPhase();
+        List<PhaseDistributionVO> result = new ArrayList<>(charts.size());
+        for (ChartDataVO c : charts) {
+            result.add(new PhaseDistributionVO(c.getName(), c.getName(), nvl(c.getValue())));
+        }
+        return result;
+    }
+
+    /**
+     * 构建项目趋势（ChartDataVO → ProjectTrendVO）
+     *
+     * <p>后端 ChartDataVO 使用 completedCount，前端 ProjectTrend 使用 closedCount。</p>
+     */
+    private List<ProjectTrendVO> buildProjectTrend() {
+        int year = LocalDate.now().getYear();
+        List<ChartDataVO> charts = reportMapper.countMonthlyProjects(year);
+        List<ProjectTrendVO> result = new ArrayList<>(charts.size());
+        for (ChartDataVO c : charts) {
+            result.add(new ProjectTrendVO(
+                    c.getMonth(),
+                    nvl(c.getNewCount()),
+                    nvl(c.getCompletedCount()),
+                    0L  // ongoingCount 暂为 0，后续接入累计在建计算
+            ));
+        }
+        return result;
+    }
+
+    /**
+     * 构建风险预警（RiskProjectVO → RiskWarningVO）
+     *
+     * <p>对齐前端 RiskWarning 字段名，并补充 level/riskType 映射。</p>
+     */
+    private List<RiskWarningVO> buildRiskWarnings() {
+        List<RiskProjectVO> risks = reportMapper.selectRiskProjects(ReportConstant.RISK_LIST_SIZE);
+        List<RiskWarningVO> result = new ArrayList<>(risks.size());
+        for (RiskProjectVO r : risks) {
+            RiskWarningVO w = new RiskWarningVO();
+            w.setId(r.getProjectId());  // 使用项目 ID 作为风险项 ID
+            w.setProjectId(r.getProjectId());
+            w.setProjectName(r.getProjectName());
+            w.setRiskType(mapRiskType(r.getRiskType()));
+            w.setDescription(r.getDescription());
+            w.setLevel(mapRiskLevel(r.getRiskType()));
+            w.setDetectedAt(r.getPlannedEnd() != null ? r.getPlannedEnd() : LocalDate.now());
+            result.add(w);
+        }
+        return result;
+    }
+
+    /** 后端风险类型 → 前端期望的 PROGRESS/DEVICE/RESOURCE/AGENT/OTHER */
+    private String mapRiskType(String backendRiskType) {
+        if (backendRiskType == null) return "OTHER";
+        return switch (backendRiskType) {
+            case "PROGRESS_DELAY", "PROJECT_OVERDUE", "OVERDUE_TASK" -> "PROGRESS";
+            case "UNRESOLVED_ISSUE" -> "OTHER";
+            default -> "OTHER";
+        };
+    }
+
+    /** 根据风险类型推断等级（PROJECT_OVERDUE → HIGH，PROGRESS_DELAY → MEDIUM，其他 → MEDIUM） */
+    private String mapRiskLevel(String backendRiskType) {
+        if (backendRiskType == null) return "MEDIUM";
+        return switch (backendRiskType) {
+            case "PROJECT_OVERDUE" -> "HIGH";
+            case "PROGRESS_DELAY", "OVERDUE_TASK" -> "MEDIUM";
+            default -> "MEDIUM";
+        };
     }
 
     /* ============ 私有工具 ============ */

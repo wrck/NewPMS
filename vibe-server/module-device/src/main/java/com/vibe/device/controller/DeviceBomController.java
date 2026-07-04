@@ -42,7 +42,11 @@ public class DeviceBomController {
     @Operation(summary = "查询项目 BOM 列表（含进度数量）")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DEVICE_ADMIN','PM','ENGINEER')")
     @GetMapping
-    public Result<List<DeviceBomVO>> listByProject(@RequestParam Long projectId) {
+    public Result<List<DeviceBomVO>> listByProject(@RequestParam(required = false) Long projectId) {
+        // projectId 为空时返回空列表，避免无项目维度的全表扫描
+        if (projectId == null) {
+            return Result.success(java.util.Collections.emptyList());
+        }
         return Result.success(deviceBomService.listByProject(projectId));
     }
 

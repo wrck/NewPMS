@@ -3,6 +3,7 @@ package com.vibe.report.controller;
 import com.vibe.common.result.Result;
 import com.vibe.report.service.ManagementCockpitService;
 import com.vibe.report.vo.ChartDataVO;
+import com.vibe.report.vo.CockpitAggregatedVO;
 import com.vibe.report.vo.CockpitStatVO;
 import com.vibe.report.vo.RiskProjectVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,7 +19,9 @@ import java.util.List;
 /**
  * 管理驾驶舱 Controller
  *
- * <p>核心指标卡片、项目阶段分布、项目趋势、风险项目。</p>
+ * <p>核心指标卡片、项目阶段分布、项目趋势、风险项目。
+ * 提供聚合端点 {@code GET /cockpit} 一次性返回全部数据，
+ * 也保留 4 个细分端点供按需加载。</p>
  *
  * @author vibe
  */
@@ -29,6 +32,13 @@ import java.util.List;
 public class CockpitController {
 
     private final ManagementCockpitService managementCockpitService;
+
+    @Operation(summary = "驾驶舱聚合数据", description = "一次性返回 KPI、阶段分布、项目趋势、风险项目、待办、动态")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping
+    public Result<CockpitAggregatedVO> aggregated() {
+        return Result.success(managementCockpitService.getAggregated());
+    }
 
     @Operation(summary = "核心指标卡片", description = "项目/设备/工程师/代理商数，含环比增长率")
     @PreAuthorize("isAuthenticated()")

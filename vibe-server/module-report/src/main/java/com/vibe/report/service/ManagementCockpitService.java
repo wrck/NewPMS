@@ -1,6 +1,7 @@
 package com.vibe.report.service;
 
 import com.vibe.report.vo.ChartDataVO;
+import com.vibe.report.vo.CockpitAggregatedVO;
 import com.vibe.report.vo.CockpitStatVO;
 import com.vibe.report.vo.RiskProjectVO;
 
@@ -34,4 +35,9 @@ public interface ManagementCockpitService {
      * 获取风险项目列表
      */
     List<RiskProjectVO> getRiskProjects();
+
+    /**
+     * 获取驾驶舱聚合数据（一次性返回全部数据，对应前端 getCockpit()）
+     */
+    CockpitAggregatedVO getAggregated();
 }

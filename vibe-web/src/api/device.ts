@@ -136,22 +136,28 @@ export function deleteWarehouse(id: number) {
 
 /* ============ 库存台账 ============ */
 
+/**
+ * 库存台账查询（对齐后端 /devices/inventory/ledger 端点）
+ *
+ * <p>后端 InventoryLedgerController 返回 List 而非 PageResult，
+ * 此处保持 PageResult 类型签名兼容，实际返回值按 List 解析。</p>
+ */
 export function pageInventory(params: InventoryQueryParams) {
-  return http.get<PageResult<InventoryLedger>>(`${BASE}/inventory`, params as Record<string, unknown>)
+  return http.get<PageResult<InventoryLedger>>(`${BASE}/inventory/ledger`, params as Record<string, unknown>)
 }
 
 export function pageInventoryLedger(params: InventoryQueryParams) {
   return http.get<PageResult<InventoryLedger>>(`${BASE}/inventory/ledger`, params as Record<string, unknown>)
 }
 
-/** 出入库流水 */
+/** 出入库流水（后端 /inventory/logs 返回 List） */
 export function pageInventoryTransactions(params: InventoryQueryParams & { type?: string }) {
-  return http.get<PageResult<InventoryTransaction>>(`${BASE}/inventory/transactions`, params as Record<string, unknown>)
+  return http.get<PageResult<InventoryTransaction>>(`${BASE}/inventory/logs`, params as Record<string, unknown>)
 }
 
-/** 新增出入库记录 */
+/** 新增出入库记录（后端 POST /inventory/actions） */
 export function createInventoryTransaction(dto: InventoryTransactionDTO) {
-  return http.post<number>(`${BASE}/inventory/transactions`, dto)
+  return http.post<number>(`${BASE}/inventory/actions`, dto)
 }
 
 /** 库存预警列表 */

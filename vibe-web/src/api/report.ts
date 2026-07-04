@@ -1,10 +1,18 @@
 /**
  * 报表分析模块 API 封装
- * 对应后端：/api/v1/report/{dashboard|cockpit|...}
+ * 对应后端：
+ *   - 管理驾驶舱：/api/v1/cockpit（独立模块，非 /report 子路径）
+ *   - 工作台首页：/api/v1/dashboard（独立模块）
+ *   - 业务报表：/api/v1/report/{project|device|resource|finance}（待实现）
  */
 import { http } from '@/utils/request'
 
+/** 业务报表基础路径（project/device/resource/finance 报表） */
 const BASE = '/report'
+/** 管理驾驶舱基础路径（独立模块） */
+const COCKPIT_BASE = '/cockpit'
+/** 工作台首页基础路径（独立模块） */
+const DASHBOARD_BASE = '/dashboard'
 
 /** 管理驾驶舱核心指标 */
 export interface CockpitKpi {
@@ -78,7 +86,7 @@ export interface CockpitData {
 
 /** 获取管理驾驶舱数据 */
 export function getCockpit() {
-  return http.get<CockpitData>(`${BASE}/cockpit`)
+  return http.get<CockpitData>(COCKPIT_BASE)
 }
 
 /** 仪表盘数据（首页） */
@@ -93,7 +101,7 @@ export function getDashboard() {
       monthDueProjects: number
       pendingDispatchTasks: number
     }
-  }>(`${BASE}/dashboard`)
+  }>(DASHBOARD_BASE)
 }
 
 /** 项目报表 */

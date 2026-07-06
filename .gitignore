@@ -1,5 +1,6 @@
 target
 logs
+node_modules
 
 build.log
 vibe-server/build.log

@@ -106,8 +106,15 @@ public class DomainEventRabbitConfig {
 
     /**
      * 领域事件 RabbitTemplate（独立命名，避免与 notificationRabbitTemplate 冲突）
+     *
+     * <p>标记 {@code @Primary}：项目中存在多个 {@link RabbitTemplate} Bean
+     * （本 Bean 与 module-system 的 {@code notificationRabbitTemplate}），Flowable
+     * {@code EventRegistryRabbitConfiguration} 等自动配置按类型注入时需要唯一候选，
+     * 多候选且无 @Primary 会报 "required a single bean, but 2 were found"。
+     * 标记 @Primary 让自动配置优先选取本 Bean。</p>
      */
     @Bean
+    @Primary
     public RabbitTemplate domainEventRabbitTemplate(ConnectionFactory connectionFactory,
                                                      MessageConverter domainEventMessageConverter) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);

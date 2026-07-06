@@ -65,8 +65,8 @@
         <elasticsearch-java.version>8.11.0</elasticsearch-java.version>
         <!-- XXL-JOB 分布式任务调度 -->
         <xxl-job.version>2.4.1</xxl-job.version>
-        <!-- Flyway 9.22.3 数据库迁移（9.x 保留 MySQL 开源支持 flyway-mysql 模块，核心 API 与 Spring Boot 3.2 自动配置兼容） -->
-        <flyway.version>9.22.3</flyway.version>
+        <!-- Flyway 8.5.13 数据库迁移（最后支持 MySQL 5.7 的版本；9.0+ 要求 MySQL 8.0+） -->
+        <flyway.version>8.5.13</flyway.version>
         <!-- Spring Cloud 2023.0.x（Leyton）兼容 Spring Boot 3.2.x，提供 OpenFeign 声明式 HTTP 客户端 -->
         <spring-cloud.version>2023.0.3</spring-cloud.version>
         <!-- Resilience4j 2.x（Spring Boot 3 starter）熔断/重试/限流/降级 -->
@@ -265,7 +265,7 @@
                 <artifactId>flyway-core</artifactId>
                 <version>${flyway.version}</version>
             </dependency>
-            <!-- Flyway MySQL 8 支持模块（Flyway 9.x 起 MySQL 支持独立为 flyway-mysql artifact） -->
+            <!-- Flyway MySQL 支持模块（Flyway 8.x 起 MySQL 支持独立为 flyway-mysql artifact，支持 DELIMITER 语法解析） -->
             <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-mysql</artifactId>

@@ -1,13 +1,13 @@
 package com.vibe.auth.provider;
 
+import com.vibe.auth.domain.enums.UserType;
 import com.vibe.common.constant.CommonConstant;
 import com.vibe.common.context.UserContext;
-import com.vibe.common.exception.BusinessException;
-import com.vibe.common.result.ResultCode;
 import com.vibe.utils.JwtUtils;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -26,6 +26,13 @@ import java.util.UUID;
  *   <li>续期：剩余有效期 &lt; 2h 时自动续签</li>
  * </ul>
  *
+ * <p>多类型用户认证（Task 5）：</p>
+ * <ul>
+ *   <li>Token 载荷新增 {@code userType} 字段（INTERNAL/AGENT/CUSTOMER）</li>
+ *   <li>不同 userType 配置不同有效期：INTERNAL 8h / AGENT 7d / CUSTOMER 2h</li>
+ *   <li>有效期可通过 {@code vibe.jwt.token-validity.*} 配置覆盖</li>
+ * </ul>
+ *
  * @author vibe
  */
 @Slf4j
@@ -35,16 +42,40 @@ public class JwtTokenProvider {
 
     private final JwtUtils jwtUtils;
 
+    /** 内部用户 Token 有效期（秒），默认 8h */
+    @Value("${vibe.jwt.token-validity.internal:28800}")
+    private long internalTtl;
+
+    /** 代理商 Token 有效期（秒），默认 7d */
+    @Value("${vibe.jwt.token-validity.agent:604800}")
+    private long agentTtl;
+
+    /** 客户 Token 有效期（秒），默认 2h */
+    @Value("${vibe.jwt.token-validity.customer:7200}")
+    private long customerTtl;
+
     /**
-     * 签发 Token
+     * 签发 Token（向后兼容：从 UserContext.tenantType 推导 userType）
      *
      * @param ctx         用户上下文
      * @param clientType  客户端类型：PC / MOBILE / AGENT / CUSTOMER
      * @return JWT Token 字符串
      */
     public String generateToken(UserContext ctx, String clientType) {
+        return generateToken(ctx, clientType, resolveUserTypeFromContext(ctx));
+    }
+
+    /**
+     * 签发 Token（显式指定 userType）
+     *
+     * @param ctx         用户上下文
+     * @param clientType  客户端类型：PC / MOBILE / AGENT / CUSTOMER
+     * @param userType    用户类型：INTERNAL / AGENT / CUSTOMER
+     * @return JWT Token 字符串
+     */
+    public String generateToken(UserContext ctx, String clientType, UserType userType) {
         String tokenId = UUID.randomUUID().toString().replace("-", "");
-        long ttl = resolveTtl(clientType);
+        long ttl = resolveTtl(userType, clientType);
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", ctx.getUserId());
@@ -55,6 +86,8 @@ public class JwtTokenProvider {
         claims.put("tenantId", ctx.getTenantId());
         claims.put("orgId", ctx.getOrgId());
         claims.put("clientType", clientType);
+        // Task 5: Token 载荷新增 userType 字段
+        claims.put("userType", userType == null ? UserType.INTERNAL.name() : userType.name());
         ctx.setTokenId(tokenId);
         ctx.setClientType(clientType);
 
@@ -77,6 +110,21 @@ public class JwtTokenProvider {
                 .clientType(jwtUtils.getClientType(claims))
                 .tokenId(jwtUtils.getTokenId(claims))
                 .build();
+    }
+
+    /**
+     * Task 5：从 Token 解析 userType
+     *
+     * @param token JWT Token
+     * @return UserType 实例，缺失时返回 null
+     */
+    public UserType parseUserType(String token) {
+        Claims claims = jwtUtils.parseToken(token);
+        Object v = claims.get("userType");
+        if (v == null) {
+            return null;
+        }
+        return UserType.fromString(v.toString());
     }
 
     /**
@@ -108,22 +156,48 @@ public class JwtTokenProvider {
                 .orgId(jwtUtils.getOrgId(claims))
                 .build();
         String clientType = jwtUtils.getClientType(claims);
-        return generateToken(ctx, clientType == null ? CommonConstant.CLIENT_TYPE_PC : clientType);
+        // 续签时保留原 userType
+        UserType userType = parseUserType(oldToken);
+        return generateToken(ctx, clientType == null ? CommonConstant.CLIENT_TYPE_PC : clientType,
+                userType == null ? UserType.INTERNAL : userType);
     }
 
     /**
-     * 根据客户端类型解析 Token 有效期
+     * 根据 userType + clientType 解析 Token 有效期（秒）
+     *
+     * <p>优先级：userType > clientType > 默认（INTERNAL 8h）</p>
      */
-    private long resolveTtl(String clientType) {
+    private long resolveTtl(UserType userType, String clientType) {
+        // 优先按 userType 决定有效期
+        if (userType != null) {
+            return switch (userType) {
+                case INTERNAL -> internalTtl;
+                case AGENT -> agentTtl;
+                case CUSTOMER -> customerTtl;
+            };
+        }
+        // userType 缺失时按 clientType 回退（兼容旧 Token 续签）
         if (clientType == null) {
             return CommonConstant.TOKEN_TTL_PC;
         }
         return switch (clientType) {
             case CommonConstant.CLIENT_TYPE_MOBILE -> CommonConstant.TOKEN_TTL_MOBILE;
             case CommonConstant.CLIENT_TYPE_CUSTOMER -> CommonConstant.TOKEN_TTL_CUSTOMER;
-            // 代理商与 PC 默认 8h
-            case CommonConstant.CLIENT_TYPE_AGENT, CommonConstant.CLIENT_TYPE_PC -> CommonConstant.TOKEN_TTL_PC;
             default -> CommonConstant.TOKEN_TTL_PC;
+        };
+    }
+
+    /**
+     * 从 UserContext.tenantType 推导 UserType（向后兼容）
+     */
+    private UserType resolveUserTypeFromContext(UserContext ctx) {
+        if (ctx == null || ctx.getTenantType() == null) {
+            return UserType.INTERNAL;
+        }
+        return switch (ctx.getTenantType()) {
+            case CommonConstant.TENANT_TYPE_AGENT -> UserType.AGENT;
+            case CommonConstant.TENANT_TYPE_CUSTOMER -> UserType.CUSTOMER;
+            default -> UserType.INTERNAL;
         };
     }
 

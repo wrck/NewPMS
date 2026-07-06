@@ -1,5 +1,13 @@
 package com.vibe.auth.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.vibe.agent.constant.AgentConstant;
+import com.vibe.agent.entity.AgentEngineerEntity;
+import com.vibe.agent.mapper.AgentEngineerMapper;
+import com.vibe.auth.domain.AuthUser;
+import com.vibe.auth.domain.enums.UserType;
+import com.vibe.auth.dto.AgentLoginDTO;
+import com.vibe.auth.dto.CustomerLoginDTO;
 import com.vibe.auth.dto.LoginDTO;
 import com.vibe.auth.provider.JwtTokenProvider;
 import com.vibe.auth.service.AuthService;
@@ -9,6 +17,8 @@ import com.vibe.common.constant.RedisKeyConstant;
 import com.vibe.common.context.UserContext;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
+import com.vibe.project.entity.CustomerEntity;
+import com.vibe.project.mapper.CustomerMapper;
 import com.vibe.system.constant.SystemConstant;
 import com.vibe.system.service.SysUserService;
 import com.vibe.system.vo.RoleSimpleVO;
@@ -40,6 +50,13 @@ import java.util.stream.Collectors;
  *   <li>更新最后登录时间</li>
  * </ol>
  *
+ * <p>多类型用户认证（Task 5）：</p>
+ * <ul>
+ *   <li>{@link #login} —— 内部用户账号密码登录（userType=INTERNAL，8h）</li>
+ *   <li>{@link #agentLogin} —— 代理商工程师手机号验证码登录（userType=AGENT，7d）</li>
+ *   <li>{@link #customerLogin} —— 客户手机号验证码登录（userType=CUSTOMER，2h）</li>
+ * </ul>
+ *
  * @author vibe
  */
 @Slf4j
@@ -52,6 +69,10 @@ public class AuthServiceImpl implements AuthService {
     private final RedisUtils redisUtils;
     private final SysUserService sysUserService;
     private final PasswordEncoder passwordEncoder;
+
+    // Task 5: 独立 Mapper（从 module-agent / module-project 解耦查询代理商/客户）
+    private final AgentEngineerMapper agentEngineerMapper;
+    private final CustomerMapper customerMapper;
 
     @Override
     public LoginVO login(LoginDTO dto) {
@@ -92,7 +113,7 @@ public class AuthServiceImpl implements AuthService {
         // 5. 解析客户端类型（默认 PC），clientId/clientType 均兼容
         String clientType = resolveClientType(dto.getClientId());
 
-        // 6. 签发 Token
+        // 6. 签发 Token（userType 由 tenantType 推导，内部用户=INTERNAL）
         String token = jwtTokenProvider.generateToken(ctx, clientType);
 
         // 7. 更新最后登录时间（异步不影响登录主流程，失败忽略）
@@ -104,6 +125,105 @@ public class AuthServiceImpl implements AuthService {
 
         // 8. 组装嵌套 userInfo 的 LoginVO（与前端 LoginResult 对齐）
         return buildLoginVO(token, clientType, user, roleCodes);
+    }
+
+    @Override
+    public LoginVO agentLogin(AgentLoginDTO dto) {
+        // 1. 校验短信验证码
+        verifySmsCode(dto.getPhone(), dto.getSmsCode());
+
+        // 2. 按手机号查询代理商工程师
+        AgentEngineerEntity agent = agentEngineerMapper.selectOne(
+                new LambdaQueryWrapper<AgentEngineerEntity>()
+                        .eq(AgentEngineerEntity::getPhone, dto.getPhone()));
+        if (agent == null) {
+            log.warn("[Auth] 代理商工程师不存在 phone={}", dto.getPhone());
+            throw BusinessException.of(ResultCode.ACCOUNT_NOT_FOUND);
+        }
+
+        // 3. 状态校验
+        if (!AgentConstant.ENGINEER_STATUS_ACTIVE.equalsIgnoreCase(agent.getStatus())) {
+            throw BusinessException.of(ResultCode.ACCOUNT_DISABLED);
+        }
+
+        // 4. 构建认证用户聚合根
+        AuthUser authUser = AuthUser.ofAgent(agent, List.of(AgentConstant.ROLE_AGENT_ENGINEER),
+                Collections.emptyList());
+
+        // 5. 组装 UserContext
+        UserContext ctx = UserContext.builder()
+                .userId(authUser.getId())
+                .userName(authUser.getUsername())
+                .realName(authUser.getRealName())
+                .roles(authUser.getRoles())
+                .tenantType(CommonConstant.TENANT_TYPE_AGENT)
+                .tenantId(authUser.getTenantId())
+                .build();
+
+        // 6. 签发 AGENT 类型 Token（7d）
+        String token = jwtTokenProvider.generateToken(ctx, CommonConstant.CLIENT_TYPE_AGENT,
+                UserType.AGENT);
+
+        return buildLoginVOFromAuthUser(token, authUser, CommonConstant.CLIENT_TYPE_AGENT);
+    }
+
+    @Override
+    public LoginVO customerLogin(CustomerLoginDTO dto) {
+        // 1. 校验短信验证码
+        verifySmsCode(dto.getPhone(), dto.getSmsCode());
+
+        // 2. 按联系人电话查询客户
+        CustomerEntity customer = customerMapper.selectOne(
+                new LambdaQueryWrapper<CustomerEntity>()
+                        .eq(CustomerEntity::getContactPhone, dto.getPhone()));
+
+        // 3. 构建 UserContext
+        UserContext ctx;
+        AuthUser authUser;
+        if (customer == null) {
+            // 客户联系人未在 customer 表登记，仍允许登录（仅以手机号作为身份）
+            log.info("[Auth] 客户联系人未登记，按手机号签发临时 Token phone={}", dto.getPhone());
+            ctx = UserContext.builder()
+                    .userName(dto.getPhone())
+                    .tenantType(CommonConstant.TENANT_TYPE_CUSTOMER)
+                    .roles(List.of("CUSTOMER"))
+                    .build();
+            String token = jwtTokenProvider.generateToken(ctx, CommonConstant.CLIENT_TYPE_CUSTOMER,
+                    UserType.CUSTOMER);
+            return buildLoginVOFromContext(token, CommonConstant.CLIENT_TYPE_CUSTOMER, ctx);
+        }
+
+        // 4. 构建 CUSTOMER 类型聚合根
+        authUser = AuthUser.ofCustomer(customer, List.of("CUSTOMER"), Collections.emptyList());
+        ctx = UserContext.builder()
+                .userId(authUser.getId())
+                .userName(authUser.getUsername())
+                .realName(authUser.getRealName())
+                .roles(authUser.getRoles())
+                .tenantType(CommonConstant.TENANT_TYPE_CUSTOMER)
+                .tenantId(authUser.getTenantId())
+                .build();
+
+        // 5. 签发 CUSTOMER 类型 Token（2h）
+        String token = jwtTokenProvider.generateToken(ctx, CommonConstant.CLIENT_TYPE_CUSTOMER,
+                UserType.CUSTOMER);
+
+        return buildLoginVOFromAuthUser(token, authUser, CommonConstant.CLIENT_TYPE_CUSTOMER);
+    }
+
+    /**
+     * 校验短信验证码（验证码使用后立即删除）
+     *
+     * @param phone   手机号
+     * @param smsCode 验证码
+     */
+    private void verifySmsCode(String phone, String smsCode) {
+        String cached = redisUtils.getStr(RedisKeyConstant.smsCode(phone));
+        if (cached == null || !cached.equals(smsCode)) {
+            throw new BusinessException(ResultCode.SMS_CODE_ERROR);
+        }
+        // 验证码使用后立即删除
+        redisUtils.delete(RedisKeyConstant.smsCode(phone));
     }
 
     /**
@@ -151,29 +271,11 @@ public class AuthServiceImpl implements AuthService {
         // 解析旧 Token 生成新 Token（即使旧 Token 过期，也允许在宽限期内刷新）
         UserContext ctx = jwtTokenProvider.parseUserContext(token);
         String clientType = resolveClientType(ctx.getClientType());
-        String newToken = jwtTokenProvider.generateToken(ctx, clientType);
+        // 续签时保留原 userType
+        UserType userType = jwtTokenProvider.parseUserType(token);
+        String newToken = jwtTokenProvider.generateToken(ctx, clientType, userType);
         // 刷新时无法重新查库，直接用 UserContext 信息组装
         return buildLoginVOFromContext(newToken, clientType, ctx);
-    }
-
-    @Override
-    public LoginVO customerLogin(String phone, String smsCode) {
-        // 客户手机号 + 短信验证码登录
-        String cached = redisUtils.getStr(RedisKeyConstant.smsCode(phone));
-        if (cached == null || !cached.equals(smsCode)) {
-            throw new BusinessException(ResultCode.SMS_CODE_ERROR);
-        }
-        // 验证码使用后立即删除
-        redisUtils.delete(RedisKeyConstant.smsCode(phone));
-
-        // TODO 查询客户联系人 -> 组装 UserContext
-        UserContext ctx = UserContext.builder()
-                .userName(phone)
-                .tenantType(CommonConstant.TENANT_TYPE_CUSTOMER)
-                .roles(List.of("CUSTOMER"))
-                .build();
-        String token = jwtTokenProvider.generateToken(ctx, CommonConstant.CLIENT_TYPE_CUSTOMER);
-        return buildLoginVOFromContext(token, CommonConstant.CLIENT_TYPE_CUSTOMER, ctx);
     }
 
     @Override
@@ -205,6 +307,29 @@ public class AuthServiceImpl implements AuthService {
         userInfo.setTenantId(user.getTenantId());
         userInfo.setOrgId(user.getOrgId());
         userInfo.setOrgName(user.getOrgName());
+        vo.setUserInfo(userInfo);
+        return vo;
+    }
+
+    /**
+     * 构建登录响应（基于 AuthUser 聚合根）。
+     * 用于 agentLogin / customerLogin 流程。
+     */
+    private LoginVO buildLoginVOFromAuthUser(String token, AuthUser authUser, String clientType) {
+        long ttl = resolveTtl(clientType);
+        LoginVO vo = new LoginVO();
+        vo.setToken(token);
+        vo.setExpiresIn(ttl);
+        vo.setRefreshToken("");
+
+        LoginVO.UserInfo userInfo = new LoginVO.UserInfo();
+        userInfo.setUserId(authUser.getId());
+        userInfo.setUserName(authUser.getUsername());
+        userInfo.setRealName(authUser.getRealName());
+        userInfo.setRoles(authUser.getRoles());
+        userInfo.setTenantType(authUser.getUserType() == UserType.AGENT
+                ? CommonConstant.TENANT_TYPE_AGENT : CommonConstant.TENANT_TYPE_CUSTOMER);
+        userInfo.setTenantId(authUser.getTenantId());
         vo.setUserInfo(userInfo);
         return vo;
     }
@@ -242,6 +367,7 @@ public class AuthServiceImpl implements AuthService {
         return switch (clientType) {
             case CommonConstant.CLIENT_TYPE_MOBILE -> CommonConstant.TOKEN_TTL_MOBILE;
             case CommonConstant.CLIENT_TYPE_CUSTOMER -> CommonConstant.TOKEN_TTL_CUSTOMER;
+            case CommonConstant.CLIENT_TYPE_AGENT -> CommonConstant.TOKEN_TTL_MOBILE;
             default -> CommonConstant.TOKEN_TTL_PC;
         };
     }

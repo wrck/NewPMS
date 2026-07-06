@@ -26,5 +26,17 @@
             <groupId>com.vibe</groupId>
             <artifactId>module-system</artifactId>
         </dependency>
+        <!-- Task 5: module-agent 提供 AgentEngineerEntity / AgentEngineerMapper（代理商登录查询） -->
+        <!-- 无循环依赖：module-agent 仅依赖 module-common + module-system -->
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-agent</artifactId>
+        </dependency>
+        <!-- Task 5: module-project 提供 CustomerEntity / CustomerMapper（客户登录查询） -->
+        <!-- 无循环依赖：module-project 仅依赖 module-common + module-system -->
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-project</artifactId>
+        </dependency>
     </dependencies>
 </project>

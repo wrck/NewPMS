@@ -4,19 +4,23 @@ title Vibe Service Management System - Launcher
 setlocal EnableDelayedExpansion
 
 :: ============================================================================
-:: Vibe 服务管理系统 - 一键启动入口
-:: 用法:
-::   start.bat                 (无参数) -> 进入交互菜单
-::   start.bat all             -> 一键启动全部
-::   start.bat middleware      -> 仅启动 Docker 中间件
-::   start.bat backend         -> 仅启动后端
-::   start.bat frontends       -> 启动全部前端
-::   start.bat web             -> 仅启动 vibe-web
-::   start.bat mobile          -> 仅启动 vibe-mobile
-::   start.bat portal          -> 仅启动 vibe-portal
-::   start.bat stop            -> 停止全部服务
-::   start.bat status          -> 查看服务状态
-::   start.bat restart         -> 重启全部服务
+:: Vibe Service Management System - Launcher
+::
+:: Usage:
+::   start.bat                 (no arg) -> interactive menu
+::   start.bat all             -> start all services (middleware + backend + frontends)
+::   start.bat middleware      -> start Docker middleware only
+::   start.bat backend         -> start vibe-server only
+::   start.bat frontends       -> start all frontends (web + mobile + portal)
+::   start.bat web             -> start vibe-web only
+::   start.bat mobile          -> start vibe-mobile only
+::   start.bat portal          -> start vibe-portal only
+::   start.bat stop            -> stop all services
+::   start.bat status          -> show service status
+::   start.bat restart         -> restart all services
+::
+:: All Chinese output is provided by start.ps1 (UTF-8 with BOM).
+:: This .bat file uses English only to avoid cmd.exe GBK encoding issues.
 :: ============================================================================
 
 set "SCRIPT_DIR=%~dp0"
@@ -29,34 +33,25 @@ echo      Vibe Service Management System - Launcher
 echo ============================================================
 echo.
 
-:: --- Self-elevate to Administrator (port management needs it) ---
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [INFO] 当前未以管理员身份运行，正在尝试提权...
-    echo.
-    powershell -Command "Start-Process -FilePath '%~f0' -ArgumentList '%ACTION%' -Verb RunAs"
-    exit /b
-)
-
 :: --- Check PowerShell script exists ---
 if not exist "%PS1_SCRIPT%" (
-    echo [ERROR] 找不到 PowerShell 脚本: %PS1_SCRIPT%
+    echo [ERROR] PowerShell script not found: %PS1_SCRIPT%
     echo.
     pause
     exit /b 1
 )
 
 :: --- Build PowerShell arguments ---
-set "PS_ARGS=-ExecutionPolicy Bypass -NoProfile -File \"%PS1_SCRIPT%\""
+set "PS_ARGS=-ExecutionPolicy Bypass -NoProfile -File "%PS1_SCRIPT%""
 if /i not "%ACTION%"=="" (
-    set "PS_ARGS=!PS_ARGS! \"%ACTION%\""
+    set "PS_ARGS=!PS_ARGS! "%ACTION%""
 )
 
 :: --- Launch PowerShell ---
 if /i "%ACTION%"=="" (
-    echo [INFO] 启动交互菜单...
+    echo [INFO] Launching interactive menu...
 ) else (
-    echo [INFO] 执行操作: %ACTION%
+    echo [INFO] Action: %ACTION%
 )
 echo.
 
@@ -67,9 +62,9 @@ echo.
 if not "%ACTION%"=="" (
     echo ============================================================
     if %EXIT_CODE% equ 0 (
-        echo  操作完成
+        echo  Done.
     ) else (
-        echo  操作失败 (退出码: %EXIT_CODE%)
+        echo  Failed (exit code: %EXIT_CODE%)
     )
     echo ============================================================
     echo.

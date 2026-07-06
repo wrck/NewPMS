@@ -101,19 +101,19 @@
 
 ## E. 测试与质量保障
 
-- [ ] Task E1: 前端低代码模块单元测试
-  - [ ] E1.1: `api/lowcode.ts` 接口测试
-  - [ ] E1.2: `components/Lowcode/*` 组件测试（拖拽/属性编辑/预览渲染）
-  - [ ] E1.3: `views/lowcode/*` 视图测试
-- [ ] Task E2: 新增实体管理视图测试
-  - [ ] E2.1: warehouse / spare-part / business-trip / leave / customer 等视图测试
-- [ ] Task E3: 后端 Feedback / 低代码 Service 单测与集成测试
-  - [ ] E3.1: FeedbackService JUnit5 单测
-  - [ ] E3.2: 低代码 Service 已有，补全 MockMvc 集成测试
-- [ ] Task E4: E2E 冒烟脚本扩充
-  - [ ] E4.1: 现有 11 条扩充到 20 条（覆盖低代码、反馈、新实体管理）
-- [ ] Task E5: 测试覆盖率报告
-  - [ ] E5.1: 配置 vitest 覆盖率收集，新增代码覆盖率 ≥ 90%
+- [x] Task E1: 前端低代码模块单元测试
+  - [x] E1.1: `api/lowcode.ts` 接口测试
+  - [x] E1.2: `components/Lowcode/*` 组件测试（拖拽/属性编辑/预览渲染）
+  - [x] E1.3: `views/lowcode/*` 视图测试
+- [x] Task E2: 新增实体管理视图测试
+  - [x] E2.1: warehouse / spare-part / business-trip / leave / customer 等视图测试
+- [x] Task E3: 后端 Feedback / 低代码 Service 单测与集成测试
+  - [x] E3.1: FeedbackService JUnit5 单测
+  - [x] E3.2: 低代码 Service 已有，补全 MockMvc 集成测试
+- [x] Task E4: E2E 冒烟脚本扩充
+  - [x] E4.1: 现有 11 条扩充到 20 条（覆盖低代码、反馈、新实体管理）
+- [x] Task E5: 测试覆盖率报告
+  - [x] E5.1: 配置 vitest 覆盖率收集，新增代码覆盖率 ≥ 90%
 
 ## F. 文档体系
 

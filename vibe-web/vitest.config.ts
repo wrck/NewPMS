@@ -26,17 +26,25 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: false,
-    setupFiles: ['src/components/CrudTable/__tests__/setup.ts'],
+    setupFiles: [
+      'src/components/CrudTable/__tests__/setup.ts',
+      'src/components/FormModal/__tests__/setup.ts'
+    ],
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.spec.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/components/CrudTable/index.vue'],
+      include: [
+        'src/components/CrudTable/index.vue',
+        'src/components/FormModal/index.vue'
+      ],
       exclude: [
         'src/**/*.d.ts',
         'src/components/index.ts',
         'src/components/CrudTable/types.ts',
-        'src/components/CrudTable/__tests__/**'
+        'src/components/CrudTable/__tests__/**',
+        'src/components/FormModal/types.ts',
+        'src/components/FormModal/__tests__/**'
       ]
     }
   }

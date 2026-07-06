@@ -7,9 +7,11 @@
  * - unplugin-vue-components 已配置自动注册（src/components 目录），模板中可无需显式 import
  *
  * spec 阶段三 Task 12：新增 CrudTable 通用 CRUD 表格组件
+ * spec 阶段三 Task 13：新增 FormModal 通用表单弹窗组件
  * spec 阶段三 Task 17：新增 Charts 图表包装组件（ECharts 5 + vue-echarts 6）
  */
 export { default as CrudTable } from './CrudTable/index.vue'
+export { default as FormModal } from './FormModal/index.vue'
 export { default as StatisticCard } from './StatisticCard.vue'
 export { default as StatusTag } from './StatusTag.vue'
 export { default as PageContainer } from './PageContainer.vue'
@@ -41,3 +43,12 @@ export type {
   ColumnAlign,
   ValueEnumItem
 } from './CrudTable/types'
+
+export type {
+  FormField,
+  FormFieldOption,
+  FormFieldCondition,
+  FormFieldOptionsWhen,
+  FormModalExpose,
+  FormFieldType as FormModalFieldType
+} from './FormModal/types'

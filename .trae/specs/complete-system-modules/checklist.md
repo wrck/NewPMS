@@ -38,24 +38,24 @@
 - [x] AuthController 新增 `/auth/agent/login`、`/auth/customer/login` 端点
 - [x] module-collaboration 独立持久层：3 张表 + Entity + Mapper + Service 就位
 - [x] CustomerPortalController 增加偏好/订阅/会话管理端点
-- [ ] module-report ReportMapper 拆分为 4 个：ProjectReport/DeviceReport/ResourceReport/FinanceReport
-- [ ] 对应 XML 拆分为 4 个文件
-- [ ] 高并发聚合查询走 ES（验证：报表接口 P95 < 200ms）
-- [ ] 明细查询走 MySQL + Caffeine + Redis 二级缓存
-- [ ] module-integration 4 个 Adapter 实现：ErpCustomerSync/ImNotification/LogisticsStatus/OaApproval
-- [ ] Resilience4j 集成：每个 Adapter 独立熔断/降级/重试/限流配置
+- [x] module-report ReportMapper 拆分为 4 个：ProjectReport/DeviceReport/ResourceReport/FinanceReport
+- [x] 对应 XML 拆分为 4 个文件
+- [x] 高并发聚合查询走 ES（验证：报表接口 P95 < 200ms）
+- [x] 明细查询走 MySQL + Caffeine + Redis 二级缓存
+- [x] module-integration 4 个 Adapter 实现：ErpCustomerSync/ImNotification/LogisticsStatus/OaApproval
+- [x] Resilience4j 集成：每个 Adapter 独立熔断/降级/重试/限流配置
 - [ ] 领域事件总线：DomainEvent 抽象基类 + DomainEventPublisher 接口就位
 - [ ] RabbitMqDomainEventPublisher 实现
 - [ ] 15 个领域事件定义完整
 - [ ] 各业务模块在关键操作后发布事件验证（grep `publisher.publish` 调用点）
 - [ ] module-report 监听事件实时更新 ES 索引验证
 - [ ] module-system 通知引擎监听事件触发通知验证
-- [ ] 全局异常处理增强：5 级异常分类（Business/Permission/Data/External/System）
-- [ ] GlobalExceptionHandler 按异常类型返回不同错误码区间与恢复策略
-- [ ] Micrometer Tracing + Zipkin 集成，TraceId 贯穿日志
-- [ ] TraceContextFilter 生成 TraceId 并放入 MDC
-- [ ] Result<T> 响应体增加 traceId 字段
-- [ ] logback-spring.xml 输出 TraceId
+- [x] 全局异常处理增强：5 级异常分类（Business/Permission/Data/External/System）
+- [x] GlobalExceptionHandler 按异常类型返回不同错误码区间与恢复策略
+- [x] Micrometer Tracing + Zipkin 集成，TraceId 贯穿日志
+- [x] TraceContextFilter 生成 TraceId 并放入 MDC
+- [x] Result<T> 响应体增加 traceId 字段
+- [x] logback-spring.xml 输出 TraceId
 - [x] EasyExcel 通用导出方法 `ExcelUtils.export` 就位
 - [x] 11 个 Controller 增加 export 端点：财务 4 个 + 项目 2 个 + 资源 2 个 + 代理商 2 个 + 设备 3 个
 
@@ -64,9 +64,9 @@
 - [x] CrudTable 组件就位：搜索表单 + 分页 + 新增/编辑/删除弹窗 + 表单验证 + 状态反馈 + 异常处理
 - [x] CrudTable 支持自定义 actions、行选择、批量操作
 - [x] CrudTable Vitest 单元测试覆盖率 ≥80%
-- [ ] FormModal 组件就位：8 类字段（input/select/date/switch/radio/checkbox/cascader/upload/treeSelect）
-- [ ] FormModal 支持字段联动、异步选项加载、表单验证规则
-- [ ] FormModal Vitest 覆盖率 ≥80%
+- [x] FormModal 组件就位：8 类字段（input/select/date/switch/radio/checkbox/cascader/upload/treeSelect）
+- [x] FormModal 支持字段联动、异步选项加载、表单验证规则
+- [x] FormModal Vitest 覆盖率 ≥80%
 - [ ] FileUpload 组件就位：MinIO 预签名 URL 直传 + 图片预览 + 文件列表
 - [ ] FileUpload 图片压缩（质量 85%、长边 ≤2048px）+ 缩略图 + 水印（时间+GPS+上传人）
 - [ ] FileUpload 大文件分片上传（>10MB 自动分片 5MB）

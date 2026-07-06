@@ -68,19 +68,19 @@
   - [x] SubTask 6.2: 创建对应 Mapper 与 Service
   - [x] SubTask 6.3: 扩展 CustomerPortalController 增加偏好/订阅/会话管理端点
 
-- [ ] Task 7: module-report Mapper 拆分 [P]
-  - [ ] SubTask 7.1: 拆分 `ReportMapper.java` 为 `ProjectReportMapper` / `DeviceReportMapper` / `ResourceReportMapper` / `FinanceReportMapper`
-  - [ ] SubTask 7.2: 对应拆分 `ReportMapper.xml` 为 4 个 XML 文件
-  - [ ] SubTask 7.3: 高并发聚合查询（项目趋势、设备分布、工时统计、利润分析）改走 ES 聚合
-  - [ ] SubTask 7.4: 明细查询保留 MySQL，通过 Caffeine + Redis 二级缓存优化
+- [x] Task 7: module-report Mapper 拆分 [P]
+  - [x] SubTask 7.1: 拆分 `ReportMapper.java` 为 `ProjectReportMapper` / `DeviceReportMapper` / `ResourceReportMapper` / `FinanceReportMapper`
+  - [x] SubTask 7.2: 对应拆分 `ReportMapper.xml` 为 4 个 XML 文件
+  - [x] SubTask 7.3: 高并发聚合查询（项目趋势、设备分布、工时统计、利润分析）改走 ES 聚合
+  - [x] SubTask 7.4: 明细查询保留 MySQL，通过 Caffeine + Redis 二级缓存优化
 
-- [ ] Task 8: module-integration 实际对接 Adapter [P]
-  - [ ] SubTask 8.1: 引入 Spring Cloud OpenFeign 依赖
-  - [ ] SubTask 8.2: 实现 `ErpCustomerSyncAdapter`（@FeignClient 调用 ERP 客户主数据接口，定时同步）
-  - [ ] SubTask 8.3: 实现 `ImNotificationAdapter`（转发内部通知到 IM 系统：飞书/钉钉/企微）
-  - [ ] SubTask 8.4: 实现 `LogisticsStatusAdapter`（拉取物流状态，更新设备 SHIPPED 阶段到货预计时间）
-  - [ ] SubTask 8.5: 实现 `OaApprovalAdapter`（OA 审批联动：项目立项/验收/割接审批可联动 OA 系统）
-  - [ ] SubTask 8.6: 集成 Resilience4j 实现熔断/降级/重试/限流（每个 Adapter 独立配置阈值）
+- [x] Task 8: module-integration 实际对接 Adapter [P]
+  - [x] SubTask 8.1: 引入 Spring Cloud OpenFeign 依赖
+  - [x] SubTask 8.2: 实现 `ErpCustomerSyncAdapter`（@FeignClient 调用 ERP 客户主数据接口，定时同步）
+  - [x] SubTask 8.3: 实现 `ImNotificationAdapter`（转发内部通知到 IM 系统：飞书/钉钉/企微）
+  - [x] SubTask 8.4: 实现 `LogisticsStatusAdapter`（拉取物流状态，更新设备 SHIPPED 阶段到货预计时间）
+  - [x] SubTask 8.5: 实现 `OaApprovalAdapter`（OA 审批联动：项目立项/验收/割接审批可联动 OA 系统）
+  - [x] SubTask 8.6: 集成 Resilience4j 实现熔断/降级/重试/限流（每个 Adapter 独立配置阈值）
 
 - [ ] Task 9: 领域事件总线与模块间通信 [P]
   - [x] SubTask 9.1: 在 `module-common` 创建 `DomainEvent` 抽象基类与 `DomainEventPublisher` 接口
@@ -89,13 +89,13 @@
   - [ ] SubTask 9.4: 各业务模块发布事件（在 Service 层关键业务操作后调用 publisher.publish）
   - [ ] SubTask 9.5: module-report 监听事件实时更新 ES 索引；module-system 通知引擎监听事件触发通知
 
-- [ ] Task 10: 全局异常处理增强与链路追踪 [P]
-  - [ ] SubTask 10.1: 扩展 `BusinessException` 为分级异常（BusinessException/PermissionException/DataException/ExternalException/SystemException）
-  - [ ] SubTask 10.2: 修改 `GlobalExceptionHandler` 按异常类型返回不同错误码区间与恢复策略
-  - [ ] SubTask 10.3: 集成 Micrometer Tracing + Zipkin（替代 Sleuth，适配 Spring Boot 3.2）
-  - [ ] SubTask 10.4: 在 `module-common` 实现 `TraceContextFilter`，每个请求生成 TraceId 并放入 MDC
-  - [ ] SubTask 10.5: 修改 `Result<T>` 响应体增加 `traceId` 字段
-  - [ ] SubTask 10.6: 修改日志配置 logback-spring.xml 输出 TraceId
+- [x] Task 10: 全局异常处理增强与链路追踪 [P]
+  - [x] SubTask 10.1: 扩展 `BusinessException` 为分级异常（BusinessException/PermissionException/DataException/ExternalException/SystemException）
+  - [x] SubTask 10.2: 修改 `GlobalExceptionHandler` 按异常类型返回不同错误码区间与恢复策略
+  - [x] SubTask 10.3: 集成 Micrometer Tracing + Zipkin（替代 Sleuth，适配 Spring Boot 3.2）
+  - [x] SubTask 10.4: 在 `module-common` 实现 `TraceContextFilter`，每个请求生成 TraceId 并放入 MDC
+  - [x] SubTask 10.5: 修改 `Result<T>` 响应体增加 `traceId` 字段
+  - [x] SubTask 10.6: 修改日志配置 logback-spring.xml 输出 TraceId
 
 - [x] Task 11: EasyExcel 导出能力推广 [P]
   - [x] SubTask 11.1: 在 `ExcelUtils` 增加通用导出方法 `export(response, fileName, sheetName, headClazz, data)`
@@ -118,13 +118,13 @@
   - [x] SubTask 12.6: 支持 actions 自定义操作按钮（编辑/删除/查看/自定义）
   - [x] SubTask 12.7: 单元测试 Vitest 覆盖率 ≥80%
 
-- [ ] Task 13: 抽取 FormModal 通用表单弹窗组件 [P]
-  - [ ] SubTask 13.1: 创建 `src/components/FormModal/index.vue`（props: fields/apiFunc/visible/title）
-  - [ ] SubTask 13.2: 支持字段类型：input/select/date/switch/radio/checkbox/cascader/upload/treeSelect
-  - [ ] SubTask 13.3: 支持字段联动（如选 A 后 B 字段必填，选 C 后 D 字段隐藏）
-  - [ ] SubTask 13.4: 支持异步选项加载（select/cascader 从 API 拉取选项）
-  - [ ] SubTask 13.5: 支持表单验证规则（required/pattern/min/max/custom）
-  - [ ] SubTask 13.6: 单元测试覆盖率 ≥80%
+- [x] Task 13: 抽取 FormModal 通用表单弹窗组件 [P]
+  - [x] SubTask 13.1: 创建 `src/components/FormModal/index.vue`（props: fields/apiFunc/visible/title）
+  - [x] SubTask 13.2: 支持字段类型：input/select/date/switch/radio/checkbox/cascader/upload/treeSelect
+  - [x] SubTask 13.3: 支持字段联动（如选 A 后 B 字段必填，选 C 后 D 字段隐藏）
+  - [x] SubTask 13.4: 支持异步选项加载（select/cascader 从 API 拉取选项）
+  - [x] SubTask 13.5: 支持表单验证规则（required/pattern/min/max/custom）
+  - [x] SubTask 13.6: 单元测试覆盖率 ≥80%
 
 - [ ] Task 14: 抽取 FileUpload 通用文件上传组件 [P]
   - [ ] SubTask 14.1: 创建 `src/components/FileUpload/index.vue`（props: accept/maxSize/maxCount/multiple/watermark）

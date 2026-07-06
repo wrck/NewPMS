@@ -65,39 +65,39 @@
 
 ## C. 业务流程与异常处理完善
 
-- [ ] Task C1: 前端 `utils/request.ts` 错误处理增强
-  - [ ] C1.1: 400xx 错误提取 errors[] 并高亮表单字段
-  - [ ] C1.2: 网络错误友好提示 + 重试按钮
-- [ ] Task C2: 后端关键 Entity 追加 `@Version` 乐观锁
-  - [ ] C2.1: Project / DeviceInstance / OutsourceTask / WorkOrder / AcceptanceTask / FinanceBudget Entity
-  - [ ] C2.2: Service 并发冲突返回 40904 错误码
-- [ ] Task C3: 关键操作日志补全
-  - [ ] C3.1: 状态变更/审批/结算/删除操作通过 SysLogService.record 记录前后值
-- [ ] Task C4: 状态机校验补全
-  - [ ] C4.1: Project / Device / OutsourceTask / AcceptanceTask / CutoverPlan / Workload 六类状态机 Service 校验非法流转抛 BusinessException
-  - [ ] C4.2: 编写 `docs/state-machine.md` 六类状态机转换矩阵
+- [x] Task C1: 前端 `utils/request.ts` 错误处理增强
+  - [x] C1.1: 400xx 错误提取 errors[] 并高亮表单字段
+  - [x] C1.2: 网络错误友好提示 + 重试按钮
+- [x] Task C2: 后端关键 Entity 追加 `@Version` 乐观锁
+  - [x] C2.1: Project / DeviceInstance / OutsourceTask / WorkOrder / AcceptanceTask / FinanceBudget Entity
+  - [x] C2.2: Service 并发冲突返回 40904 错误码
+- [x] Task C3: 关键操作日志补全
+  - [x] C3.1: 状态变更/审批/结算/删除操作通过 SysLogService.record 记录前后值
+- [x] Task C4: 状态机校验补全
+  - [x] C4.1: Project / Device / OutsourceTask / AcceptanceTask / CutoverPlan / Workload 六类状态机 Service 校验非法流转抛 BusinessException
+  - [x] C4.2: 编写 `docs/state-machine.md` 六类状态机转换矩阵
 
 ## D. 交付与部署标准完善
 
-- [ ] Task D1: 一键部署脚本 `scripts/deploy.ps1`
-  - [ ] D1.1: 参数 `-Env dev|test|staging|prod -Version <ver>`
-  - [ ] D1.2: 流程：构建→迁移→部署→健康检查（3 次 /actuator/health）
-  - [ ] D1.3: 失败自动回滚到上一版本
-- [ ] Task D2: 回滚脚本 `scripts/rollback.ps1`
-  - [ ] D2.1: 回滚到指定版本号
-- [ ] Task D3: 部署文档 `docs/deployment-guide.md`
-  - [ ] D3.1: 环境要求 / 配置说明 / 部署步骤 / 故障排查
-- [ ] Task D4: 用户引导系统
-  - [ ] D4.1: `components/Onboarding/Tutorial.vue` 5 步新手教程
-  - [ ] D4.2: `components/Onboarding/ContextHelp.vue` 上下文帮助气泡
-  - [ ] D4.3: `views/help/index.vue` 功能说明文档中心（支持搜索）
-  - [ ] D4.4: 路由 `/help` 接入，首次登录自动触发教程
-- [ ] Task D5: 反馈与工单系统
-  - [ ] D5.1: 后端 `module-system` 新增 `FeedbackController` + `SysFeedbackEntity` + `FeedbackService` + 迁移 SQL
-  - [ ] D5.2: 前端 `components/Feedback/FeedbackButton.vue` 右下角悬浮按钮
-  - [ ] D5.3: 前端 `views/system/feedback.vue` 反馈管理列表
-  - [ ] D5.4: 反馈状态变更通知提交人（站内信）
-  - [ ] D5.5: 菜单与权限接入
+- [x] Task D1: 一键部署脚本 `scripts/deploy.ps1`
+  - [x] D1.1: 参数 `-Env dev|test|staging|prod -Version <ver>`
+  - [x] D1.2: 流程：构建→迁移→部署→健康检查（3 次 /actuator/health）
+  - [x] D1.3: 失败自动回滚到上一版本
+- [x] Task D2: 回滚脚本 `scripts/rollback.ps1`
+  - [x] D2.1: 回滚到指定版本号
+- [x] Task D3: 部署文档 `docs/deployment-guide.md`
+  - [x] D3.1: 环境要求 / 配置说明 / 部署步骤 / 故障排查
+- [x] Task D4: 用户引导系统
+  - [x] D4.1: `components/Onboarding/Tutorial.vue` 5 步新手教程
+  - [x] D4.2: `components/Onboarding/ContextHelp.vue` 上下文帮助气泡
+  - [x] D4.3: `views/help/index.vue` 功能说明文档中心（支持搜索）
+  - [x] D4.4: 路由 `/help` 接入，首次登录自动触发教程
+- [x] Task D5: 反馈与工单系统
+  - [x] D5.1: 后端 `module-system` 新增 `FeedbackController` + `SysFeedbackEntity` + `FeedbackService` + 迁移 SQL
+  - [x] D5.2: 前端 `components/Feedback/FeedbackButton.vue` 右下角悬浮按钮
+  - [x] D5.3: 前端 `views/system/feedback.vue` 反馈管理列表
+  - [x] D5.4: 反馈状态变更通知提交人（站内信）
+  - [x] D5.5: 菜单与权限接入
 
 ## E. 测试与质量保障
 

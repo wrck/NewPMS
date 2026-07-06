@@ -25,6 +25,8 @@ import com.vibe.delivery.vo.CutoverExecutionLogVO;
 import com.vibe.delivery.vo.CutoverPlanDetailVO;
 import com.vibe.delivery.vo.CutoverPlanVO;
 import com.vibe.delivery.vo.CutoverStepVO;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.CutoverApprovedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -50,6 +52,7 @@ public class CutoverPlanServiceImpl implements CutoverPlanService {
     private final CutoverPlanMapper planMapper;
     private final CutoverStepMapper stepMapper;
     private final CutoverExecutionLogMapper logMapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     /* ============ 基础 CRUD ============ */
 
@@ -189,6 +192,11 @@ public class CutoverPlanServiceImpl implements CutoverPlanService {
         planMapper.updateById(entity);
         recordLog(dto.getPlanId(), null, ctx, CutoverConstant.ACTION_INTERNAL_APPROVE,
                 "内部审批通过" + appendRemark(dto.getRemark()), CutoverConstant.LOG_LEVEL_INFO);
+
+        // 内部审批通过后发布割接审批通过领域事件
+        domainEventPublisher.publish(new CutoverApprovedEvent(
+                entity.getId(), entity.getProjectId(), ctx.getUserId(),
+                entity.getCutoverDate() == null ? null : entity.getCutoverDate().toString()));
     }
 
     @Override

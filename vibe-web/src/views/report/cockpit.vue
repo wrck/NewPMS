@@ -1,34 +1,83 @@
 <script setup lang="ts">
 /**
- * 管理驾驶舱
- * 全局核心指标、项目阶段分布、月度趋势、待办、风险预警、动态
+ * 管理驾驶舱（spec 阶段三 Task 24 - SubTask 24.1）
+ *
+ * 全面 ECharts 化重写：
+ *   - 4 张 KPI 卡片（含环比）
+ *   - 项目阶段分布 PieChart
+ *   - 近 12 月趋势 StackedChart
+ *   - 风险项目列表
+ *   - 设备状态 GaugeChart
+ *   - 区域分布 MapChart
  */
-import { ref, onMounted } from 'vue'
-import { ReloadOutlined } from '@ant-design/icons-vue'
+import { ref, computed, onMounted } from 'vue'
+import { ReloadOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 import PageContainer from '@/components/PageContainer.vue'
-import StatisticCard from '@/components/StatisticCard.vue'
-import StatusTag from '@/components/StatusTag.vue'
-import ProgressBar from '@/components/ProgressBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { getCockpit } from '@/api/report'
-import type { CockpitData, TodoItem, RiskWarning, Activity } from '@/api/report'
-import { Priority, PriorityLabel } from '@/types/enum'
+import StatusTag from '@/components/StatusTag.vue'
+import { PieChart, StackedChart, GaugeChart, MapChart } from '@/components/charts'
+import { getCockpit, getProjectReport } from '@/api/report'
+import type { CockpitData, RiskWarning } from '@/api/report'
 
+/* ============ 状态 ============ */
 const loading = ref(false)
 const data = ref<CockpitData | null>(null)
+/** 区域分布数据（来自项目报表 byRegion） */
+const regionData = ref<Array<{ name: string; value: number }>>([])
 
-async function loadData() {
-  loading.value = true
-  try {
-    data.value = (await getCockpit()) as unknown as CockpitData
-  } catch (e) {
-    console.error('[report.cockpit] load failed:', e)
-  } finally {
-    loading.value = false
-  }
+/* ============ KPI 卡片数据 ============ */
+interface KpiCard {
+  key: string
+  title: string
+  value: number
+  unit: string
+  /** 环比百分比，正数上升 / 负数下降 / 0 持平 */
+  trend: number
 }
 
-const riskLevelTone: Record<string, any> = {
+const kpis = computed<KpiCard[]>(() => {
+  const k = data.value?.kpi
+  if (!k) return []
+  // 在建项目环比：本月新增 - 本月结项 占在建基数比例
+  const ongoingTrend =
+    k.ongoingProjects > 0
+      ? ((k.monthNewProjects - k.monthClosedProjects) / k.ongoingProjects) * 100
+      : 0
+  return [
+    { key: 'ongoing', title: '在建项目', value: k.ongoingProjects, unit: '个', trend: ongoingTrend },
+    { key: 'risk', title: '风险项目', value: k.riskProjects, unit: '个', trend: 0 },
+    { key: 'device', title: '设备到货率', value: k.deviceArrivalRate ?? 0, unit: '%', trend: 0 },
+    { key: 'acceptance', title: '验收完成率', value: k.acceptanceCompletionRate ?? 0, unit: '%', trend: 0 }
+  ]
+})
+
+/* ============ 项目阶段分布 PieChart ============ */
+const phaseChartData = computed(() =>
+  (data.value?.phaseDistribution || []).map((p) => ({
+    name: p.phaseName || p.phase,
+    value: p.count
+  }))
+)
+
+/* ============ 近 12 月趋势 StackedChart ============ */
+const trendXAxis = computed(() => (data.value?.projectTrend || []).map((t) => t.month))
+
+const trendSeries = computed(() => {
+  const trend = data.value?.projectTrend || []
+  if (trend.length === 0) return []
+  return [
+    { name: '新增', data: trend.map((t) => t.newCount) },
+    { name: '结项', data: trend.map((t) => t.closedCount) },
+    { name: '在建', data: trend.map((t) => t.ongoingCount) }
+  ]
+})
+
+/* ============ 设备状态 GaugeChart ============ */
+const deviceGaugeValue = computed(() => data.value?.kpi.deviceArrivalRate ?? 0)
+
+/* ============ 风险项目表格 ============ */
+const riskLevelTone: Record<string, 'default' | 'warning' | 'error'> = {
   LOW: 'default',
   MEDIUM: 'warning',
   HIGH: 'error'
@@ -42,23 +91,34 @@ const riskTypeLabel: Record<string, string> = {
   OTHER: '其他'
 }
 
-const todoTypeLabel: Record<string, string> = {
-  TASK: '任务',
-  APPROVAL: '审批',
-  ISSUE: '问题',
-  WORKLOAD: '工作量'
-}
-const priorityTone: Record<Priority, any> = {
-  LOW: 'default', MEDIUM: 'processing', HIGH: 'warning', URGENT: 'error'
-}
+const riskColumns = [
+  { title: '项目名称', dataIndex: 'projectName', key: 'projectName', ellipsis: true },
+  { title: '风险类型', key: 'riskType', width: 110 },
+  { title: '等级', key: 'level', width: 90 },
+  { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },
+  { title: '检测时间', dataIndex: 'detectedAt', key: 'detectedAt', width: 170 }
+]
 
-const activityTypeColor: Record<string, string> = {
-  CREATE: 'blue',
-  UPDATE: 'gold',
-  DELETE: 'red',
-  APPROVE: 'green',
-  COMPLETE: 'green',
-  OTHER: 'gray'
+const riskList = computed<RiskWarning[]>(() => data.value?.riskWarnings || [])
+
+/* ============ 数据加载 ============ */
+async function loadData() {
+  loading.value = true
+  try {
+    const [cockpitRes, projectRes] = await Promise.all([
+      getCockpit(),
+      getProjectReport({}).catch(() => null)
+    ])
+    data.value = cockpitRes as unknown as CockpitData
+    // 项目报表 byRegion → MapChart 数据
+    const byRegion = (projectRes as unknown as { byRegion?: Array<{ region: string; count: number }> } | null)?.byRegion
+    regionData.value = (byRegion || []).map((r) => ({ name: r.region, value: r.count }))
+  } catch (e) {
+    console.error('[report.cockpit] load failed:', e)
+    message.error('加载驾驶舱数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {
@@ -67,157 +127,140 @@ onMounted(() => {
 </script>
 
 <template>
-  <PageContainer title="管理驾驶舱" description="全局运营指标、风险预警与动态总览">
+  <PageContainer title="管理驾驶舱" description="全局运营指标、风险预警与图表化总览">
     <template #extra>
-      <a-button @click="loadData" :loading="loading"><template #icon><ReloadOutlined /></template>刷新</a-button>
+      <a-button @click="loadData" :loading="loading">
+        <template #icon><ReloadOutlined /></template>刷新
+      </a-button>
     </template>
 
     <a-spin :spinning="loading">
-      <!-- 核心指标 -->
-      <a-row :gutter="16" class="stat-row">
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="在建项目" :value="data?.kpi.ongoingProjects ?? 0" unit="个" icon="ProjectOutlined" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="风险项目" :value="data?.kpi.riskProjects ?? 0" unit="个" icon="WarningOutlined" accent="#ff4d4f" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="超期项目" :value="data?.kpi.overdueProjects ?? 0" unit="个" icon="ClockCircleOutlined" accent="#ff7a45" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="本月新增" :value="data?.kpi.monthNewProjects ?? 0" unit="个" icon="RiseOutlined" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="本月结项" :value="data?.kpi.monthClosedProjects ?? 0" unit="个" icon="CheckCircleOutlined" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="工程师利用率" :value="data?.kpi.engineerUtilization ?? 0" unit="%" icon="TeamOutlined" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="设备到货率" :value="data?.kpi.deviceArrivalRate ?? 0" unit="%" icon="HddOutlined" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="验收完成率" :value="data?.kpi.acceptanceCompletionRate ?? 0" unit="%" icon="CheckSquareOutlined" />
+      <!-- 4 张 KPI 卡片（含环比） -->
+      <a-row :gutter="16" class="kpi-row">
+        <a-col :xs="12" :sm="12" :md="6" v-for="kpi in kpis" :key="kpi.key">
+          <a-card class="kpi-card" :bordered="true">
+            <a-statistic :title="kpi.title" :value="kpi.value" :suffix="kpi.unit" />
+            <div class="kpi-trend">
+              <span :class="kpi.trend > 0 ? 'up' : kpi.trend < 0 ? 'down' : 'flat'">
+                <ArrowUpOutlined v-if="kpi.trend > 0" />
+                <ArrowDownOutlined v-else-if="kpi.trend < 0" />
+                <span v-else>—</span>
+                <template v-if="kpi.trend !== 0">{{ Math.abs(kpi.trend).toFixed(1) }}%</template>
+              </span>
+              <span class="trend-label">较上月</span>
+            </div>
+          </a-card>
         </a-col>
       </a-row>
 
-      <!-- 项目阶段分布 + 月度趋势 -->
-      <a-row :gutter="16">
+      <!-- 项目阶段分布 + 近 12 月趋势 -->
+      <a-row :gutter="16" class="chart-row">
         <a-col :xs="24" :md="10">
-          <div class="vibe-card block-card">
-            <div class="card-head"><h3 class="card-title">项目阶段分布</h3></div>
-            <div class="card-body">
-              <EmptyState v-if="!data?.phaseDistribution?.length" description="暂无数据" size="compact" />
-              <div v-else class="phase-list">
-                <div v-for="p in data.phaseDistribution" :key="p.phase" class="phase-item">
-                  <span class="phase-name">{{ p.phaseName }}</span>
-                  <span class="phase-count tnum">{{ p.count }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <a-card title="项目阶段分布" :bordered="true">
+            <PieChart :data="phaseChartData" :loading="loading" :height="320" />
+          </a-card>
         </a-col>
         <a-col :xs="24" :md="14">
-          <div class="vibe-card block-card">
-            <div class="card-head"><h3 class="card-title">月度项目趋势</h3></div>
-            <div class="card-body">
-              <EmptyState v-if="!data?.projectTrend?.length" description="暂无数据" size="compact" />
-              <a-table v-else :data-source="data.projectTrend" row-key="month" size="small" :pagination="false">
-                <a-table-column title="月份" data-index="month" :width="100" />
-                <a-table-column title="新增" data-index="newCount" :width="80" />
-                <a-table-column title="结项" data-index="closedCount" :width="80" />
-                <a-table-column title="在建" data-index="ongoingCount" :width="80" />
-                <a-table-column title="趋势" key="trend">
-                  <template #default="{ record }">
-                    <ProgressBar :percent="record.newCount ? Math.round((record.closedCount / record.newCount) * 100) : 0" :show-label="false" />
-                  </template>
-                </a-table-column>
-              </a-table>
-            </div>
-          </div>
+          <a-card title="近 12 月项目趋势" :bordered="true">
+            <StackedChart
+              :data="trendSeries"
+              :x-axis="trendXAxis"
+              :loading="loading"
+              :height="320"
+            />
+          </a-card>
         </a-col>
       </a-row>
 
-      <!-- 待办 + 风险预警 -->
-      <a-row :gutter="16">
-        <a-col :xs="24" :md="12">
-          <div class="vibe-card block-card">
-            <div class="card-head"><h3 class="card-title">待办事项</h3></div>
-            <div class="card-body">
-              <EmptyState v-if="!data?.todoList?.length" description="暂无待办" size="compact" />
-              <a-list v-else :data-source="data.todoList" item-layout="horizontal" size="small">
-                <template #renderItem="{ item }">
-                  <a-list-item>
-                    <a-list-item-meta>
-                      <template #title>
-                        <a-tag :color="item.priority ? priorityTone[item.priority as Priority] : 'default'">{{ todoTypeLabel[item.type] || item.type }}</a-tag>
-                        <span>{{ item.title }}</span>
-                      </template>
-                      <template #description>{{ item.description }}<span v-if="item.dueDate" class="text-auxiliary"> · 截止 {{ item.dueDate }}</span></template>
-                    </a-list-item-meta>
-                  </a-list-item>
-                </template>
-              </a-list>
-            </div>
-          </div>
+      <!-- 设备状态仪表盘 + 区域分布 MapChart -->
+      <a-row :gutter="16" class="chart-row">
+        <a-col :xs="24" :md="10">
+          <a-card title="设备到货率" :bordered="true">
+            <GaugeChart :value="deviceGaugeValue" :min="0" :max="100" :height="320" />
+          </a-card>
         </a-col>
-        <a-col :xs="24" :md="12">
-          <div class="vibe-card block-card">
-            <div class="card-head"><h3 class="card-title">风险预警</h3></div>
-            <div class="card-body">
-              <EmptyState v-if="!data?.riskWarnings?.length" description="暂无风险" size="compact" />
-              <a-list v-else :data-source="data.riskWarnings" item-layout="horizontal" size="small">
-                <template #renderItem="{ item }">
-                  <a-list-item>
-                    <a-list-item-meta>
-                      <template #title>
-                        <StatusTag :tone="riskLevelTone[item.level]">{{ riskTypeLabel[item.riskType] || item.riskType }} · {{ riskLevelLabel[item.level] }}</StatusTag>
-                        <span>{{ item.projectName }}</span>
-                      </template>
-                      <template #description>{{ item.description }}<span class="text-auxiliary"> · {{ item.detectedAt }}</span></template>
-                    </a-list-item-meta>
-                  </a-list-item>
-                </template>
-              </a-list>
-            </div>
-          </div>
+        <a-col :xs="24" :md="14">
+          <a-card title="项目区域分布" :bordered="true">
+            <MapChart :data="regionData" :loading="loading" :height="320" />
+          </a-card>
         </a-col>
       </a-row>
 
-      <!-- 最近动态 -->
-      <div class="vibe-card block-card">
-        <div class="card-head"><h3 class="card-title">最近动态</h3></div>
-        <div class="card-body">
-          <EmptyState v-if="!data?.recentActivities?.length" description="暂无动态" size="compact" />
-          <a-timeline v-else>
-            <a-timeline-item v-for="act in data.recentActivities" :key="act.id" :color="activityTypeColor[act.type] || 'gray'">
-              <p class="timeline-title">{{ act.title }} <span class="text-auxiliary">{{ act.operatedAt }}</span></p>
-              <p v-if="act.description" class="timeline-desc text-auxiliary">{{ act.description }}</p>
-              <p v-if="act.operatorName" class="timeline-desc text-auxiliary">操作人：{{ act.operatorName }}</p>
-            </a-timeline-item>
-          </a-timeline>
-        </div>
-      </div>
+      <!-- 风险项目列表 -->
+      <a-card title="风险项目列表" :bordered="true" class="table-card">
+        <a-table
+          :columns="riskColumns"
+          :data-source="riskList"
+          row-key="id"
+          size="small"
+          :pagination="{ pageSize: 10, showTotal: (t: number) => `共 ${t} 条` }"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'riskType'">
+              <a-tag>{{ riskTypeLabel[record.riskType] || record.riskType }}</a-tag>
+            </template>
+            <template v-else-if="column.key === 'level'">
+              <StatusTag :tone="riskLevelTone[record.level] || 'default'">
+                {{ riskLevelLabel[record.level] || record.level }}
+              </StatusTag>
+            </template>
+          </template>
+          <template #emptyText><EmptyState description="暂无风险项目" /></template>
+        </a-table>
+      </a-card>
     </a-spin>
   </PageContainer>
 </template>
 
 <style lang="less" scoped>
-.stat-row { margin-bottom: 16px; .ant-col { margin-bottom: 12px; } }
-.block-card { height: 100%; }
-.card-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px; border-bottom: 1px solid @border-color-split;
+.kpi-row {
+  margin-bottom: 16px;
+  .ant-col {
+    margin-bottom: 12px;
+  }
 }
-.card-title { margin: 0; font-size: 15px; font-weight: 600; color: @text-primary; }
-.card-body { padding: 16px 20px; }
-.text-auxiliary { color: @text-auxiliary; font-size: 12px; }
-.phase-list { display: flex; flex-direction: column; gap: 12px; }
-.phase-item {
-  display: flex; justify-content: space-between; align-items: center;
-  .phase-name { color: @text-secondary; }
-  .phase-count { font-size: 18px; font-weight: 600; }
+.chart-row {
+  margin-bottom: 16px;
+  .ant-col {
+    margin-bottom: 12px;
+  }
 }
-.timeline-title { margin: 0; font-weight: 500; }
-.timeline-desc { margin: 4px 0 0; font-size: 12px; }
+.table-card {
+  margin-bottom: 16px;
+}
+.kpi-card {
+  text-align: center;
+  :deep(.ant-statistic) {
+    text-align: center;
+  }
+  :deep(.ant-statistic-title) {
+    font-size: 14px;
+    color: @text-tertiary;
+  }
+  :deep(.ant-statistic-content-value) {
+    font-size: 28px;
+    font-weight: 600;
+    color: @text-primary;
+  }
+}
+.kpi-trend {
+  margin-top: 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  .up {
+    color: #52c41a;
+  }
+  .down {
+    color: #ff4d4f;
+  }
+  .flat {
+    color: #8c8c8c;
+  }
+  .trend-label {
+    color: @text-tertiary;
+  }
+}
 </style>

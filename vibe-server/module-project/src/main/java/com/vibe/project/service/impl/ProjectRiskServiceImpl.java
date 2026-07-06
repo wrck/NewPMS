@@ -2,6 +2,8 @@ package com.vibe.project.service.impl;
 
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.RiskEscalatedEvent;
 import com.vibe.project.constant.ProjectConstant;
 import com.vibe.project.converter.ProjectConverters;
 import com.vibe.project.dto.ProjectRiskDTO;
@@ -46,6 +48,7 @@ public class ProjectRiskServiceImpl implements ProjectRiskService {
     private final ProjectRiskMapper projectRiskMapper;
     private final ProjectMapper projectMapper;
     private final NotificationProducer notificationProducer;
+    private final DomainEventPublisher domainEventPublisher;
 
     /** 状态流转规则 */
     private static final Map<String, Set<String>> ALLOWED_TRANSITIONS = new HashMap<>();
@@ -182,6 +185,11 @@ public class ProjectRiskServiceImpl implements ProjectRiskService {
         }
         exist.setStatus(targetStatus);
         projectRiskMapper.updateById(exist);
+
+        // 风险状态升级后发布领域事件（fromLevel/toLevel 复用 status 字段）
+        domainEventPublisher.publish(new RiskEscalatedEvent(
+                exist.getId(), exist.getProjectId(), current, targetStatus,
+                exist.getRiskDesc()));
     }
 
     @Override

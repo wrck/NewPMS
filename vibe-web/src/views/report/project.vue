@@ -1,18 +1,39 @@
 <script setup lang="ts">
 /**
- * 项目报表
- * 项目维度统计：汇总指标、状态/产品线/区域分布、PM 业绩、明细列表
+ * 项目报表（spec 阶段三 Task 24 - SubTask 24.2）
+ *
+ * 全面 ECharts 化重写：
+ *   - 项目状态分布 PieChart
+ *   - 月度新增/完成 LineChart（从明细数据按月聚合）
+ *   - PM 业绩 BarChart
+ *   - 明细表格（分页 + 排序）
+ *   - ImportExport 导出
  */
-import { ref, reactive, onMounted } from 'vue'
-import { ReloadOutlined, ExportOutlined } from '@ant-design/icons-vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ReloadOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import PageContainer from '@/components/PageContainer.vue'
-import StatisticCard from '@/components/StatisticCard.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
-import EmptyState from '@/components/EmptyState.vue'
+import { ImportExport } from '@/components/ImportExport'
+import { PieChart, LineChart, BarChart } from '@/components/charts'
 import { getProjectReport } from '@/api/report'
 import { ProjectStatus, ProjectStatusTone, ProjectStatusLabel } from '@/types/enum'
+
+/* ============ 类型 ============ */
+interface ProjectDetail {
+  id: number
+  projectCode: string
+  projectName: string
+  status: string
+  progressPct: number
+  pmName: string
+  plannedStart: string
+  plannedEnd: string
+  actualEnd?: string
+  overdue: boolean
+}
 
 interface ProjectReportData {
   summary: { total: number; completed: number; ongoing: number; overdue: number; avgProgress: number }
@@ -20,20 +41,10 @@ interface ProjectReportData {
   byProductLine: Array<{ productLine: string; count: number }>
   byRegion: Array<{ region: string; count: number }>
   byPm: Array<{ pmId: number; pmName: string; total: number; completed: number; overdue: number }>
-  detail: Array<{
-    id: number
-    projectCode: string
-    projectName: string
-    status: string
-    progressPct: number
-    pmName: string
-    plannedStart: string
-    plannedEnd: string
-    actualEnd?: string
-    overdue: boolean
-  }>
+  detail: ProjectDetail[]
 }
 
+/* ============ 状态 ============ */
 const loading = ref(false)
 const data = ref<ProjectReportData | null>(null)
 const query = reactive({
@@ -45,12 +56,16 @@ const query = reactive({
   region: ''
 })
 
+/* ============ 数据加载 ============ */
 async function loadData() {
   loading.value = true
   try {
-    data.value = (await getProjectReport(query as Record<string, unknown>)) as unknown as ProjectReportData
+    data.value = (await getProjectReport(
+      query as Record<string, unknown>
+    )) as unknown as ProjectReportData
   } catch (e) {
     console.error('[report.project] load failed:', e)
+    message.error('加载项目报表数据失败')
   } finally {
     loading.value = false
   }
@@ -60,10 +75,77 @@ function handleSearch() {
   loadData()
 }
 
-function handleExport() {
-  message.info('导出功能开发中')
+function handleReset() {
+  Object.assign(query, {
+    startDate: '',
+    endDate: '',
+    status: undefined,
+    pmId: undefined,
+    productLine: '',
+    region: ''
+  })
+  loadData()
 }
 
+/* ============ 项目状态分布 PieChart ============ */
+const statusPieData = computed(() =>
+  (data.value?.byStatus || []).map((s) => ({
+    name: s.statusName || ProjectStatusLabel[s.status as ProjectStatus] || s.status,
+    value: s.count
+  }))
+)
+
+/* ============ 月度新增/完成 LineChart（从明细按月聚合） ============ */
+const monthlyTrend = computed(() => {
+  const details = data.value?.detail || []
+  if (details.length === 0) return { xAxis: [] as string[], series: [] as Array<{ name: string; data: number[] }> }
+
+  // 收集所有月份
+  const monthSet = new Set<string>()
+  const newByMonth = new Map<string, number>()
+  const completedByMonth = new Map<string, number>()
+
+  details.forEach((d) => {
+    // 新增按计划开始月份
+    if (d.plannedStart) {
+      const m = d.plannedStart.slice(0, 7) // YYYY-MM
+      monthSet.add(m)
+      newByMonth.set(m, (newByMonth.get(m) || 0) + 1)
+    }
+    // 完成按实际结束月份
+    if (d.actualEnd) {
+      const m = d.actualEnd.slice(0, 7)
+      monthSet.add(m)
+      completedByMonth.set(m, (completedByMonth.get(m) || 0) + 1)
+    }
+  })
+
+  const xAxis = Array.from(monthSet).sort()
+  return {
+    xAxis,
+    series: [
+      { name: '新增', data: xAxis.map((m) => newByMonth.get(m) || 0) },
+      { name: '完成', data: xAxis.map((m) => completedByMonth.get(m) || 0) }
+    ]
+  }
+})
+
+/* ============ PM 业绩 BarChart ============ */
+const pmBarData = computed(() => {
+  const byPm = data.value?.byPm || []
+  if (byPm.length === 0) return { xAxis: [] as string[], series: [] as Array<{ name: string; data: number[] }> }
+  const xAxis = byPm.map((p) => p.pmName)
+  return {
+    xAxis,
+    series: [
+      { name: '负责项目', data: byPm.map((p) => p.total) },
+      { name: '已完成', data: byPm.map((p) => p.completed) },
+      { name: '超期', data: byPm.map((p) => p.overdue) }
+    ]
+  }
+})
+
+/* ============ 明细表格 ============ */
 const detailColumns = [
   { title: '项目编码', dataIndex: 'projectCode', key: 'projectCode', width: 140 },
   { title: '项目名称', dataIndex: 'projectName', key: 'projectName', ellipsis: true },
@@ -73,8 +155,10 @@ const detailColumns = [
   { title: '计划开始', dataIndex: 'plannedStart', key: 'plannedStart', width: 120 },
   { title: '计划结束', dataIndex: 'plannedEnd', key: 'plannedEnd', width: 120 },
   { title: '实际结束', dataIndex: 'actualEnd', key: 'actualEnd', width: 120 },
-  { title: '超期', key: 'overdue', width: 80, fixed: 'right' }
+  { title: '超期', key: 'overdue', width: 80, fixed: 'right' as const }
 ]
+
+const detailData = computed(() => data.value?.detail || [])
 
 onMounted(() => {
   loadData()
@@ -82,15 +166,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <PageContainer title="项目报表" description="项目维度统计分析：状态/产品线/区域分布与 PM 业绩">
+  <PageContainer title="项目报表" description="项目维度统计分析：状态分布 / 月度趋势 / PM 业绩">
     <template #extra>
-      <a-button @click="loadData" :loading="loading"><template #icon><ReloadOutlined /></template>刷新</a-button>
-      <a-button @click="handleExport"><template #icon><ExportOutlined /></template>导出</a-button>
+      <a-button @click="loadData" :loading="loading">
+        <template #icon><ReloadOutlined /></template>刷新
+      </a-button>
     </template>
 
-    <!-- 筛选 -->
-    <div class="vibe-card search-card">
-      <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
+    <!-- 筛选 + ImportExport -->
+    <a-card class="filter-card" :bordered="true">
+      <a-form layout="inline" :model="query">
         <a-form-item label="开始起">
           <a-date-picker v-model:value="query.startDate" value-format="YYYY-MM-DD" style="width: 150px" />
         </a-form-item>
@@ -99,7 +184,9 @@ onMounted(() => {
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 130px">
-            <a-select-option v-for="s in Object.values(ProjectStatus)" :key="s" :value="s">{{ ProjectStatusLabel[s] }}</a-select-option>
+            <a-select-option v-for="s in Object.values(ProjectStatus)" :key="s" :value="s">
+              {{ ProjectStatusLabel[s] }}
+            </a-select-option>
           </a-select>
         </a-form-item>
         <a-form-item label="PM ID">
@@ -112,127 +199,90 @@ onMounted(() => {
           <a-input v-model:value="query.region" placeholder="区域" allow-clear style="width: 130px" />
         </a-form-item>
         <a-form-item>
-          <a-button type="primary" html-type="submit">查询</a-button>
+          <a-button type="primary" @click="handleSearch">查询</a-button>
+          <a-button style="margin-left: 8px" @click="handleReset">重置</a-button>
         </a-form-item>
       </a-form>
-    </div>
+      <div class="filter-actions">
+        <ImportExport
+          export-api="/api/v1/report/project/export"
+          :export-params="query as Record<string, unknown>"
+          :show-import="false"
+          :show-template="false"
+        />
+      </div>
+    </a-card>
 
     <a-spin :spinning="loading">
-      <!-- 汇总指标 -->
-      <a-row :gutter="16" class="stat-row">
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="项目总数" :value="data?.summary.total ?? 0" unit="个" icon="ProjectOutlined" />
+      <!-- 状态分布 + 月度趋势 -->
+      <a-row :gutter="16" class="chart-row">
+        <a-col :xs="24" :md="12">
+          <a-card title="项目状态分布" :bordered="true">
+            <PieChart :data="statusPieData" :height="320" />
+          </a-card>
         </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="已完成" :value="data?.summary.completed ?? 0" unit="个" icon="CheckCircleOutlined" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="进行中" :value="data?.summary.ongoing ?? 0" unit="个" icon="SyncOutlined" />
-        </a-col>
-        <a-col :xs="12" :sm="12" :md="6">
-          <StatisticCard title="超期" :value="data?.summary.overdue ?? 0" unit="个" icon="ClockCircleOutlined" accent="#ff4d4f" />
-        </a-col>
-      </a-row>
-
-      <!-- 分布 -->
-      <a-row :gutter="16">
-        <a-col :xs="24" :md="8">
-          <div class="vibe-card block-card">
-            <div class="card-head"><h3 class="card-title">状态分布</h3></div>
-            <div class="card-body">
-              <EmptyState v-if="!data?.byStatus?.length" description="暂无数据" size="compact" />
-              <div v-else class="dist-list">
-                <div v-for="d in data.byStatus" :key="d.status" class="dist-item">
-                  <StatusTag :tone="ProjectStatusTone[d.status as ProjectStatus]">{{ d.statusName }}</StatusTag>
-                  <span class="tnum">{{ d.count }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </a-col>
-        <a-col :xs="24" :md="8">
-          <div class="vibe-card block-card">
-            <div class="card-head"><h3 class="card-title">产品线分布</h3></div>
-            <div class="card-body">
-              <EmptyState v-if="!data?.byProductLine?.length" description="暂无数据" size="compact" />
-              <div v-else class="dist-list">
-                <div v-for="d in data.byProductLine" :key="d.productLine" class="dist-item">
-                  <span>{{ d.productLine || '未分类' }}</span>
-                  <span class="tnum">{{ d.count }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </a-col>
-        <a-col :xs="24" :md="8">
-          <div class="vibe-card block-card">
-            <div class="card-head"><h3 class="card-title">区域分布</h3></div>
-            <div class="card-body">
-              <EmptyState v-if="!data?.byRegion?.length" description="暂无数据" size="compact" />
-              <div v-else class="dist-list">
-                <div v-for="d in data.byRegion" :key="d.region" class="dist-item">
-                  <span>{{ d.region || '未分类' }}</span>
-                  <span class="tnum">{{ d.count }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <a-col :xs="24" :md="12">
+          <a-card title="月度新增 / 完成趋势" :bordered="true">
+            <LineChart
+              :data="monthlyTrend.series"
+              :x-axis="monthlyTrend.xAxis"
+              smooth
+              :height="320"
+            />
+          </a-card>
         </a-col>
       </a-row>
 
-      <!-- PM 业绩 -->
-      <div class="vibe-card block-card">
-        <div class="card-head"><h3 class="card-title">PM 业绩</h3></div>
-        <a-table :data-source="data?.byPm || []" row-key="pmId" size="small" :pagination="false">
-          <a-table-column title="项目经理" data-index="pmName" />
-          <a-table-column title="负责项目" data-index="total" :width="100" />
-          <a-table-column title="已完成" data-index="completed" :width="100" />
-          <a-table-column title="超期" data-index="overdue" :width="100" />
-          <a-table-column title="完成率" key="rate">
-            <template #default="{ record }">
-              <ProgressBar :percent="record.total ? Math.round((record.completed / record.total) * 100) : 0" />
-            </template>
-          </a-table-column>
-        </a-table>
-      </div>
+      <!-- PM 业绩排名 -->
+      <a-card title="PM 业绩排名" :bordered="true" class="chart-row">
+        <BarChart :data="pmBarData.series" :x-axis="pmBarData.xAxis" :height="320" />
+      </a-card>
 
-      <!-- 明细 -->
-      <div class="vibe-card table-card">
-        <div class="card-head"><h3 class="card-title">项目明细</h3></div>
-        <a-table :columns="detailColumns" :data-source="data?.detail || []" row-key="id" :scroll="{ x: 1200 }" :pagination="{ pageSize: 10, showTotal: (t: number) => `共 ${t} 条` }">
+      <!-- 明细表格 -->
+      <a-card title="项目明细" :bordered="true">
+        <a-table
+          :columns="detailColumns"
+          :data-source="detailData"
+          row-key="id"
+          size="small"
+          :scroll="{ x: 1200 }"
+          :pagination="{ pageSize: 10, showTotal: (t: number) => `共 ${t} 条` }"
+        >
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'status'">
-              <StatusTag :tone="ProjectStatusTone[record.status as ProjectStatus]">{{ ProjectStatusLabel[record.status as ProjectStatus] || record.status }}</StatusTag>
+              <StatusTag :tone="ProjectStatusTone[record.status as ProjectStatus]">
+                {{ ProjectStatusLabel[record.status as ProjectStatus] || record.status }}
+              </StatusTag>
             </template>
             <template v-else-if="column.key === 'progressPct'">
               <ProgressBar :percent="record.progressPct" />
             </template>
             <template v-else-if="column.key === 'overdue'">
-              <StatusTag :tone="record.overdue ? 'error' : 'success'">{{ record.overdue ? '超期' : '正常' }}</StatusTag>
+              <StatusTag :tone="record.overdue ? 'error' : 'success'">
+                {{ record.overdue ? '超期' : '正常' }}
+              </StatusTag>
             </template>
           </template>
           <template #emptyText><EmptyState description="暂无项目数据" /></template>
         </a-table>
-      </div>
+      </a-card>
     </a-spin>
   </PageContainer>
 </template>
 
 <style lang="less" scoped>
-.search-card { padding: 16px 20px; margin-bottom: 16px; }
-.stat-row { margin-bottom: 16px; .ant-col { margin-bottom: 12px; } }
-.block-card { margin-bottom: 16px; }
-.table-card { padding-bottom: 0; }
-.card-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 20px; border-bottom: 1px solid @border-color-split;
+.filter-card {
+  margin-bottom: 16px;
+  .filter-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed @border-color-split;
+  }
 }
-.card-title { margin: 0; font-size: 15px; font-weight: 600; color: @text-primary; }
-.card-body { padding: 16px 20px; }
-.dist-list { display: flex; flex-direction: column; gap: 10px; }
-.dist-item {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 14px;
-  .tnum { font-weight: 600; }
+.chart-row {
+  margin-bottom: 16px;
+  .ant-col {
+    margin-bottom: 12px;
+  }
 }
 </style>

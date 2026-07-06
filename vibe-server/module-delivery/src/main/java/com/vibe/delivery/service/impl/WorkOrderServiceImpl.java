@@ -26,6 +26,8 @@ import com.vibe.delivery.vo.WorkOrderIssueVO;
 import com.vibe.delivery.vo.WorkOrderPhotoVO;
 import com.vibe.delivery.vo.WorkOrderStepVO;
 import com.vibe.delivery.vo.WorkOrderVO;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.WorkOrderCompletedEvent;
 import com.vibe.utils.MinioUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -74,6 +76,7 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     private final WorkOrderPhotoService workOrderPhotoService;
     private final WorkOrderIssueService workOrderIssueService;
     private final MinioUtils minioUtils;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -329,6 +332,12 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
         log.info("[WorkOrder] PM 确认完成: workOrderId={}, taskId={}, pmUserId={}",
                 workOrderId, workOrder.getTaskId(), UserContextHolder.getUserId());
+
+        // 发布工单完成领域事件
+        Long projectId = task == null ? null : task.getProjectId();
+        domainEventPublisher.publish(new WorkOrderCompletedEvent(
+                workOrderId, workOrder.getTaskId(), projectId,
+                workOrder.getEngineerId(), null, LocalDateTime.now()));
         return getDetail(workOrderId);
     }
 

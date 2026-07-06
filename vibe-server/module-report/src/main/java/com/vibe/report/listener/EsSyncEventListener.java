@@ -1,4 +1,4 @@
-package com.vibe.es.sync;
+package com.vibe.report.listener;
 
 import com.vibe.es.ElasticSearchService;
 import com.vibe.es.index.EsIndexConstant;
@@ -12,19 +12,25 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * MySQL → ElasticSearch 同步消费者
+ * 领域事件 → ElasticSearch 同步监听器
  *
  * <p>监听 RabbitMQ 队列 {@code vibe.es.sync.queue}，消费领域事件总线上的全部事件，
  * 按事件类型更新对应 ES 索引，实现 MySQL → ES 的近实时增量同步。</p>
+ *
+ * <p>本监听器是 module-common 中已存在 {@code EntityEventListener} 的扩展版本，
+ * 迁移至 module-report（更贴近检索场景）并新增任务类事件的索引同步。</p>
  *
  * <p>事件路由：</p>
  * <ul>
  *   <li>{@code PROJECT_CREATED} → 写入 {@code vibe_project} 索引（新增文档）</li>
  *   <li>{@code PROJECT_STATUS_CHANGED} → 更新 {@code vibe_project} 索引（status/phase）</li>
  *   <li>{@code DEVICE_STATUS_CHANGED} → 更新 {@code vibe_device} 索引（status）</li>
+ *   <li>{@code TASK_ASSIGNED} → 写入 {@code vibe_work_order} 索引（任务派发占位文档）</li>
+ *   <li>{@code TASK_COMPLETED} → 更新 {@code vibe_work_order} 索引（status=COMPLETED）</li>
  *   <li>{@code WORK_ORDER_COMPLETED} → 更新 {@code vibe_work_order} 索引（status=CONFIRMED/actualEnd）</li>
  *   <li>其他事件：仅记日志，不影响业务</li>
  * </ul>
@@ -42,7 +48,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class EntityEventListener {
+public class EsSyncEventListener {
 
     private final ElasticSearchService<Object> elasticSearchService;
 
@@ -70,7 +76,7 @@ public class EntityEventListener {
             return;
         }
         try {
-            dispatch(eventType, businessKey, eventMap);
+            dispatch(eventType, eventMap);
         } catch (Exception e) {
             // ES 同步失败仅记日志，不抛异常（ACK 丢弃），保证业务不受影响
             log.error("领域事件 ES 同步失败（ACK 丢弃）: eventId={}, eventType={}, error={}",
@@ -81,7 +87,7 @@ public class EntityEventListener {
     /**
      * 按事件类型分发到对应的 ES 索引更新逻辑。
      */
-    private void dispatch(String eventType, String businessKey, Map<String, Object> eventMap) {
+    private void dispatch(String eventType, Map<String, Object> eventMap) {
         switch (eventType) {
             case DomainEventConstant.EVENT_PROJECT_CREATED ->
                     handleProjectCreated(eventMap);
@@ -89,6 +95,10 @@ public class EntityEventListener {
                     handleProjectStatusChanged(eventMap);
             case DomainEventConstant.EVENT_DEVICE_STATUS_CHANGED ->
                     handleDeviceStatusChanged(eventMap);
+            case DomainEventConstant.EVENT_TASK_ASSIGNED ->
+                    handleTaskAssigned(eventMap);
+            case DomainEventConstant.EVENT_TASK_COMPLETED ->
+                    handleTaskCompleted(eventMap);
             case DomainEventConstant.EVENT_WORK_ORDER_COMPLETED ->
                     handleWorkOrderCompleted(eventMap);
             default ->
@@ -110,7 +120,7 @@ public class EntityEventListener {
         idx.setName(asString(eventMap.get("projectName")));
         idx.setCustomerName(asString(eventMap.get("customerName")));
         idx.setPmId(asLong(eventMap.get("pmId")));
-        idx.setCreatedAt(java.time.LocalDateTime.now());
+        idx.setCreatedAt(LocalDateTime.now());
         boolean ok = elasticSearchService.index(EsIndexConstant.INDEX_VIBE_PROJECT,
                 String.valueOf(projectId), idx);
         log.info("项目立项事件 ES 同步完成: projectId={}, success={}", projectId, ok);
@@ -156,6 +166,50 @@ public class EntityEventListener {
     }
 
     /**
+     * 处理任务派发事件：写入 vibe_work_order 索引占位文档。
+     *
+     * <p>任务派发时尚未生成工单，但可在工单索引中预创建一个以 taskId 为 ID 的占位文档，
+     * 便于工单列表查询时按任务维度检索。后续 WorkOrderCompletedEvent 会更新该文档或新建工单文档。</p>
+     */
+    private void handleTaskAssigned(Map<String, Object> eventMap) {
+        Long taskId = asLong(eventMap.get("taskId"));
+        if (taskId == null) {
+            log.warn("TASK_ASSIGNED 事件缺少 taskId，跳过: eventMap={}", eventMap);
+            return;
+        }
+        VibeWorkOrderIndex idx = new VibeWorkOrderIndex();
+        idx.setId(taskId);
+        idx.setTaskName(asString(eventMap.get("taskName")));
+        idx.setProjectId(asLong(eventMap.get("projectId")));
+        idx.setStatus("ASSIGNED");
+        boolean ok = elasticSearchService.index(EsIndexConstant.INDEX_VIBE_WORK_ORDER,
+                "task-" + taskId, idx);
+        log.info("任务派发事件 ES 同步完成: taskId={}, success={}", taskId, ok);
+    }
+
+    /**
+     * 处理任务完成事件：更新 vibe_work_order 索引（status=COMPLETED）。
+     *
+     * <p>使用 taskId 关联到任务派发时创建的占位文档（ID 形如 {@code task-{taskId}}）。</p>
+     */
+    private void handleTaskCompleted(Map<String, Object> eventMap) {
+        Long taskId = asLong(eventMap.get("taskId"));
+        if (taskId == null) {
+            log.warn("TASK_COMPLETED 事件缺少 taskId，跳过: eventMap={}", eventMap);
+            return;
+        }
+        VibeWorkOrderIndex idx = new VibeWorkOrderIndex();
+        idx.setId(taskId);
+        idx.setTaskName(asString(eventMap.get("taskName")));
+        idx.setProjectId(asLong(eventMap.get("projectId")));
+        idx.setStatus("COMPLETED");
+        idx.setActualEnd(LocalDateTime.now());
+        boolean ok = elasticSearchService.index(EsIndexConstant.INDEX_VIBE_WORK_ORDER,
+                "task-" + taskId, idx);
+        log.info("任务完成事件 ES 同步完成: taskId={}, success={}", taskId, ok);
+    }
+
+    /**
      * 处理工单完成事件：更新 vibe_work_order 索引的 status/actualEnd。
      */
     private void handleWorkOrderCompleted(Map<String, Object> eventMap) {
@@ -170,7 +224,17 @@ public class EntityEventListener {
         idx.setEngineerId(asLong(eventMap.get("engineerId")));
         idx.setEngineerName(asString(eventMap.get("engineerName")));
         idx.setStatus("CONFIRMED");
-        idx.setActualEnd(java.time.LocalDateTime.now());
+        Object actualEnd = eventMap.get("actualEnd");
+        if (actualEnd instanceof java.util.Map<?, ?> ts
+                && ts.get("nano") != null && ts.get("epochSecond") != null) {
+            // LocalDateTime 序列化为 {epochSecond, nano} 形式（默认）
+            idx.setActualEnd(LocalDateTime.ofEpochSecond(
+                    ((Number) ts.get("epochSecond")).longValue(),
+                    ((Number) ts.get("nano")).intValue(),
+                    java.time.ZoneOffset.UTC));
+        } else {
+            idx.setActualEnd(LocalDateTime.now());
+        }
         boolean ok = elasticSearchService.index(EsIndexConstant.INDEX_VIBE_WORK_ORDER,
                 String.valueOf(workOrderId), idx);
         log.info("工单完成事件 ES 同步完成: workOrderId={}, success={}", workOrderId, ok);

@@ -3,6 +3,8 @@ package com.vibe.project.service.impl;
 import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.ChangeApprovedEvent;
 import com.vibe.project.constant.ProjectConstant;
 import com.vibe.project.converter.ProjectConverters;
 import com.vibe.project.dto.ChangeApproveDTO;
@@ -35,6 +37,7 @@ import java.util.stream.Collectors;
 public class ProjectChangeLogServiceImpl implements ProjectChangeLogService {
 
     private final ProjectChangeLogMapper projectChangeLogMapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     public List<ProjectChangeLogVO> listByProjectId(Long projectId) {
@@ -85,6 +88,13 @@ public class ProjectChangeLogServiceImpl implements ProjectChangeLogService {
                     + "【审批意见】" + dto.getOpinion());
         }
         projectChangeLogMapper.updateById(exist);
+
+        // 变更审批通过后发布领域事件
+        if (ProjectConstant.CHANGE_APPROVED.equals(result)) {
+            domainEventPublisher.publish(new ChangeApprovedEvent(
+                    exist.getId(), exist.getProjectId(), exist.getApproverId(),
+                    exist.getChangeType(), null));
+        }
     }
 
     @Override

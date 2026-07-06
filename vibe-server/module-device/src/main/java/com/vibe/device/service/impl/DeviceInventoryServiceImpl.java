@@ -20,6 +20,8 @@ import com.vibe.device.service.DeviceInventoryService;
 import com.vibe.device.vo.DeviceInventoryLogVO;
 import com.vibe.device.vo.InventoryLedgerRow;
 import com.vibe.device.vo.InventoryWarningVO;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.InventoryWarningEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -56,6 +58,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
     private final DeviceModelMapper deviceModelMapper;
     private final WarehouseMapper warehouseMapper;
     private final ObjectMapper objectMapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -145,6 +148,14 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     vo.setSafetyQty(safetyQty);
                     vo.setGapQty(safetyQty - currentQty);
                     warnings.add(vo);
+
+                    // 检测到低库存时发布库存预警领域事件
+                    String level = (safetyQty > 0 && currentQty * 2 < safetyQty) ? "CRITICAL" : "LOW";
+                    String modelName = vo.getModelName() == null ? "" : vo.getModelName();
+                    String warehouseName = vo.getWarehouseName() == null ? "" : vo.getWarehouseName();
+                    domainEventPublisher.publish(new InventoryWarningEvent(
+                            modelId, modelName, wh.getId(), warehouseName,
+                            (int) currentQty, (int) safetyQty, level));
                 }
             }
         }

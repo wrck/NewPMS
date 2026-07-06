@@ -25,6 +25,8 @@ public final class DomainEventConstant {
     public static final String EXCHANGE = "vibe.domain.event.exchange";
     /** 领域事件队列（ES 同步消费者） */
     public static final String ES_SYNC_QUEUE = "vibe.es.sync.queue";
+    /** 领域事件队列（通知引擎消费者，将领域事件路由到通知模板） */
+    public static final String NOTICE_TRIGGER_QUEUE = "vibe.notice.trigger.queue";
     /** routing key 前缀（完整 key = PREFIX + eventType） */
     public static final String ROUTING_KEY_PREFIX = "vibe.domain.event.";
     /** binding pattern：匹配全部领域事件 */

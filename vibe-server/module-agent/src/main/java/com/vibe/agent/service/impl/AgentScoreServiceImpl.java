@@ -10,6 +10,8 @@ import com.vibe.agent.vo.AgentScoreLogVO;
 import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.AgentScoredEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class AgentScoreServiceImpl implements AgentScoreService {
 
     private final AgentScoreLogMapper scoreLogMapper;
     private final AgentCompanyService agentCompanyService;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -55,7 +58,29 @@ public class AgentScoreServiceImpl implements AgentScoreService {
 
         log.info("PM 对代理商打分: companyId={}, scoreLogId={}, scorerId={}",
                 dto.getAgentCompanyId(), entity.getId(), entity.getScorerId());
+
+        // 发布代理商评分领域事件
+        // 综合得分 = 及时性*0.3 + 质量*0.3 + 沟通*0.2 + 问题处理*0.2
+        double total = weightedScore(entity);
+        Double qualityScore = entity.getScoreQuality() == null
+                ? null : entity.getScoreQuality().doubleValue();
+        Double scheduleScore = entity.getScoreTimeliness() == null
+                ? null : entity.getScoreTimeliness().doubleValue();
+        domainEventPublisher.publish(new AgentScoredEvent(
+                entity.getId(), dto.getAgentCompanyId(), null,
+                total, qualityScore, scheduleScore));
         return entity.getId();
+    }
+
+    /**
+     * 计算加权综合得分（0-100）。
+     */
+    private double weightedScore(AgentScoreLogEntity e) {
+        double t = e.getScoreTimeliness() == null ? 0 : e.getScoreTimeliness().doubleValue();
+        double q = e.getScoreQuality() == null ? 0 : e.getScoreQuality().doubleValue();
+        double c = e.getScoreCommunication() == null ? 0 : e.getScoreCommunication().doubleValue();
+        double i = e.getScoreIssue() == null ? 0 : e.getScoreIssue().doubleValue();
+        return t * 0.3 + q * 0.3 + c * 0.2 + i * 0.2;
     }
 
     @Override

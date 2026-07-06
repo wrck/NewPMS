@@ -212,6 +212,45 @@ const V5_COLUMNS = [
   { table: 'integration_config', column: 'sync_interval', sql: `ALTER TABLE \`integration_config\` ADD COLUMN \`sync_interval\` INT NOT NULL DEFAULT 300 COMMENT '同步间隔（秒）'` }
 ];
 
+// V12: sys_feedback 反馈与工单表（幂等 CREATE TABLE IF NOT EXISTS）
+// 与 V12__sys_feedback.sql 保持一致，用于本地 MySQL 5.7 环境（Flyway 已禁用）。
+const V12_TABLES = [
+  { name: 'sys_feedback', sql: `CREATE TABLE IF NOT EXISTS \`sys_feedback\` (
+  \`id\` BIGINT NOT NULL COMMENT '主键（雪花算法）',
+  \`type\` VARCHAR(20) NOT NULL COMMENT '反馈类型 BUG/SUGGESTION/QUESTION',
+  \`title\` VARCHAR(200) NOT NULL COMMENT '标题',
+  \`content\` VARCHAR(2000) DEFAULT NULL COMMENT '内容描述',
+  \`screenshot_url\` VARCHAR(1000) DEFAULT NULL COMMENT '截图 URL（多个用逗号分隔）',
+  \`contact\` VARCHAR(100) DEFAULT NULL COMMENT '联系方式',
+  \`submitter_id\` BIGINT DEFAULT NULL COMMENT '提交人 ID',
+  \`status\` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '状态 PENDING/PROCESSING/RESOLVED/CLOSED',
+  \`handler_id\` BIGINT DEFAULT NULL COMMENT '处理人 ID',
+  \`handle_note\` VARCHAR(1000) DEFAULT NULL COMMENT '处理备注',
+  \`handle_time\` DATETIME DEFAULT NULL COMMENT '处理时间',
+  \`create_by\` BIGINT DEFAULT NULL,
+  \`create_time\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  \`update_by\` BIGINT DEFAULT NULL,
+  \`update_time\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  \`deleted\` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (\`id\`),
+  KEY \`idx_sys_feedback_submitter\` (\`submitter_id\`),
+  KEY \`idx_sys_feedback_status\` (\`status\`),
+  KEY \`idx_sys_feedback_type\` (\`type\`),
+  KEY \`idx_sys_feedback_create_time\` (\`create_time\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='反馈与工单'` }
+];
+
+// V11: 关键业务表追加 version 列（乐观锁字段，幂等 ALTER ADD COLUMN）
+// 对应 Task C2：project / device_instance / outsource_task / work_order / acceptance_task / finance_budget
+const V11_COLUMNS = [
+  { table: 'project', column: 'version', sql: `ALTER TABLE \`project\` ADD COLUMN \`version\` INT NOT NULL DEFAULT 1 COMMENT '乐观锁版本号'` },
+  { table: 'device_instance', column: 'version', sql: `ALTER TABLE \`device_instance\` ADD COLUMN \`version\` INT NOT NULL DEFAULT 1 COMMENT '乐观锁版本号'` },
+  { table: 'outsource_task', column: 'version', sql: `ALTER TABLE \`outsource_task\` ADD COLUMN \`version\` INT NOT NULL DEFAULT 1 COMMENT '乐观锁版本号'` },
+  { table: 'work_order', column: 'version', sql: `ALTER TABLE \`work_order\` ADD COLUMN \`version\` INT NOT NULL DEFAULT 1 COMMENT '乐观锁版本号'` },
+  { table: 'acceptance_task', column: 'version', sql: `ALTER TABLE \`acceptance_task\` ADD COLUMN \`version\` INT NOT NULL DEFAULT 1 COMMENT '乐观锁版本号'` },
+  { table: 'finance_budget', column: 'version', sql: `ALTER TABLE \`finance_budget\` ADD COLUMN \`version\` INT NOT NULL DEFAULT 1 COMMENT '乐观锁版本号'` }
+];
+
 // --- Main ---
 async function main() {
   log(`${c.bold}${c.cyan}Vibe 数据库初始化脚本${c.reset}（替代 Flyway，用于 MySQL 5.7）`);
@@ -269,10 +308,50 @@ async function main() {
       }
     }
 
+    // --- V11: 关键业务表追加 version 列（乐观锁字段） ---
+    header('V11: 关键业务表追加 version 列（乐观锁）');
+    for (const col of V11_COLUMNS) {
+      const [tblRows] = await conn.execute(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=?`,
+        [DB_NAME, col.table]
+      );
+      if (tblRows.length === 0) {
+        skip(`${col.table} 表不存在，跳过`);
+        continue;
+      }
+      const [cols] = await conn.execute(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema=? AND table_name=? AND column_name=?`,
+        [DB_NAME, col.table, col.column]
+      );
+      if (cols.length > 0) {
+        skip(`${col.table}.${col.column} 已存在`);
+      } else {
+        await conn.query(col.sql);
+        ok(`添加列 ${col.table}.${col.column}`);
+      }
+    }
+
+    // --- V12: 反馈与工单表 ---
+    header('V12: 反馈与工单表 sys_feedback');
+    for (const t of V12_TABLES) {
+      const [rows] = await conn.execute(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name=?`,
+        [DB_NAME, t.name]
+      );
+      if (rows.length > 0) {
+        skip(`${t.name} 已存在`);
+      } else {
+        await conn.query(t.sql);
+        ok(`创建表 ${t.name}`);
+      }
+    }
+
     // --- Summary ---
     header('完成');
     log(`  V2 表: 8 张`);
     log(`  V5 列: 4 个`);
+    log(`  V11 列: 6 个（关键业务表乐观锁）`);
+    log(`  V12 表: 1 张（sys_feedback 反馈与工单）`);
     log(`  所有迁移已应用（幂等，可重复执行）`, c.green);
     log(`\n  提示: 后端 application-dev.yml 已禁用 Flyway (spring.flyway.enabled=false)`, c.gray);
     log(`  生产环境用 MySQL 8.0+ 时可恢复 Flyway${c.reset}`, c.gray);

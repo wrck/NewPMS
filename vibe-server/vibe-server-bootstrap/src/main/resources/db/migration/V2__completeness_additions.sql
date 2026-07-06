@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS `lowcode_template` (
   `schema_json`    LONGTEXT     NOT NULL                 COMMENT 'JSON Schema',
   `description`    VARCHAR(500)          DEFAULT NULL    COMMENT '描述',
   `usage_count`    INT          NOT NULL DEFAULT 0       COMMENT '被使用次数（实例化时 +1）',
+  `version`        INT          NOT NULL DEFAULT 1       COMMENT '版本号（乐观锁）',
   `status`         TINYINT      NOT NULL DEFAULT 1       COMMENT '状态 1-启用 0-禁用',
   `creator_id`     BIGINT                DEFAULT NULL    COMMENT '创建人ID',
   `create_by`      BIGINT                DEFAULT NULL    COMMENT '创建人ID（公共字段）',

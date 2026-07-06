@@ -4,6 +4,7 @@ import com.vibe.agent.constant.AgentConstant;
 import com.vibe.agent.dto.OutsourceTaskActionDTO;
 import com.vibe.agent.dto.OutsourceTaskCreateDTO;
 import com.vibe.agent.dto.OutsourceTaskQueryDTO;
+import com.vibe.agent.dto.export.OutsourceTaskExportDTO;
 import com.vibe.agent.service.OutsourceTaskService;
 import com.vibe.agent.vo.OutsourceTaskVO;
 import com.vibe.annotation.OperationLog;
@@ -11,13 +12,16 @@ import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import com.vibe.service.FlowableProcessService;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.flowable.task.api.Task;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,9 +31,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 转包任务管理 Controller
@@ -65,6 +71,9 @@ public class OutsourceTaskController {
 
     /** Flowable 流程定义 key：转包任务流程 */
     private static final String PROCESS_KEY = "outsource";
+
+    /** 单次导出最大行数 */
+    private static final int EXPORT_MAX_ROWS = 10000;
 
     private final OutsourceTaskService outsourceTaskService;
     private final FlowableProcessService flowableProcessService;
@@ -171,6 +180,22 @@ public class OutsourceTaskController {
     @PostMapping("/mark-overdue")
     public Result<Integer> markOverdue() {
         return Result.success(outsourceTaskService.markOverdueTasks());
+    }
+
+    @Operation(summary = "导出转包任务列表（Excel）")
+    @OperationLog(module = AgentConstant.MODULE_OUTSOURCE_TASK, type = "EXPORT", description = "导出转包任务列表")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response, @ParameterObject OutsourceTaskQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<OutsourceTaskVO> records = outsourceTaskService.page(query).getRecords();
+        List<OutsourceTaskExportDTO> data = records.stream().map(vo -> {
+            OutsourceTaskExportDTO dto = new OutsourceTaskExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "转包任务列表", "转包任务", OutsourceTaskExportDTO.class, data);
     }
 
     /* ============ Flowable 集成辅助方法（兜底，异常仅记录日志） ============ */

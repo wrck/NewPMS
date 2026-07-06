@@ -12,17 +12,21 @@ import com.vibe.project.dto.ProjectCreateDTO;
 import com.vibe.project.dto.ProjectQueryDTO;
 import com.vibe.project.dto.ProjectStatusDTO;
 import com.vibe.project.dto.ProjectUpdateDTO;
+import com.vibe.project.dto.export.ProjectExportDTO;
 import com.vibe.project.service.ProjectService;
 import com.vibe.project.vo.ProjectDetailVO;
 import com.vibe.project.vo.ProjectGanttVO;
 import com.vibe.project.vo.ProjectKanbanVO;
 import com.vibe.project.vo.ProjectVO;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,8 +38,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 项目管理 Controller
@@ -57,6 +63,9 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final ElasticSearchService<VibeProjectIndex> elasticSearchService;
+
+    /** 单次导出最大行数 */
+    private static final int EXPORT_MAX_ROWS = 10000;
 
     @Operation(summary = "分页查询项目")
     @PreAuthorize("@ss.hasPermi('project:project') or hasRole('SUPER_ADMIN')")
@@ -187,5 +196,21 @@ public class ProjectController {
     public Result<Void> archive(@PathVariable Long id, @RequestBody ProjectArchiveDTO dto) {
         projectService.archive(id, dto);
         return Result.success();
+    }
+
+    @Operation(summary = "导出项目列表（Excel）")
+    @OperationLog(module = "项目管理", type = "EXPORT", description = "导出项目列表")
+    @PreAuthorize("@ss.hasPermi('project:project') or hasRole('SUPER_ADMIN')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response, @ParameterObject ProjectQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<ProjectVO> records = projectService.page(query).getRecords();
+        List<ProjectExportDTO> data = records.stream().map(vo -> {
+            ProjectExportDTO dto = new ProjectExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "项目列表", "项目", ProjectExportDTO.class, data);
     }
 }

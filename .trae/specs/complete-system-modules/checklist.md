@@ -56,14 +56,14 @@
 - [ ] TraceContextFilter 生成 TraceId 并放入 MDC
 - [ ] Result<T> 响应体增加 traceId 字段
 - [ ] logback-spring.xml 输出 TraceId
-- [ ] EasyExcel 通用导出方法 `ExcelUtils.export` 就位
-- [ ] 11 个 Controller 增加 export 端点：财务 4 个 + 项目 2 个 + 资源 2 个 + 代理商 2 个 + 设备 3 个
+- [x] EasyExcel 通用导出方法 `ExcelUtils.export` 就位
+- [x] 11 个 Controller 增加 export 端点：财务 4 个 + 项目 2 个 + 资源 2 个 + 代理商 2 个 + 设备 3 个
 
 ## 三、前端通用组件抽取
 
-- [ ] CrudTable 组件就位：搜索表单 + 分页 + 新增/编辑/删除弹窗 + 表单验证 + 状态反馈 + 异常处理
-- [ ] CrudTable 支持自定义 actions、行选择、批量操作
-- [ ] CrudTable Vitest 单元测试覆盖率 ≥80%
+- [x] CrudTable 组件就位：搜索表单 + 分页 + 新增/编辑/删除弹窗 + 表单验证 + 状态反馈 + 异常处理
+- [x] CrudTable 支持自定义 actions、行选择、批量操作
+- [x] CrudTable Vitest 单元测试覆盖率 ≥80%
 - [ ] FormModal 组件就位：8 类字段（input/select/date/switch/radio/checkbox/cascader/upload/treeSelect）
 - [ ] FormModal 支持字段联动、异步选项加载、表单验证规则
 - [ ] FormModal Vitest 覆盖率 ≥80%
@@ -147,13 +147,13 @@
 
 ## 六、低代码模块
 
-- [ ] 后端 `module-lowcode` 模块创建：目录 + pom.xml + 父 POM 注册
-- [ ] 5 个 Entity 创建：LowcodeFormConfig/ListConfig/TabConfig/RelationConfig/Template
-- [ ] 5 个 Mapper + Service + ServiceImpl 创建
-- [ ] 5 个 Controller 创建：FormConfig/ListConfig/TabConfig/RelationConfig/Template
-- [ ] 每个 Controller 提供 9 个端点：分页/详情/创建/更新/删除/复制/导出 JSON/导入 JSON/基于模板实例化
-- [ ] json-schema-validator 集成，导入 JSON 时校验 JSON Schema Draft 7
-- [ ] `@PreAuthorize("@ss.hasPermi('lowcode:config:*')")` 权限控制生效
+- [x] 后端 `module-lowcode` 模块创建：目录 + pom.xml + 父 POM 注册
+- [x] 5 个 Entity 创建：LowcodeFormConfig/ListConfig/TabConfig/RelationConfig/Template
+- [x] 5 个 Mapper + Service + ServiceImpl 创建
+- [x] 5 个 Controller 创建：FormConfig/ListConfig/TabConfig/RelationConfig/Template
+- [x] 每个 Controller 提供 9 个端点：分页/详情/创建/更新/删除/复制/导出 JSON/导入 JSON/基于模板实例化
+- [x] json-schema-validator 集成，导入 JSON 时校验 JSON Schema Draft 7
+- [x] `@PreAuthorize("@ss.hasPermi('lowcode:config:*')")` 权限控制生效
 - [ ] 前端低代码表单配置器 `views/lowcode/form-config/` 就位
 - [ ] 表单配置器三栏布局：左字段库 / 中拖拽画布 / 右属性配置
 - [ ] 8 类字段可拖拽到画布生成字段卡片

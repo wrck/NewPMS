@@ -6,13 +6,17 @@ import com.vibe.common.result.Result;
 import com.vibe.device.constant.DeviceConstant;
 import com.vibe.device.dto.SparePartActionDTO;
 import com.vibe.device.dto.SparePartDTO;
+import com.vibe.device.dto.export.SparePartLogExportDTO;
 import com.vibe.device.service.SparePartService;
 import com.vibe.device.vo.SparePartLogVO;
 import com.vibe.device.vo.SparePartVO;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,7 +28,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 备件管理 Controller
@@ -103,5 +109,22 @@ public class SparePartController {
                                                 @RequestParam(required = false) Long projectId,
                                                 @RequestParam(required = false) String actionType) {
         return Result.success(sparePartService.logList(sparePartId, projectId, actionType));
+    }
+
+    @Operation(summary = "导出备件操作流水（Excel）")
+    @OperationLog(module = DeviceConstant.MODULE_SPARE_PART, type = "EXPORT", description = "导出备件操作流水")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','DEVICE_ADMIN','PM','ENGINEER')")
+    @GetMapping("/logs/export")
+    public void exportLogs(HttpServletResponse response,
+                           @RequestParam(required = false) Long sparePartId,
+                           @RequestParam(required = false) Long projectId,
+                           @RequestParam(required = false) String actionType) throws IOException {
+        List<SparePartLogVO> records = sparePartService.logList(sparePartId, projectId, actionType);
+        List<SparePartLogExportDTO> data = records.stream().map(vo -> {
+            SparePartLogExportDTO dto = new SparePartLogExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "备件操作流水", "备件流水", SparePartLogExportDTO.class, data);
     }
 }

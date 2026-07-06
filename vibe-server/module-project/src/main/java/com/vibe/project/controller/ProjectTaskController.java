@@ -10,13 +10,17 @@ import com.vibe.project.dto.TaskDispatchDTO;
 import com.vibe.project.dto.TaskProgressDTO;
 import com.vibe.project.dto.TaskReturnDTO;
 import com.vibe.project.dto.TaskTransferDTO;
+import com.vibe.project.dto.export.ProjectTaskExportDTO;
 import com.vibe.project.service.ProjectTaskService;
 import com.vibe.project.vo.ProjectTaskVO;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,8 +33,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 项目任务 Controller
@@ -51,6 +57,9 @@ import java.util.List;
 public class ProjectTaskController {
 
     private final ProjectTaskService projectTaskService;
+
+    /** 单次导出最大行数 */
+    private static final int EXPORT_MAX_ROWS = 10000;
 
     /* ============ 项目维度：任务 CRUD ============ */
 
@@ -167,5 +176,21 @@ public class ProjectTaskController {
     @GetMapping("/tasks/overdue")
     public Result<List<ProjectTaskVO>> overdueTasks() {
         return Result.success(projectTaskService.listOverdueTasks());
+    }
+
+    @Operation(summary = "导出任务列表（Excel）")
+    @OperationLog(module = "项目任务", type = "EXPORT", description = "导出任务列表")
+    @PreAuthorize("@ss.hasPermi('project:task') or hasRole('SUPER_ADMIN')")
+    @GetMapping("/tasks/export")
+    public void export(HttpServletResponse response, @ParameterObject ProjectTaskQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<ProjectTaskVO> records = projectTaskService.page(query).getRecords();
+        List<ProjectTaskExportDTO> data = records.stream().map(vo -> {
+            ProjectTaskExportDTO dto = new ProjectTaskExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "项目任务列表", "任务", ProjectTaskExportDTO.class, data);
     }
 }

@@ -72,6 +72,11 @@
             <groupId>com.vibe</groupId>
             <artifactId>module-report</artifactId>
         </dependency>
+        <!-- 低代码配置模块 -->
+        <dependency>
+            <groupId>com.vibe</groupId>
+            <artifactId>module-lowcode</artifactId>
+        </dependency>
 
         <!-- Flyway 数据库迁移：bootstrap 启动时执行 V2+ 迁移（V1 baseline 占位，标记现有 schema.sql 为基线） -->
         <dependency>

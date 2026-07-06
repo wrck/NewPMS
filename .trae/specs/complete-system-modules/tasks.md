@@ -97,26 +97,26 @@
   - [ ] SubTask 10.5: 修改 `Result<T>` 响应体增加 `traceId` 字段
   - [ ] SubTask 10.6: 修改日志配置 logback-spring.xml 输出 TraceId
 
-- [ ] Task 11: EasyExcel 导出能力推广 [P]
-  - [ ] SubTask 11.1: 在 `ExcelUtils` 增加通用导出方法 `export(response, fileName, sheetName, headClazz, data)`
-  - [ ] SubTask 11.2: 财务预算/成本/结算/利润 4 个 Controller 增加 export 端点
-  - [ ] SubTask 11.3: 项目列表/项目任务清单 2 个 Controller 增加 export 端点
-  - [ ] SubTask 11.4: 资源工时/出差记录 2 个 Controller 增加 export 端点
-  - [ ] SubTask 11.5: 代理商工作量/交付物清单 2 个 Controller 增加 export 端点
-  - [ ] SubTask 11.6: 设备台账/库存日志/备件日志 3 个 Controller 增加 export 端点
+- [x] Task 11: EasyExcel 导出能力推广 [P]
+  - [x] SubTask 11.1: 在 `ExcelUtils` 增加通用导出方法 `export(response, fileName, sheetName, headClazz, data)`
+  - [x] SubTask 11.2: 财务预算/成本/结算/利润 4 个 Controller 增加 export 端点
+  - [x] SubTask 11.3: 项目列表/项目任务清单 2 个 Controller 增加 export 端点
+  - [x] SubTask 11.4: 资源工时/出差记录 2 个 Controller 增加 export 端点
+  - [x] SubTask 11.5: 代理商工作量/交付物清单 2 个 Controller 增加 export 端点
+  - [x] SubTask 11.6: 设备台账/库存日志/备件日志 3 个 Controller 增加 export 端点
 
 ---
 
 ## 阶段三：前端通用组件抽取
 
-- [ ] Task 12: 抽取 CrudTable 通用 CRUD 表格组件
-  - [ ] SubTask 12.1: 创建 `src/components/CrudTable/index.vue`（props: columns/searchFields/apiFunc/modelBinding）
-  - [ ] SubTask 12.2: 支持搜索表单自动渲染（基于 searchFields 配置）+ 折叠展开
-  - [ ] SubTask 12.3: 支持新增/编辑弹窗（基于 columns 自动生成 Form）+ 表单验证
-  - [ ] SubTask 12.4: 支持删除确认 + 状态反馈（成功/失败 message）+ 异常处理（统一 try/catch）
-  - [ ] SubTask 12.5: 支持分页、排序、行选择、批量操作
-  - [ ] SubTask 12.6: 支持 actions 自定义操作按钮（编辑/删除/查看/自定义）
-  - [ ] SubTask 12.7: 单元测试 Vitest 覆盖率 ≥80%
+- [x] Task 12: 抽取 CrudTable 通用 CRUD 表格组件
+  - [x] SubTask 12.1: 创建 `src/components/CrudTable/index.vue`（props: columns/searchFields/apiFunc/modelBinding）
+  - [x] SubTask 12.2: 支持搜索表单自动渲染（基于 searchFields 配置）+ 折叠展开
+  - [x] SubTask 12.3: 支持新增/编辑弹窗（基于 columns 自动生成 Form）+ 表单验证
+  - [x] SubTask 12.4: 支持删除确认 + 状态反馈（成功/失败 message）+ 异常处理（统一 try/catch）
+  - [x] SubTask 12.5: 支持分页、排序、行选择、批量操作
+  - [x] SubTask 12.6: 支持 actions 自定义操作按钮（编辑/删除/查看/自定义）
+  - [x] SubTask 12.7: 单元测试 Vitest 覆盖率 ≥80%
 
 - [ ] Task 13: 抽取 FormModal 通用表单弹窗组件 [P]
   - [ ] SubTask 13.1: 创建 `src/components/FormModal/index.vue`（props: fields/apiFunc/visible/title）
@@ -261,20 +261,20 @@
 
 ## 阶段六：低代码模块实现
 
-- [ ] Task 30: 后端 module-lowcode 模块搭建
-  - [ ] SubTask 30.1: 创建 `vibe-server/module-lowcode/` 模块目录与 pom.xml
-  - [ ] SubTask 30.2: 在父 POM 添加 module-lowcode 到 `<modules>`
-  - [ ] SubTask 30.3: 创建 Entity：
-    - [ ] `LowcodeFormConfigEntity`（id/configCode/configName/schema/templateId/version/status/creatorId/createdAt）
-    - [ ] `LowcodeListConfigEntity`（同上结构）
-    - [ ] `LowcodeTabConfigEntity`
-    - [ ] `LowcodeRelationConfigEntity`
-    - [ ] `LowcodeTemplateEntity`（id/templateCode/templateName/templateType/schema/description/usageCount）
-  - [ ] SubTask 30.4: 创建 Mapper（5 个）+ Service（5 个）+ ServiceImpl（5 个）
-  - [ ] SubTask 30.5: 创建 Controller（5 个）：FormConfigController / ListConfigController / TabConfigController / RelationConfigController / TemplateController
-  - [ ] SubTask 30.6: 每个 Controller 提供：分页查询/详情/创建/更新/删除/复制/导出 JSON/导入 JSON/基于模板实例化 端点
-  - [ ] SubTask 30.7: 引入 `com.networknt:json-schema-validator` 实现 JSON Schema Draft 7 校验
-  - [ ] SubTask 30.8: 权限控制：`@PreAuthorize("@ss.hasPermi('lowcode:config:*')")`
+- [x] Task 30: 后端 module-lowcode 模块搭建
+  - [x] SubTask 30.1: 创建 `vibe-server/module-lowcode/` 模块目录与 pom.xml
+  - [x] SubTask 30.2: 在父 POM 添加 module-lowcode 到 `<modules>`
+  - [x] SubTask 30.3: 创建 Entity：
+    - [x] `LowcodeFormConfigEntity`（id/configCode/configName/schema/templateId/version/status/creatorId/createdAt）
+    - [x] `LowcodeListConfigEntity`（同上结构）
+    - [x] `LowcodeTabConfigEntity`
+    - [x] `LowcodeRelationConfigEntity`
+    - [x] `LowcodeTemplateEntity`（id/templateCode/templateName/templateType/schema/description/usageCount）
+  - [x] SubTask 30.4: 创建 Mapper（5 个）+ Service（5 个）+ ServiceImpl（5 个）
+  - [x] SubTask 30.5: 创建 Controller（5 个）：FormConfigController / ListConfigController / TabConfigController / RelationConfigController / TemplateController
+  - [x] SubTask 30.6: 每个 Controller 提供：分页查询/详情/创建/更新/删除/复制/导出 JSON/导入 JSON/基于模板实例化 端点
+  - [x] SubTask 30.7: 引入 `com.networknt:json-schema-validator` 实现 JSON Schema Draft 7 校验
+  - [x] SubTask 30.8: 权限控制：`@PreAuthorize("@ss.hasPermi('lowcode:config:*')")`
 
 - [ ] Task 31: 前端低代码表单配置器
   - [ ] SubTask 31.1: 创建 `src/views/lowcode/form-config/index.vue` 列表页（CRUD + 导入导出）

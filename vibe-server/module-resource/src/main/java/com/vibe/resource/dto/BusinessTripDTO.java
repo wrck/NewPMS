@@ -1,6 +1,7 @@
 package com.vibe.resource.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -36,11 +37,13 @@ public class BusinessTripDTO implements Serializable {
     private Long taskId;
 
     @Size(max = 128, message = "出发地长度不能超过128")
-    @Schema(description = "出发地")
+    @Schema(description = "出发地", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "出发地不能为空")
     private String origin;
 
     @Schema(description = "目的地", requiredMode = Schema.RequiredMode.REQUIRED)
     @Size(max = 128, message = "目的地长度不能超过128")
+    @NotBlank(message = "目的地不能为空")
     private String destination;
 
     @Schema(description = "出差开始日期", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -61,8 +64,12 @@ public class BusinessTripDTO implements Serializable {
     @Schema(description = "预估费用")
     private BigDecimal estimatedCost;
 
+    @Schema(description = "实际费用")
+    private BigDecimal actualCost;
+
     @Size(max = 512, message = "出差事由长度不能超过512")
-    @Schema(description = "出差事由")
+    @Schema(description = "出差事由", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "出差事由不能为空")
     private String reason;
 
     @Size(max = 255, message = "备注长度不能超过255")

@@ -12,6 +12,7 @@ import { useRouter } from 'vue-router'
 import { message as antdMessage, Modal } from 'ant-design-vue'
 import { ReloadOutlined, CheckOutlined, FieldTimeOutlined, ProfileOutlined, ScheduleOutlined, SyncOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
+import HelpHint from '@/components/HelpHint.vue'
 import StatisticCard from '@/components/StatisticCard.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -34,10 +35,10 @@ const query = reactive<Pick<WorkOrderQueryParams, 'projectId' | 'executeMode'>>(
 
 // 看板列定义（按状态机顺序）
 const columns = [
-  { status: TaskStatus.TODO, label: TaskStatusLabel[TaskStatus.TODO], tone: TaskStatusTone[TaskStatus.TODO] },
+  { status: TaskStatus.PENDING, label: TaskStatusLabel[TaskStatus.PENDING], tone: TaskStatusTone[TaskStatus.PENDING] },
   { status: TaskStatus.ASSIGNED, label: TaskStatusLabel[TaskStatus.ASSIGNED], tone: TaskStatusTone[TaskStatus.ASSIGNED] },
   { status: TaskStatus.IN_PROGRESS, label: TaskStatusLabel[TaskStatus.IN_PROGRESS], tone: TaskStatusTone[TaskStatus.IN_PROGRESS] },
-  { status: TaskStatus.SUBMITTED, label: TaskStatusLabel[TaskStatus.SUBMITTED], tone: TaskStatusTone[TaskStatus.SUBMITTED] },
+  { status: TaskStatus.COMPLETED, label: TaskStatusLabel[TaskStatus.COMPLETED], tone: TaskStatusTone[TaskStatus.COMPLETED] },
   { status: TaskStatus.CONFIRMED, label: TaskStatusLabel[TaskStatus.CONFIRMED], tone: TaskStatusTone[TaskStatus.CONFIRMED] }
 ]
 
@@ -51,6 +52,20 @@ const actionLoading = ref(false)
 const confirmVisible = ref(false)
 const confirmForm = reactive<WorkOrderConfirmDTO>({ approved: true, remark: '', rating: 5 })
 const currentOrder = ref<WorkOrder | null>(null)
+
+// 工单确认表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
+const confirmFormRules = {
+  approved: [
+    { required: true, message: '请选择确认结果', trigger: 'change' }
+  ],
+  remark: [
+    { max: 200, message: '处理说明长度不能超过 200', trigger: 'blur' }
+  ],
+  rating: [
+    { type: 'number', min: 0, max: 5, message: '评分需在 0-5 之间', trigger: 'change' }
+  ]
+}
+const confirmFormRef = ref()
 
 async function loadData() {
   loading.value = true
@@ -76,7 +91,7 @@ function handleSearch() {
 /** 工单是否超期（计划结束 < 今天且未完成） */
 function isOverdue(item: WorkOrder): boolean {
   if (!item.plannedEnd) return false
-  if ([TaskStatus.CONFIRMED, TaskStatus.CANCELLED].includes(item.status as TaskStatus)) return false
+  if ([TaskStatus.CONFIRMED, TaskStatus.COMPLETED].includes(item.status as TaskStatus)) return false
   return new Date(item.plannedEnd).getTime() < Date.now()
 }
 
@@ -99,7 +114,7 @@ const stats = computed(() => {
   const ongoing = allData.value.filter((d) =>
     [TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS].includes(d.status as TaskStatus)
   ).length
-  const pending = allData.value.filter((d) => d.status === TaskStatus.TODO).length
+  const pending = allData.value.filter((d) => d.status === TaskStatus.PENDING).length
   const overdue = allData.value.filter(isOverdue).length
   return { total, done, ongoing, pending, overdue }
 })
@@ -147,6 +162,17 @@ function openConfirm(item: WorkOrder, e: Event) {
 /** 提交确认 */
 async function handleConfirmSubmit() {
   if (!currentOrder.value) return
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await confirmFormRef.value?.validate()
+  } catch {
+    return
+  }
+  // 驳回时必填驳回原因
+  if (confirmForm.approved === false && !confirmForm.remark?.trim()) {
+    antdMessage.warning('驳回时请填写驳回原因')
+    return
+  }
   actionLoading.value = true
   try {
     await confirmWorkOrder(currentOrder.value.id, {
@@ -177,6 +203,12 @@ onMounted(() => {
 
 <template>
   <PageContainer title="交付看板" description="按工单状态分组展示，全局跟踪交付进度">
+    <template #title-suffix>
+      <HelpHint
+        title="交付看板"
+        content="按工单状态分组跟踪交付进度：\n1. 五列状态：待派发 → 已指派 → 进行中 → 已完成 → 已确认；\n2. 进行中工单卡片可点击「标记完成」转交 PM 确认；\n3. 已完成工单可点击「确认工单」打开确认弹窗，通过后状态变为已确认；\n4. 超期工单（计划结束 < 今天且未完成）将以红色边框高亮；\n5. 点击「现场作业」进入现场作业页进行施工步骤跟踪。"
+      />
+    </template>
     <template #extra>
       <a-button @click="gotoField()" type="primary" ghost>
         <template #icon><FieldTimeOutlined /></template>
@@ -275,7 +307,7 @@ onMounted(() => {
                 <span v-if="isOverdue(item)" class="overdue-tag">超期</span>
               </div>
               <!-- 快捷操作 -->
-              <div v-if="item.status === TaskStatus.IN_PROGRESS || item.status === TaskStatus.SUBMITTED" class="card-actions">
+              <div v-if="item.status === TaskStatus.IN_PROGRESS || item.status === TaskStatus.COMPLETED" class="card-actions">
                 <a-button
                   v-if="item.status === TaskStatus.IN_PROGRESS"
                   type="primary"
@@ -286,7 +318,7 @@ onMounted(() => {
                   <CheckOutlined /> 标记完成
                 </a-button>
                 <a-button
-                  v-else-if="item.status === TaskStatus.SUBMITTED"
+                  v-else-if="item.status === TaskStatus.COMPLETED"
                   type="primary"
                   ghost
                   size="small"
@@ -320,17 +352,17 @@ onMounted(() => {
         show-icon
         style="margin-bottom: 16px"
       />
-      <a-form layout="vertical">
-        <a-form-item label="确认结果" required>
+      <a-form ref="confirmFormRef" layout="vertical" :model="confirmForm" :rules="confirmFormRules">
+        <a-form-item label="确认结果" name="approved" required>
           <a-radio-group v-model:value="confirmForm.approved">
             <a-radio :value="true">确认通过</a-radio>
             <a-radio :value="false">驳回返工</a-radio>
           </a-radio-group>
         </a-form-item>
-        <a-form-item label="服务质量评分" v-if="confirmForm.approved">
+        <a-form-item label="服务质量评分" name="rating" v-if="confirmForm.approved">
           <a-rate v-model:value="confirmForm.rating" allow-half />
         </a-form-item>
-        <a-form-item label="处理说明">
+        <a-form-item label="处理说明" name="remark">
           <a-textarea
             v-model:value="confirmForm.remark"
             :placeholder="confirmForm.approved ? '可填写确认意见' : '请填写驳回原因'"

@@ -119,7 +119,7 @@ public class OutsourceTaskController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','AGENT_ADMIN')")
     @PutMapping("/{id}/reject")
     public Result<Void> reject(@PathVariable Long id,
-                               @RequestBody(required = false) OutsourceTaskActionDTO dto) {
+                               @Valid @RequestBody(required = false) OutsourceTaskActionDTO dto) {
         outsourceTaskService.reject(id, dto != null ? dto : new OutsourceTaskActionDTO());
         // Flowable 增强：完成"代理商接单"任务（accepted=false）
         completeAcceptTaskSafely(id, false);
@@ -152,7 +152,7 @@ public class OutsourceTaskController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PutMapping("/{id}/return")
     public Result<Void> returnTask(@PathVariable Long id,
-                                   @RequestBody OutsourceTaskActionDTO dto) {
+                                   @Valid @RequestBody OutsourceTaskActionDTO dto) {
         outsourceTaskService.returnTask(id, dto);
         // Flowable 增强：完成"交付物审核"任务（approved=false → 回到执行节点）
         completeReviewTaskSafely(id, false, dto != null ? dto.getReason() : null);

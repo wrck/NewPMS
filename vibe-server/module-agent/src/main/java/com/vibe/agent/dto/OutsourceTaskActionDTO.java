@@ -1,7 +1,7 @@
 package com.vibe.agent.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.io.Serial;
@@ -25,5 +25,6 @@ public class OutsourceTaskActionDTO implements Serializable {
     private Long agentEngineerId;
 
     @Schema(description = "退回/拒绝原因")
+    @Size(max = 500, message = "退回/拒绝原因长度不能超过500")
     private String reason;
 }

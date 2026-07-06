@@ -91,6 +91,18 @@ const formData = reactive<SysRoleDTO>({
   customOrgIds: []
 })
 
+// 角色表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
+const roleFormRules = {
+  roleName: [
+    { required: true, message: '请输入角色名称', trigger: 'blur' },
+    { max: 64, message: '角色名称长度不能超过 64', trigger: 'blur' }
+  ],
+  description: [
+    { max: 255, message: '描述长度不能超过 255', trigger: 'blur' }
+  ]
+}
+const roleFormRef = ref()
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
@@ -122,6 +134,12 @@ function openEdit(row: SysRole) {
 }
 
 async function handleSubmit() {
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await roleFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (!formData.roleName) {
     message.warning('请填写角色名称')
     return
@@ -255,7 +273,7 @@ onMounted(() => {
 
     <!-- 新增/编辑角色 -->
     <a-modal v-model:open="formVisible" :title="isEdit ? '编辑角色' : '新增角色'" width="560px" :confirm-loading="formLoading" @ok="handleSubmit">
-      <a-form layout="vertical">
+      <a-form ref="roleFormRef" layout="vertical" :model="formData" :rules="roleFormRules">
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="角色编码">
@@ -265,7 +283,7 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="角色名称" required>
+            <a-form-item label="角色名称" name="roleName" required>
               <a-input v-model:value="formData.roleName" />
             </a-form-item>
           </a-col>
@@ -285,7 +303,7 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="描述">
+            <a-form-item label="描述" name="description">
               <a-textarea v-model:value="formData.description" :rows="2" />
             </a-form-item>
           </a-col>

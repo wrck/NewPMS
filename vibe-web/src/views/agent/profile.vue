@@ -15,6 +15,7 @@ import {
   StopOutlined
 } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
+import HelpHint from '@/components/HelpHint.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import {
@@ -105,6 +106,44 @@ const formData = reactive<AgentCompanyDTO>({
 const regionInput = ref('')
 const productLineInput = ref('')
 
+// 公司表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
+const companyFormRules = {
+  companyCode: [
+    { required: true, message: '请输入公司编码', trigger: 'blur' },
+    { max: 64, message: '公司编码长度不能超过 64', trigger: 'blur' }
+  ],
+  companyName: [
+    { required: true, message: '请输入公司名称', trigger: 'blur' },
+    { max: 128, message: '公司名称长度不能超过 128', trigger: 'blur' }
+  ],
+  contactPhone: [
+    { pattern: /^1[3-9]\d{9}$|^$/, message: '请输入有效的手机号（11 位）', trigger: 'blur' }
+  ],
+  contactEmail: [
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
+  ]
+}
+
+// 工程师表单校验规则
+const engineerFormRules = {
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { max: 64, message: '姓名长度不能超过 64', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号（11 位）', trigger: 'blur' }
+  ],
+  email: [
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
+  ]
+}
+
+// 公司表单 ref（用于触发校验）
+const companyFormRef = ref()
+// 工程师表单 ref
+const engineerFormRef = ref()
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
@@ -168,6 +207,12 @@ function addProductLine() {
 }
 
 async function handleSubmit() {
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await companyFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (!formData.companyName || !formData.companyCode) {
     message.warning('请填写公司名称和编码')
     return
@@ -336,6 +381,12 @@ function addSkill() {
 }
 
 async function handleEngSubmit() {
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await engineerFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (!engForm.name || !engForm.phone) {
     message.warning('请填写姓名和电话')
     return
@@ -412,6 +463,12 @@ onMounted(() => {
 
 <template>
   <PageContainer title="代理商档案" description="代理商公司档案、合作状态、工程师与评分管理">
+    <template #title-suffix>
+      <HelpHint
+        title="代理商档案"
+        content="管理代理商公司：\n1. 新增/编辑代理商档案（公司编码、名称、联系人、服务区域、产品线）；\n2. 切换合作状态（合作中 / 暂停 / 终止）；\n3. 点击「详情」打开抽屉，维护该公司的工程师档案与查看评分记录；\n4. 综合评分 < 80 分的代理商将以橙色高亮提示。"
+      />
+    </template>
     <template #extra>
       <a-button @click="loadData"><template #icon><ReloadOutlined /></template>刷新</a-button>
       <a-button type="primary" @click="openCreate"><template #icon><PlusOutlined /></template>新增代理商</a-button>
@@ -480,15 +537,15 @@ onMounted(() => {
 
     <!-- 新增/编辑公司 -->
     <a-modal v-model:open="formVisible" :title="isEdit ? '编辑代理商' : '新增代理商'" width="720px" :confirm-loading="formLoading" @ok="handleSubmit">
-      <a-form layout="vertical">
+      <a-form ref="companyFormRef" layout="vertical" :model="formData" :rules="companyFormRules">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="公司编码" required>
+            <a-form-item label="公司编码" name="companyCode" required>
               <a-input v-model:value="formData.companyCode" :disabled="isEdit" placeholder="如 AGT-001" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="公司名称" required>
+            <a-form-item label="公司名称" name="companyName" required>
               <a-input v-model:value="formData.companyName" />
             </a-form-item>
           </a-col>
@@ -510,12 +567,12 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="联系电话">
+            <a-form-item label="联系电话" name="contactPhone">
               <a-input v-model:value="formData.contactPhone" />
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="联系邮箱">
+            <a-form-item label="联系邮箱" name="contactEmail">
               <a-input v-model:value="formData.contactEmail" />
             </a-form-item>
           </a-col>
@@ -606,20 +663,20 @@ onMounted(() => {
 
     <!-- 新增/编辑工程师 -->
     <a-modal v-model:open="engVisible" :title="engIsEdit ? '编辑工程师' : '添加工程师'" width="560px" :confirm-loading="engLoading" @ok="handleEngSubmit">
-      <a-form layout="vertical">
+      <a-form ref="engineerFormRef" layout="vertical" :model="engForm" :rules="engineerFormRules">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="姓名" required>
+            <a-form-item label="姓名" name="name" required>
               <a-input v-model:value="engForm.name" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="电话" required>
+            <a-form-item label="电话" name="phone" required>
               <a-input v-model:value="engForm.phone" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="邮箱">
+            <a-form-item label="邮箱" name="email">
               <a-input v-model:value="engForm.email" />
             </a-form-item>
           </a-col>

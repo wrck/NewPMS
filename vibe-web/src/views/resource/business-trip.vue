@@ -118,6 +118,38 @@ const formData = reactive<BusinessTripDTO>({
   remark: ''
 })
 
+// 差旅表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
+const tripFormRules = {
+  engineerId: [
+    { required: true, message: '请选择工程师', trigger: 'change', type: 'number' }
+  ],
+  origin: [
+    { required: true, message: '请输入出发地', trigger: 'blur' },
+    { max: 128, message: '出发地长度不能超过 128', trigger: 'blur' }
+  ],
+  destination: [
+    { required: true, message: '请输入目的地', trigger: 'blur' },
+    { max: 128, message: '目的地长度不能超过 128', trigger: 'blur' }
+  ],
+  startDate: [
+    { required: true, message: '请选择开始日期', trigger: 'change' }
+  ],
+  endDate: [
+    { required: true, message: '请选择结束日期', trigger: 'change' }
+  ],
+  reason: [
+    { required: true, message: '请填写出差事由', trigger: 'blur' },
+    { max: 512, message: '出差事由长度不能超过 512', trigger: 'blur' }
+  ],
+  accommodation: [
+    { max: 255, message: '住宿信息长度不能超过 255', trigger: 'blur' }
+  ],
+  remark: [
+    { max: 255, message: '备注长度不能超过 255', trigger: 'blur' }
+  ]
+}
+const tripFormRef = ref()
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
@@ -161,6 +193,12 @@ function openEdit(row: BusinessTrip) {
 }
 
 async function handleSubmit() {
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await tripFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (!formData.engineerId) {
     message.warning('请选择工程师')
     return
@@ -326,10 +364,10 @@ onMounted(() => {
       :mask-closable="false"
       @ok="handleSubmit"
     >
-      <a-form layout="vertical">
+      <a-form ref="tripFormRef" layout="vertical" :model="formData" :rules="tripFormRules">
         <a-row :gutter="16">
           <a-col :span="8">
-            <a-form-item label="工程师 ID" required>
+            <a-form-item label="工程师 ID" name="engineerId" required>
               <a-input-number v-model:value="formData.engineerId" style="width: 100%" placeholder="工程师 ID" />
             </a-form-item>
           </a-col>
@@ -344,22 +382,22 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="出发地" required>
+            <a-form-item label="出发地" name="origin" required>
               <a-input v-model:value="formData.origin" placeholder="如 北京" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="目的地" required>
+            <a-form-item label="目的地" name="destination" required>
               <a-input v-model:value="formData.destination" placeholder="如 上海" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="开始日期" required>
+            <a-form-item label="开始日期" name="startDate" required>
               <a-date-picker v-model:value="formData.startDate" value-format="YYYY-MM-DD" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="结束日期" required>
+            <a-form-item label="结束日期" name="endDate" required>
               <a-date-picker v-model:value="formData.endDate" value-format="YYYY-MM-DD" style="width: 100%" />
             </a-form-item>
           </a-col>
@@ -379,17 +417,17 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="住宿信息">
+            <a-form-item label="住宿信息" name="accommodation">
               <a-input v-model:value="formData.accommodation" placeholder="如 XX 酒店 / 公司宿舍" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="出差事由" required>
+            <a-form-item label="出差事由" name="reason" required>
               <a-textarea v-model:value="formData.reason" :rows="2" placeholder="出差事由/任务说明" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="备注">
+            <a-form-item label="备注" name="remark">
               <a-textarea v-model:value="formData.remark" :rows="2" />
             </a-form-item>
           </a-col>

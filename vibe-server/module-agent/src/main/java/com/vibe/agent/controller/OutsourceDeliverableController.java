@@ -3,14 +3,18 @@ package com.vibe.agent.controller;
 import com.vibe.agent.constant.AgentConstant;
 import com.vibe.agent.dto.DeliverableReviewDTO;
 import com.vibe.agent.dto.OutsourceDeliverableDTO;
+import com.vibe.agent.dto.export.OutsourceDeliverableExportDTO;
 import com.vibe.agent.service.OutsourceDeliverableService;
 import com.vibe.agent.vo.OutsourceDeliverableVO;
 import com.vibe.annotation.OperationLog;
 import com.vibe.common.result.Result;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,8 +24,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 代理商交付物管理 Controller
@@ -79,5 +85,19 @@ public class OutsourceDeliverableController {
     @GetMapping("/count-by-type")
     public Result<Map<String, Integer>> countByType(@PathVariable Long taskId) {
         return Result.success(deliverableService.countByType(taskId));
+    }
+
+    @Operation(summary = "导出交付物列表（Excel）")
+    @OperationLog(module = AgentConstant.MODULE_DELIVERABLE, type = "EXPORT", description = "导出交付物列表")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
+    @GetMapping("/export")
+    public void export(@PathVariable Long taskId, HttpServletResponse response) throws IOException {
+        List<OutsourceDeliverableVO> records = deliverableService.listByTaskId(taskId);
+        List<OutsourceDeliverableExportDTO> data = records.stream().map(vo -> {
+            OutsourceDeliverableExportDTO dto = new OutsourceDeliverableExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "交付物列表", "交付物", OutsourceDeliverableExportDTO.class, data);
     }
 }

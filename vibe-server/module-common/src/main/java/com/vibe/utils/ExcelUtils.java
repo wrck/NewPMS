@@ -4,6 +4,7 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.read.listener.ReadListener;
 import com.alibaba.excel.write.metadata.WriteSheet;
+import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
 import jakarta.servlet.http.HttpServletResponse;
@@ -72,7 +73,7 @@ public class ExcelUtils {
      * 浏览器下载 Excel
      *
      * @param response  HttpServletResponse
-     * @param fileName  下载文件名（不含扩展名）
+     * @param fileName 下载文件名（不含扩展名）
      * @param clazz     数据模型类
      * @param sheetName Sheet 名称
      * @param data      数据列表
@@ -89,5 +90,32 @@ public class ExcelUtils {
             log.error("[ExcelUtils] Excel 下载失败", e);
             throw new BusinessException(ResultCode.FILE_IO_ERROR, "Excel 下载失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 通用 Excel 导出（静态方法，自动适配列宽）。
+     *
+     * <p>设置响应头为 xlsx 类型，文件名采用 RFC 5987 编码（filename*=utf-8''）
+     * 以兼容中文文件名；同时注册 {@link LongestMatchColumnWidthStyleStrategy}
+     * 根据表头与内容长度自动调整列宽。</p>
+     *
+     * @param response   HttpServletResponse
+     * @param fileName   下载文件名（不含扩展名，自动追加 .xlsx）
+     * @param sheetName  Sheet 名称
+     * @param headClazz  数据模型类（标注 @ExcelProperty 的 DTO）
+     * @param data       数据列表
+     * @param <T>        数据模型类型
+     * @throws IOException 写出失败时抛出
+     */
+    public static <T> void export(HttpServletResponse response, String fileName, String sheetName,
+                                  Class<T> headClazz, List<T> data) throws IOException {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
+        response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + encodedFileName + ".xlsx");
+        EasyExcel.write(response.getOutputStream(), headClazz)
+                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .sheet(sheetName)
+                .doWrite(data);
     }
 }

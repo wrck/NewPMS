@@ -10,16 +10,21 @@ import com.vibe.resource.dto.TimesheetApprovalDTO;
 import com.vibe.resource.dto.TimesheetDTO;
 import com.vibe.resource.dto.TimesheetQueryDTO;
 import com.vibe.resource.dto.TimesheetStatsQueryDTO;
+import com.vibe.resource.dto.export.BusinessTripExportDTO;
+import com.vibe.resource.dto.export.TimesheetExportDTO;
 import com.vibe.resource.service.TimesheetService;
 import com.vibe.resource.vo.BusinessTripVO;
 import com.vibe.resource.vo.TimesheetStatsVO;
 import com.vibe.resource.vo.TimesheetVO;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,8 +37,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 工时管理 Controller
@@ -50,6 +57,9 @@ import java.util.List;
 public class TimesheetController {
 
     private final TimesheetService timesheetService;
+
+    /** 单次导出最大行数 */
+    private static final int EXPORT_MAX_ROWS = 10000;
 
     @Operation(summary = "分页查询工时")
     @OperationLog(module = "工时管理", type = ResourceConstant.BIZ_QUERY, description = "分页查询工时")
@@ -210,5 +220,45 @@ public class TimesheetController {
     public Result<Void> deleteTrip(@PathVariable Long id) {
         timesheetService.deleteTrip(id);
         return Result.success();
+    }
+
+    /* ============ 导出：工时 / 出差 ============ */
+
+    @Operation(summary = "导出工时列表（Excel）")
+    @OperationLog(module = "工时管理", type = "EXPORT", description = "导出工时列表")
+    @PreAuthorize("hasRole('" + ResourceConstant.ROLE_SUPER_ADMIN
+            + "') or hasRole('" + ResourceConstant.ROLE_DISPATCHER
+            + "') or hasRole('" + ResourceConstant.ROLE_PM
+            + "') or hasRole('" + ResourceConstant.ROLE_ENGINEER + "')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response, @ParameterObject TimesheetQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<TimesheetVO> records = timesheetService.page(query).getRecords();
+        List<TimesheetExportDTO> data = records.stream().map(vo -> {
+            TimesheetExportDTO dto = new TimesheetExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "工时记录", "工时", TimesheetExportDTO.class, data);
+    }
+
+    @Operation(summary = "导出出差记录（Excel）")
+    @OperationLog(module = "工时管理", type = "EXPORT", description = "导出出差记录")
+    @PreAuthorize("hasRole('" + ResourceConstant.ROLE_SUPER_ADMIN
+            + "') or hasRole('" + ResourceConstant.ROLE_DISPATCHER
+            + "') or hasRole('" + ResourceConstant.ROLE_PM
+            + "') or hasRole('" + ResourceConstant.ROLE_ENGINEER + "')")
+    @GetMapping("/trips/export")
+    public void exportTrips(HttpServletResponse response, @ParameterObject BusinessTripQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<BusinessTripVO> records = timesheetService.tripPage(query).getRecords();
+        List<BusinessTripExportDTO> data = records.stream().map(vo -> {
+            BusinessTripExportDTO dto = new BusinessTripExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "出差记录", "出差", BusinessTripExportDTO.class, data);
     }
 }

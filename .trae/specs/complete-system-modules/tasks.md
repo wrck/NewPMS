@@ -97,13 +97,13 @@
   - [ ] SubTask 10.5: 修改 `Result<T>` 响应体增加 `traceId` 字段
   - [ ] SubTask 10.6: 修改日志配置 logback-spring.xml 输出 TraceId
 
-- [ ] Task 11: EasyExcel 导出能力推广 [P]
-  - [ ] SubTask 11.1: 在 `ExcelUtils` 增加通用导出方法 `export(response, fileName, sheetName, headClazz, data)`
-  - [ ] SubTask 11.2: 财务预算/成本/结算/利润 4 个 Controller 增加 export 端点
-  - [ ] SubTask 11.3: 项目列表/项目任务清单 2 个 Controller 增加 export 端点
-  - [ ] SubTask 11.4: 资源工时/出差记录 2 个 Controller 增加 export 端点
-  - [ ] SubTask 11.5: 代理商工作量/交付物清单 2 个 Controller 增加 export 端点
-  - [ ] SubTask 11.6: 设备台账/库存日志/备件日志 3 个 Controller 增加 export 端点
+- [x] Task 11: EasyExcel 导出能力推广 [P]
+  - [x] SubTask 11.1: 在 `ExcelUtils` 增加通用导出方法 `export(response, fileName, sheetName, headClazz, data)`
+  - [x] SubTask 11.2: 财务预算/成本/结算/利润 4 个 Controller 增加 export 端点
+  - [x] SubTask 11.3: 项目列表/项目任务清单 2 个 Controller 增加 export 端点
+  - [x] SubTask 11.4: 资源工时/出差记录 2 个 Controller 增加 export 端点
+  - [x] SubTask 11.5: 代理商工作量/交付物清单 2 个 Controller 增加 export 端点
+  - [x] SubTask 11.6: 设备台账/库存日志/备件日志 3 个 Controller 增加 export 端点
 
 ---
 

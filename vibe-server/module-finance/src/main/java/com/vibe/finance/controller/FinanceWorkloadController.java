@@ -4,13 +4,17 @@ import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import com.vibe.finance.dto.FinanceWorkloadQueryDTO;
 import com.vibe.finance.dto.FinanceWorkloadSaveDTO;
+import com.vibe.finance.dto.export.FinanceWorkloadExportDTO;
 import com.vibe.finance.service.FinanceWorkloadService;
 import com.vibe.finance.vo.FinanceWorkloadConfirmationVO;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +25,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 代理商结算 Controller
@@ -36,6 +44,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class FinanceWorkloadController {
 
     private final FinanceWorkloadService financeWorkloadService;
+
+    /** 单次导出最大行数 */
+    private static final int EXPORT_MAX_ROWS = 10000;
 
     @Operation(summary = "分页查询结算单")
     @PreAuthorize("isAuthenticated()")
@@ -117,5 +128,21 @@ public class FinanceWorkloadController {
                                              @RequestParam String paymentStatus) {
         financeWorkloadService.updatePaymentStatus(id, paymentStatus);
         return Result.success();
+    }
+
+    @Operation(summary = "导出结算单列表（Excel）")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "EXPORT", description = "导出结算单列表")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response, @ParameterObject FinanceWorkloadQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<FinanceWorkloadConfirmationVO> records = financeWorkloadService.page(query).getRecords();
+        List<FinanceWorkloadExportDTO> data = records.stream().map(vo -> {
+            FinanceWorkloadExportDTO dto = new FinanceWorkloadExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "代理商结算", "结算单", FinanceWorkloadExportDTO.class, data);
     }
 }

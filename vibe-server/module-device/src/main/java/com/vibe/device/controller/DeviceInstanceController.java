@@ -7,6 +7,7 @@ import com.vibe.device.constant.DeviceConstant;
 import com.vibe.device.dto.DeviceInstanceDTO;
 import com.vibe.device.dto.DeviceInstanceQueryDTO;
 import com.vibe.device.dto.DeviceStatusTransitionDTO;
+import com.vibe.device.dto.export.DeviceInstanceExportDTO;
 import com.vibe.device.service.DeviceInstanceService;
 import com.vibe.device.vo.DeviceImportResultVO;
 import com.vibe.device.vo.DeviceInstanceDetailVO;
@@ -23,6 +24,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 设备实例 Controller
@@ -63,6 +66,9 @@ public class DeviceInstanceController {
     private final DeviceInstanceService deviceInstanceService;
     private final ExcelUtils excelUtils;
     private final ElasticSearchService<VibeDeviceIndex> elasticSearchService;
+
+    /** 单次导出最大行数 */
+    private static final int EXPORT_MAX_ROWS = 10000;
 
     @Operation(summary = "分页查询设备实例（受数据权限控制，支持 ES 检索）")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DEVICE_ADMIN','PM','ENGINEER')")
@@ -174,5 +180,21 @@ public class DeviceInstanceController {
     public void downloadTemplate(HttpServletResponse response) {
         excelUtils.download(response, "设备导入模板",
                 deviceInstanceService.importRowClass(), "设备清单", Collections.emptyList());
+    }
+
+    @Operation(summary = "导出设备台账（Excel）")
+    @OperationLog(module = DeviceConstant.MODULE_DEVICE_INSTANCE, type = "EXPORT", description = "导出设备台账")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','DEVICE_ADMIN','PM','ENGINEER')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response, @ParameterObject DeviceInstanceQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<DeviceInstanceVO> records = deviceInstanceService.page(query).getRecords();
+        List<DeviceInstanceExportDTO> data = records.stream().map(vo -> {
+            DeviceInstanceExportDTO dto = new DeviceInstanceExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "设备台账", "设备", DeviceInstanceExportDTO.class, data);
     }
 }

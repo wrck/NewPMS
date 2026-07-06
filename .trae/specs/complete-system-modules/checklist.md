@@ -56,8 +56,8 @@
 - [ ] TraceContextFilter 生成 TraceId 并放入 MDC
 - [ ] Result<T> 响应体增加 traceId 字段
 - [ ] logback-spring.xml 输出 TraceId
-- [ ] EasyExcel 通用导出方法 `ExcelUtils.export` 就位
-- [ ] 11 个 Controller 增加 export 端点：财务 4 个 + 项目 2 个 + 资源 2 个 + 代理商 2 个 + 设备 3 个
+- [x] EasyExcel 通用导出方法 `ExcelUtils.export` 就位
+- [x] 11 个 Controller 增加 export 端点：财务 4 个 + 项目 2 个 + 资源 2 个 + 代理商 2 个 + 设备 3 个
 
 ## 三、前端通用组件抽取
 

@@ -4,13 +4,17 @@ import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import com.vibe.finance.dto.FinanceBudgetQueryDTO;
 import com.vibe.finance.dto.FinanceBudgetSaveDTO;
+import com.vibe.finance.dto.export.FinanceBudgetExportDTO;
 import com.vibe.finance.service.FinanceBudgetService;
 import com.vibe.finance.vo.FinanceBudgetVO;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +26,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 项目预算 Controller
@@ -38,6 +45,9 @@ import java.math.BigDecimal;
 public class FinanceBudgetController {
 
     private final FinanceBudgetService financeBudgetService;
+
+    /** 单次导出最大行数 */
+    private static final int EXPORT_MAX_ROWS = 10000;
 
     @Operation(summary = "分页查询预算")
     @PreAuthorize("isAuthenticated()")
@@ -101,5 +111,21 @@ public class FinanceBudgetController {
                                          @RequestParam(required = false) Integer year,
                                          @RequestParam(required = false) String costType) {
         return Result.success(financeBudgetService.sumActualCost(projectId, year, costType));
+    }
+
+    @Operation(summary = "导出预算列表（Excel）")
+    @com.vibe.annotation.OperationLog(module = "项目预算", type = "EXPORT", description = "导出预算列表")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
+    @GetMapping("/export")
+    public void export(HttpServletResponse response, @ParameterObject FinanceBudgetQueryDTO query) throws IOException {
+        query.setPage(1);
+        query.setSize(EXPORT_MAX_ROWS);
+        List<FinanceBudgetVO> records = financeBudgetService.page(query).getRecords();
+        List<FinanceBudgetExportDTO> data = records.stream().map(vo -> {
+            FinanceBudgetExportDTO dto = new FinanceBudgetExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "项目预算", "预算", FinanceBudgetExportDTO.class, data);
     }
 }

@@ -4,12 +4,16 @@ import com.vibe.annotation.OperationLog;
 import com.vibe.common.result.Result;
 import com.vibe.device.constant.DeviceConstant;
 import com.vibe.device.dto.DeviceInventoryActionDTO;
+import com.vibe.device.dto.export.DeviceInventoryLogExportDTO;
 import com.vibe.device.service.DeviceInventoryService;
 import com.vibe.device.vo.DeviceInventoryLogVO;
+import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,7 +22,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 设备出入库 Controller
@@ -52,5 +58,22 @@ public class DeviceInventoryController {
                                                       @RequestParam(required = false) Long projectId,
                                                       @RequestParam(required = false) String actionType) {
         return Result.success(deviceInventoryService.logList(warehouseId, projectId, actionType));
+    }
+
+    @Operation(summary = "导出出入库流水（Excel）")
+    @OperationLog(module = DeviceConstant.MODULE_DEVICE_INVENTORY, type = "EXPORT", description = "导出出入库流水")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','DEVICE_ADMIN','PM','ENGINEER')")
+    @GetMapping("/logs/export")
+    public void exportLogs(HttpServletResponse response,
+                           @RequestParam(required = false) Long warehouseId,
+                           @RequestParam(required = false) Long projectId,
+                           @RequestParam(required = false) String actionType) throws IOException {
+        List<DeviceInventoryLogVO> records = deviceInventoryService.logList(warehouseId, projectId, actionType);
+        List<DeviceInventoryLogExportDTO> data = records.stream().map(vo -> {
+            DeviceInventoryLogExportDTO dto = new DeviceInventoryLogExportDTO();
+            BeanUtils.copyProperties(vo, dto);
+            return dto;
+        }).collect(Collectors.toList());
+        ExcelUtils.export(response, "设备出入库流水", "出入库流水", DeviceInventoryLogExportDTO.class, data);
     }
 }

@@ -61,9 +61,9 @@
 
 ## 三、前端通用组件抽取
 
-- [ ] CrudTable 组件就位：搜索表单 + 分页 + 新增/编辑/删除弹窗 + 表单验证 + 状态反馈 + 异常处理
-- [ ] CrudTable 支持自定义 actions、行选择、批量操作
-- [ ] CrudTable Vitest 单元测试覆盖率 ≥80%
+- [x] CrudTable 组件就位：搜索表单 + 分页 + 新增/编辑/删除弹窗 + 表单验证 + 状态反馈 + 异常处理
+- [x] CrudTable 支持自定义 actions、行选择、批量操作
+- [x] CrudTable Vitest 单元测试覆盖率 ≥80%
 - [ ] FormModal 组件就位：8 类字段（input/select/date/switch/radio/checkbox/cascader/upload/treeSelect）
 - [ ] FormModal 支持字段联动、异步选项加载、表单验证规则
 - [ ] FormModal Vitest 覆盖率 ≥80%

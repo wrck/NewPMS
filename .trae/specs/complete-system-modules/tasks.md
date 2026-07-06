@@ -109,14 +109,14 @@
 
 ## 阶段三：前端通用组件抽取
 
-- [ ] Task 12: 抽取 CrudTable 通用 CRUD 表格组件
-  - [ ] SubTask 12.1: 创建 `src/components/CrudTable/index.vue`（props: columns/searchFields/apiFunc/modelBinding）
-  - [ ] SubTask 12.2: 支持搜索表单自动渲染（基于 searchFields 配置）+ 折叠展开
-  - [ ] SubTask 12.3: 支持新增/编辑弹窗（基于 columns 自动生成 Form）+ 表单验证
-  - [ ] SubTask 12.4: 支持删除确认 + 状态反馈（成功/失败 message）+ 异常处理（统一 try/catch）
-  - [ ] SubTask 12.5: 支持分页、排序、行选择、批量操作
-  - [ ] SubTask 12.6: 支持 actions 自定义操作按钮（编辑/删除/查看/自定义）
-  - [ ] SubTask 12.7: 单元测试 Vitest 覆盖率 ≥80%
+- [x] Task 12: 抽取 CrudTable 通用 CRUD 表格组件
+  - [x] SubTask 12.1: 创建 `src/components/CrudTable/index.vue`（props: columns/searchFields/apiFunc/modelBinding）
+  - [x] SubTask 12.2: 支持搜索表单自动渲染（基于 searchFields 配置）+ 折叠展开
+  - [x] SubTask 12.3: 支持新增/编辑弹窗（基于 columns 自动生成 Form）+ 表单验证
+  - [x] SubTask 12.4: 支持删除确认 + 状态反馈（成功/失败 message）+ 异常处理（统一 try/catch）
+  - [x] SubTask 12.5: 支持分页、排序、行选择、批量操作
+  - [x] SubTask 12.6: 支持 actions 自定义操作按钮（编辑/删除/查看/自定义）
+  - [x] SubTask 12.7: 单元测试 Vitest 覆盖率 ≥80%
 
 - [ ] Task 13: 抽取 FormModal 通用表单弹窗组件 [P]
   - [ ] SubTask 13.1: 创建 `src/components/FormModal/index.vue`（props: fields/apiFunc/visible/title）

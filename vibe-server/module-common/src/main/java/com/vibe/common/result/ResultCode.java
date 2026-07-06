@@ -73,6 +73,8 @@ public enum ResultCode {
     DEPENDENCY_CONFLICT(40908, "任务依赖冲突"),
     BALANCE_INSUFFICIENT(40909, "余额不足"),
     STOCK_INSUFFICIENT(40910, "库存不足"),
+    /** 乐观锁冲突：数据已被他人修改，需刷新后重试 */
+    OPTIMISTIC_LOCK_CONFLICT(40911, "数据已被他人修改，请刷新后重试"),
 
     /* ============ 500xx 系统内部错误 ============ */
     INTERNAL_ERROR(50000, "系统内部错误"),

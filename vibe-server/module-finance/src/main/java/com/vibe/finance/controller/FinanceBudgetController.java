@@ -64,6 +64,7 @@ public class FinanceBudgetController {
     }
 
     @Operation(summary = "创建预算")
+    @com.vibe.annotation.OperationLog(module = "项目预算", type = "INSERT", description = "创建预算")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody FinanceBudgetSaveDTO dto) {
@@ -71,6 +72,7 @@ public class FinanceBudgetController {
     }
 
     @Operation(summary = "更新预算")
+    @com.vibe.annotation.OperationLog(module = "项目预算", type = "UPDATE", description = "更新预算")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody FinanceBudgetSaveDTO dto) {
@@ -79,6 +81,7 @@ public class FinanceBudgetController {
     }
 
     @Operation(summary = "删除预算")
+    @com.vibe.annotation.OperationLog(module = "项目预算", type = "DELETE", description = "删除预算")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','FINANCE')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -87,6 +90,7 @@ public class FinanceBudgetController {
     }
 
     @Operation(summary = "提交预算审批")
+    @com.vibe.annotation.OperationLog(module = "项目预算", type = "UPDATE", description = "提交预算审批")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
     @PostMapping("/{id}/submit")
     public Result<Void> submit(@PathVariable Long id) {
@@ -95,6 +99,7 @@ public class FinanceBudgetController {
     }
 
     @Operation(summary = "审批预算（通过/驳回）")
+    @com.vibe.annotation.OperationLog(module = "项目预算", type = "APPROVE", description = "审批预算", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/{id}/approve")
     public Result<Void> approve(@PathVariable Long id,

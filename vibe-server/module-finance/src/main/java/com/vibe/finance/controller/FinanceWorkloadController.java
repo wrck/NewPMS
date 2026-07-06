@@ -63,6 +63,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "创建结算单")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "INSERT", description = "创建结算单")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody FinanceWorkloadSaveDTO dto) {
@@ -70,6 +71,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "更新结算单")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "UPDATE", description = "更新结算单")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody FinanceWorkloadSaveDTO dto) {
@@ -78,6 +80,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "删除结算单")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "DELETE", description = "删除结算单")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','FINANCE')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -86,6 +89,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "PM 确认工作量")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "APPROVE", description = "PM 确认工作量")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/pm-confirm")
     public Result<Void> pmConfirm(@PathVariable Long id) {
@@ -94,6 +98,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "代理商确认工作量")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "APPROVE", description = "代理商确认工作量")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','AGENT_ADMIN')")
     @PostMapping("/{id}/agent-confirm")
     public Result<Void> agentConfirm(@PathVariable Long id) {
@@ -102,6 +107,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "总监审批")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "APPROVE", description = "总监审批结算单", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/{id}/director-approve")
     public Result<Void> directorApprove(@PathVariable Long id,
@@ -112,6 +118,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "财务审批")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "APPROVE", description = "财务审批结算单", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FINANCE')")
     @PostMapping("/{id}/finance-approve")
     public Result<Void> financeApprove(@PathVariable Long id,
@@ -122,6 +129,7 @@ public class FinanceWorkloadController {
     }
 
     @Operation(summary = "更新付款状态")
+    @com.vibe.annotation.OperationLog(module = "代理商结算", type = "UPDATE", description = "更新付款状态")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','FINANCE')")
     @PostMapping("/{id}/payment-status")
     public Result<Void> updatePaymentStatus(@PathVariable Long id,

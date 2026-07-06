@@ -57,6 +57,24 @@ public final class SystemConstant {
     public static final Integer READ_UNREAD = 0;
     public static final Integer READ_READ = 1;
 
+    /* ============ 反馈类型 ============ */
+    /** Bug 报告 */
+    public static final String FEEDBACK_TYPE_BUG = "BUG";
+    /** 功能建议 */
+    public static final String FEEDBACK_TYPE_SUGGESTION = "SUGGESTION";
+    /** 咨询 */
+    public static final String FEEDBACK_TYPE_QUESTION = "QUESTION";
+
+    /* ============ 反馈状态 ============ */
+    /** 待处理 */
+    public static final String FEEDBACK_STATUS_PENDING = "PENDING";
+    /** 处理中 */
+    public static final String FEEDBACK_STATUS_PROCESSING = "PROCESSING";
+    /** 已解决 */
+    public static final String FEEDBACK_STATUS_RESOLVED = "RESOLVED";
+    /** 已关闭 */
+    public static final String FEEDBACK_STATUS_CLOSED = "CLOSED";
+
     /* ============ 角色编码 ============ */
     public static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
 

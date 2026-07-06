@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -62,6 +63,18 @@ public class GlobalExceptionHandler {
         log.warn("[业务异常] {} {} -> code={}, msg={}", request.getMethod(), request.getRequestURI(),
                 ex.getCode(), ex.getMessage());
         return buildFailResult(ex.getCode(), ex.getMessage());
+    }
+
+    /* ============ 乐观锁冲突（40911，HTTP 409）============
+     * 当关键业务表（Project / DeviceInstance / OutsourceTask / WorkOrder / AcceptanceTask /
+     * FinanceBudget 等）通过 @Version 乐观锁更新失败时，MyBatis-Plus 抛出
+     * OptimisticLockingFailureException。统一返回 40911 + 「数据已被他人修改，请刷新后重试」。
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result<Void> handleOptimisticLock(OptimisticLockingFailureException ex, HttpServletRequest request) {
+        log.warn("[乐观锁冲突] {} {} -> {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return buildFailResult(ResultCode.OPTIMISTIC_LOCK_CONFLICT);
     }
 
     /* ============ 权限异常（403xx）============ */

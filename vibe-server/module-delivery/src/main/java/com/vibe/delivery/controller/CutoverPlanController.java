@@ -12,6 +12,7 @@ import com.vibe.delivery.service.CutoverPlanService;
 import com.vibe.delivery.vo.CutoverExecutionLogVO;
 import com.vibe.delivery.vo.CutoverPlanDetailVO;
 import com.vibe.delivery.vo.CutoverPlanVO;
+import com.vibe.annotation.OperationLog;
 import com.vibe.service.FlowableProcessService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -91,6 +92,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "创建割接方案（含步骤）")
+    @OperationLog(module = "割接管理", type = "INSERT", description = "创建割接方案")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody CutoverPlanCreateDTO dto) {
@@ -98,6 +100,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "更新割接方案（仅草稿可改）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "更新割接方案")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PutMapping("/{id}")
     public Result<Void> update(
@@ -108,6 +111,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "删除割接方案（仅草稿可删）")
+    @OperationLog(module = "割接管理", type = "DELETE", description = "删除割接方案")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -118,6 +122,7 @@ public class CutoverPlanController {
     /* ============ 审批流程 ============ */
 
     @Operation(summary = "提交内部审批（DRAFT → PENDING_INTERNAL_APPROVAL）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "提交割接内部审批")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/submit-internal-approval")
     public Result<Void> submitInternalApproval(@PathVariable Long id) {
@@ -129,6 +134,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "内部审批通过（技术主管/总监）")
+    @OperationLog(module = "割接管理", type = "APPROVE", description = "割接内部审批通过", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/internal-approve")
     public Result<Void> internalApprove(@Valid @RequestBody CutoverApprovalDTO dto) {
@@ -140,6 +146,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "内部审批驳回（技术主管/总监）")
+    @OperationLog(module = "割接管理", type = "APPROVE", description = "割接内部审批驳回", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/internal-reject")
     public Result<Void> internalReject(@Valid @RequestBody CutoverApprovalDTO dto) {
@@ -151,6 +158,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "发起客户审批（生成客户签核链接token）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "发起割接客户审批")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/start-customer-approval")
     public Result<String> startCustomerApproval(@PathVariable Long id) {
@@ -160,6 +168,7 @@ public class CutoverPlanController {
     /* ============ 执行流程 ============ */
 
     @Operation(summary = "开始执行割接（CUSTOMER_APPROVED → EXECUTING）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "开始执行割接")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/start-execution")
     public Result<Void> startExecution(@PathVariable Long id) {
@@ -168,6 +177,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "执行步骤（PENDING→EXECUTING 或 EXECUTING→COMPLETED，幂等二次调用即完成）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "执行割接步骤")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','ENGINEER')")
     @PostMapping("/execute-step")
     public Result<Void> executeStep(@Valid @RequestBody CutoverStepExecuteDTO dto) {
@@ -176,6 +186,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "回退步骤（执行回退方案，EXECUTING → ROLLED_BACK）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "回退割接步骤")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/rollback-step")
     public Result<Void> rollbackStep(@Valid @RequestBody CutoverStepExecuteDTO dto) {
@@ -184,6 +195,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "步骤异常（EXECUTING → ABORTED，记录异常信息）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "割接步骤异常")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','ENGINEER')")
     @PostMapping("/exception-step")
     public Result<Void> exceptionStep(@Valid @RequestBody CutoverStepExecuteDTO dto) {
@@ -192,6 +204,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "完成割接（所有步骤完成后提交总结）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "完成割接", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/complete")
     public Result<Void> complete(@Valid @RequestBody CutoverCompleteDTO dto) {
@@ -200,6 +213,7 @@ public class CutoverPlanController {
     }
 
     @Operation(summary = "中止割接（紧急情况，任意状态可中止）")
+    @OperationLog(module = "割接管理", type = "UPDATE", description = "中止割接")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/abort")
     public Result<Void> abort(@PathVariable Long id,

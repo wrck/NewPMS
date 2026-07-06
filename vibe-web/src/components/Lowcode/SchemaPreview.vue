@@ -60,8 +60,8 @@ const parsedSchema = computed<FormSchema | ListSchema | TabSchema | RelationSche
   }
 })
 
-/** 是否解析失败 */
-const parseFailed = computed(() => !parsedSchema.value && !!props.schemaJson)
+/** 是否解析失败（空白字符串视为未设计，不视为解析失败） */
+const parseFailed = computed(() => !parsedSchema.value && !!props.schemaJson.trim())
 
 /** Schema 类型字符串（用于展示） */
 const parsedSchemaType = computed<string>(() => {

@@ -27,7 +27,12 @@ import type {
   ProjectChange,
   ProjectMember,
   ProjectComment,
-  ProjectTemplate
+  ProjectTemplate,
+  ProjectTemplatePhase,
+  ProjectTemplateTask,
+  Customer,
+  CustomerDTO,
+  CustomerQueryParams
 } from '@/types/project'
 
 const BASE = '/projects'
@@ -281,4 +286,67 @@ export function updateTemplate(id: number, dto: Partial<ProjectTemplate>) {
 
 export function deleteTemplate(id: number) {
   return http.delete<void>(`${TEMPLATE_BASE}/${id}`)
+}
+
+/* ============ 模板阶段 ============ */
+
+/** 新增模板阶段 */
+export function addTemplatePhase(templateId: number, dto: Partial<ProjectTemplatePhase>) {
+  return http.post<number>(`${TEMPLATE_BASE}/${templateId}/phases`, dto)
+}
+
+/** 编辑模板阶段 */
+export function updateTemplatePhase(id: number, dto: Partial<ProjectTemplatePhase>) {
+  return http.put<void>(`${TEMPLATE_BASE}/phases/${id}`, dto)
+}
+
+/** 删除模板阶段 */
+export function deleteTemplatePhase(id: number) {
+  return http.delete<void>(`${TEMPLATE_BASE}/phases/${id}`)
+}
+
+/* ============ 模板任务 ============ */
+
+/** 新增模板任务 */
+export function addTemplateTask(templateId: number, dto: Partial<ProjectTemplateTask>) {
+  return http.post<number>(`${TEMPLATE_BASE}/${templateId}/tasks`, dto)
+}
+
+/** 编辑模板任务 */
+export function updateTemplateTask(id: number, dto: Partial<ProjectTemplateTask>) {
+  return http.put<void>(`${TEMPLATE_BASE}/tasks/${id}`, dto)
+}
+
+/** 删除模板任务 */
+export function deleteTemplateTask(id: number) {
+  return http.delete<void>(`${TEMPLATE_BASE}/tasks/${id}`)
+}
+
+/* ============ 客户档案 ============ */
+
+const CUSTOMER_BASE = '/customers'
+
+/** 分页查询客户 */
+export function pageCustomers(params: CustomerQueryParams) {
+  return http.get<PageResult<Customer>>(CUSTOMER_BASE, params as Record<string, unknown>)
+}
+
+/** 客户详情 */
+export function getCustomerDetail(id: number) {
+  return http.get<Customer>(`${CUSTOMER_BASE}/${id}`)
+}
+
+/** 新增客户 */
+export function createCustomer(dto: CustomerDTO) {
+  return http.post<number>(CUSTOMER_BASE, dto)
+}
+
+/** 编辑客户 */
+export function updateCustomer(id: number, dto: CustomerDTO) {
+  return http.put<void>(`${CUSTOMER_BASE}/${id}`, dto)
+}
+
+/** 删除客户 */
+export function deleteCustomer(id: number) {
+  return http.delete<void>(`${CUSTOMER_BASE}/${id}`)
 }

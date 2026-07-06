@@ -79,7 +79,27 @@ export interface Warehouse {
   managerName?: string
   phone?: string
   region?: string
+  /** 安全库存配置（JSON 字符串，按型号键值对，如 {"1001":5,"1002":3}） */
+  safetyStock?: string
   status?: 'ENABLED' | 'DISABLED'
+  createTime?: string
+}
+
+/** 仓库查询参数 */
+export interface WarehouseQueryParams extends PageParams {
+  keyword?: string
+  region?: string
+}
+
+/** 仓库新增/编辑 DTO */
+export interface WarehouseDTO {
+  id?: number
+  warehouseName: string
+  warehouseCode: string
+  address?: string
+  region?: string
+  managerId?: number
+  safetyStock?: string
 }
 
 /** 库存台账 */
@@ -132,6 +152,32 @@ export interface SparePart {
   warehouseId?: number
   warehouseName?: string
   status?: 'IN_STOCK' | 'OUT' | 'REPAIR' | 'SCRAPPED'
+  remark?: string
+}
+
+/** 备件流水（领用/归还/返修/入库） */
+export interface SparePartLog {
+  id: number
+  sparePartId: number
+  partName?: string
+  partCode?: string
+  /** 操作类型 IN/OUT/RETURN/REPAIR */
+  actionType: 'IN' | 'OUT' | 'RETURN' | 'REPAIR'
+  quantity: number
+  projectId?: number
+  projectName?: string
+  operatorId?: number
+  operatorName?: string
+  remark?: string
+  createTime?: string
+}
+
+/** 备件操作 DTO（与后端 SparePartActionDTO 对齐） */
+export interface SparePartActionDTO {
+  sparePartId: number
+  actionType: 'IN' | 'OUT' | 'RETURN' | 'REPAIR'
+  quantity: number
+  projectId?: number
   remark?: string
 }
 

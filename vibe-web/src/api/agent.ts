@@ -57,8 +57,19 @@ export function changeAgentCompanyStatus(id: number, status: 'ACTIVE' | 'SUSPEND
 
 /* ============ 代理商工程师 ============ */
 
+/** 分页查询代理商工程师（对齐后端 GET /agent-companies/{companyId}/engineers） */
+export function pageAgentEngineers(companyId: number, params?: { keyword?: string; status?: string; page?: number; size?: number }) {
+  return http.get<PageResult<AgentEngineer>>(`${COMPANY_BASE}/${companyId}/engineers`, params as Record<string, unknown>)
+}
+
+/** 按公司查询工程师列表（不分页，对齐后端 GET /all） */
+export function listAllAgentEngineers(companyId: number) {
+  return http.get<AgentEngineer[]>(`${COMPANY_BASE}/${companyId}/engineers/all`)
+}
+
+/** 兼容旧调用：返回数组（旧 listAgentEngineers 使用 /engineers 端点） */
 export function listAgentEngineers(companyId: number) {
-  return http.get<AgentEngineer[]>(`${COMPANY_BASE}/${companyId}/engineers`)
+  return http.get<AgentEngineer[]>(`${COMPANY_BASE}/${companyId}/engineers/all`)
 }
 
 export function createAgentEngineer(companyId: number, dto: AgentEngineerDTO) {
@@ -71,6 +82,13 @@ export function updateAgentEngineer(companyId: number, id: number, dto: AgentEng
 
 export function deleteAgentEngineer(companyId: number, id: number) {
   return http.delete<void>(`${COMPANY_BASE}/${companyId}/engineers/${id}`)
+}
+
+/** 启用/停用代理商工程师（对齐后端 PUT /{engineerId}/status?status=） */
+export function changeAgentEngineerStatus(companyId: number, id: number, status: 'ACTIVE' | 'DISABLED') {
+  return http.put<void>(`${COMPANY_BASE}/${companyId}/engineers/${id}/status`, undefined, {
+    params: { status }
+  })
 }
 
 /* ============ 转包任务 ============ */

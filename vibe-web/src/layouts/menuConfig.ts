@@ -55,6 +55,7 @@ export const menuConfig: MenuItem[] = [
     permission: 'project:view',
     children: [
       { key: 'project-list', label: '项目列表', path: '/project/list' },
+      { key: 'project-customer', label: '客户档案', path: '/project/customer' },
       { key: 'project-template', label: '项目模板', path: '/project/template' },
       { key: 'project-report', label: '项目报表', path: '/project/report' }
     ]
@@ -71,6 +72,7 @@ export const menuConfig: MenuItem[] = [
       { key: 'device-inout', label: '出入库管理', path: '/device/inout' },
       { key: 'device-provision', label: '设备预配', path: '/device/provision' },
       { key: 'device-spare', label: '备件管理', path: '/device/spare' },
+      { key: 'device-warehouse', label: '仓库管理', path: '/device/warehouse' },
       { key: 'device-board', label: '设备看板', path: '/device/board' }
     ]
   },
@@ -84,7 +86,9 @@ export const menuConfig: MenuItem[] = [
       { key: 'resource-engineer', label: '工程师资源池', path: '/resource/engineer' },
       { key: 'resource-schedule', label: '排期日历', path: '/resource/schedule' },
       { key: 'resource-dispatch', label: '任务派发', path: '/resource/dispatch' },
-      { key: 'resource-timesheet', label: '工时管理', path: '/resource/timesheet' }
+      { key: 'resource-timesheet', label: '工时管理', path: '/resource/timesheet' },
+      { key: 'resource-business-trip', label: '差旅管理', path: '/resource/business-trip' },
+      { key: 'resource-leave', label: '请假管理', path: '/resource/leave' }
     ]
   },
   {
@@ -167,6 +171,7 @@ export const menuConfig: MenuItem[] = [
       { key: 'system-config', label: '系统配置', path: '/system/config' },
       { key: 'system-notice-template', label: '通知模板', path: '/system/notice-template' },
       { key: 'system-notice', label: '站内信', path: '/system/notice' },
+      { key: 'system-feedback', label: '反馈管理', path: '/system/feedback' },
       { key: 'system-log', label: '操作日志', path: '/system/log' },
       { key: 'system-login-log', label: '登录日志', path: '/system/login-log' },
       { key: 'integration-config', label: '集成配置', path: '/integration/config' },

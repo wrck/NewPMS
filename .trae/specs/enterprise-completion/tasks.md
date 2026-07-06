@@ -44,24 +44,24 @@
 
 ## B. 引用实体管理界面补全
 
-- [ ] Task B1: 仓库档案管理 `system/warehouse.vue`
-  - [ ] B1.1: 基于 CrudTable + FormModal 实现 CRUD + 库存预警阈值配置
-  - [ ] B1.2: 路由与菜单接入「设备资产 > 仓库管理」
-- [ ] Task B2: 备件管理 `device/spare-part.vue`（领用/归还/返修）
-  - [ ] B2.1: 备件台账 CRUD + 库存展示
-  - [ ] B2.2: 领用/归还/返修操作弹窗 + `spare_part_log` 记录
-- [ ] Task B3: 差旅管理 `resource/business-trip.vue`
-  - [ ] B3.1: 差旅申请 CRUD + 行程信息 + 审批状态
-- [ ] Task B4: 工程师请假 `resource/leave.vue`
-  - [ ] B4.1: 请假单 CRUD + 排期自动标记不可分配
-- [ ] Task B5: 客户档案 `project/customer.vue`
-  - [ ] B5.1: 客户 CRUD + 联系人子表 + 关联项目列表
-- [ ] Task B6: 项目模板阶段/任务子管理 `project/template.vue` 扩展
-  - [ ] B6.1: 在 template.vue 内嵌阶段与任务子表的树形 CRUD
-- [ ] Task B7: 验收标准检查项管理 `acceptance/standard-item.vue`
-  - [ ] B7.1: 作为 standard.vue 的子表抽屉，支持检查项 CRUD
-- [ ] Task B8: 代理商工程师档案 `agent/agent-engineer.vue`
-  - [ ] B8.1: 作为 profile.vue 的子页或抽屉，支持代理商工程师 CRUD + 启用停用
+- [x] Task B1: 仓库档案管理 `system/warehouse.vue`
+  - [x] B1.1: 基于 CrudTable + FormModal 实现 CRUD + 库存预警阈值配置
+  - [x] B1.2: 路由与菜单接入「设备资产 > 仓库管理」
+- [x] Task B2: 备件管理 `device/spare-part.vue`（领用/归还/返修）
+  - [x] B2.1: 备件台账 CRUD + 库存展示
+  - [x] B2.2: 领用/归还/返修操作弹窗 + `spare_part_log` 记录
+- [x] Task B3: 差旅管理 `resource/business-trip.vue`
+  - [x] B3.1: 差旅申请 CRUD + 行程信息 + 审批状态
+- [x] Task B4: 工程师请假 `resource/leave.vue`
+  - [x] B4.1: 请假单 CRUD + 排期自动标记不可分配
+- [x] Task B5: 客户档案 `project/customer.vue`
+  - [x] B5.1: 客户 CRUD + 联系人子表 + 关联项目列表
+- [x] Task B6: 项目模板阶段/任务子管理 `project/template.vue` 扩展
+  - [x] B6.1: 在 template.vue 内嵌阶段与任务子表的树形 CRUD
+- [x] Task B7: 验收标准检查项管理 `acceptance/standard-item.vue`
+  - [x] B7.1: 作为 standard.vue 的子表抽屉，支持检查项 CRUD
+- [x] Task B8: 代理商工程师档案 `agent/agent-engineer.vue`
+  - [x] B8.1: 作为 profile.vue 的子页或抽屉，支持代理商工程师 CRUD + 启用停用
 
 ## C. 业务流程与异常处理完善
 

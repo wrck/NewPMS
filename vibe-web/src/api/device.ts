@@ -10,9 +10,13 @@ import type {
   DeviceInstance,
   DeviceBom,
   Warehouse,
+  WarehouseDTO,
+  WarehouseQueryParams,
   InventoryLedger,
   InventoryTransaction,
   SparePart,
+  SparePartLog,
+  SparePartActionDTO,
   DeviceDashboard,
   DeviceModelQueryParams,
   DeviceInstanceQueryParams,
@@ -118,15 +122,34 @@ export function confirmDeviceBom(id: number) {
 
 /* ============ 仓库 ============ */
 
-export function listWarehouses(params?: { region?: string; status?: string }) {
-  return http.get<Warehouse[]>(`${BASE}/warehouses`, params as Record<string, unknown>)
+/**
+ * 分页查询仓库（对齐后端 GET /devices/warehouses）
+ * 后端返回 PageResult<WarehouseVO>。
+ */
+export function pageWarehouses(params: WarehouseQueryParams) {
+  return http.get<PageResult<Warehouse>>(`${BASE}/warehouses`, params as Record<string, unknown>)
 }
 
-export function createWarehouse(dto: Partial<Warehouse>) {
+/** 查询全部仓库（下拉选项） */
+export function listAllWarehouses() {
+  return http.get<Warehouse[]>(`${BASE}/warehouses/all`)
+}
+
+/** 仓库详情 */
+export function getWarehouseDetail(id: number) {
+  return http.get<Warehouse>(`${BASE}/warehouses/${id}`)
+}
+
+/** 兼容旧调用：listWarehouses 等价于 listAllWarehouses */
+export function listWarehouses(params?: { region?: string; status?: string }) {
+  return http.get<Warehouse[]>(`${BASE}/warehouses/all`, params as Record<string, unknown>)
+}
+
+export function createWarehouse(dto: WarehouseDTO) {
   return http.post<number>(`${BASE}/warehouses`, dto)
 }
 
-export function updateWarehouse(id: number, dto: Partial<Warehouse>) {
+export function updateWarehouse(id: number, dto: WarehouseDTO) {
   return http.put<void>(`${BASE}/warehouses/${id}`, dto)
 }
 
@@ -171,6 +194,10 @@ export function pageSpareParts(params: SparePartQueryParams) {
   return http.get<PageResult<SparePart>>(`${BASE}/spare-parts`, params as Record<string, unknown>)
 }
 
+export function getSparePartDetail(id: number) {
+  return http.get<SparePart>(`${BASE}/spare-parts/${id}`)
+}
+
 export function createSparePart(dto: Partial<SparePart>) {
   return http.post<number>(`${BASE}/spare-parts`, dto)
 }
@@ -183,9 +210,17 @@ export function deleteSparePart(id: number) {
   return http.delete<void>(`${BASE}/spare-parts/${id}`)
 }
 
-/** 备件领用/归还 */
-export function sparePartAction(id: number, action: 'OUT' | 'RETURN' | 'REPAIR', quantity: number, remark?: string) {
-  return http.post<void>(`${BASE}/spare-parts/${id}/${action}`, { quantity, remark })
+/**
+ * 备件操作（入库/领用/归还/返修，同步更新库存并记录流水）
+ * 对齐后端 POST /devices/spare-parts/actions，body 为 SparePartActionDTO。
+ */
+export function sparePartAction(dto: SparePartActionDTO) {
+  return http.post<void>(`${BASE}/spare-parts/actions`, dto)
+}
+
+/** 备件操作流水查询（按备件/项目/操作类型过滤） */
+export function listSparePartLogs(params: { sparePartId?: number; projectId?: number; actionType?: string }) {
+  return http.get<SparePartLog[]>(`${BASE}/spare-parts/logs`, params as Record<string, unknown>)
 }
 
 /* ============ 设备看板 ============ */

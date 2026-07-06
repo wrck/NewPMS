@@ -1,6 +1,7 @@
 /**
  * 资源调度模块 API 封装
  * 对应后端：/api/v1/engineers、/api/v1/schedules、/api/v1/dispatches、/api/v1/timesheets
+ *           /api/v1/business-trips、/api/v1/engineer-leaves（后端 Controller 待补全，前端方法签名已就绪）
  */
 import { http } from '@/utils/request'
 import type { PageResult } from '@/types/api'
@@ -17,7 +18,13 @@ import type {
   EngineerDTO,
   TimesheetDTO,
   DispatchDTO,
-  BatchDispatchDTO
+  BatchDispatchDTO,
+  BusinessTrip,
+  BusinessTripDTO,
+  BusinessTripQueryParams,
+  EngineerLeave,
+  EngineerLeaveDTO,
+  EngineerLeaveQueryParams
 } from '@/types/resource'
 
 /* ============ 工程师资源池 ============ */
@@ -135,4 +142,72 @@ export function getTimesheetStats(params: { startDate?: string; endDate?: string
     `${TIMESHEET_BASE}/stats`,
     params as Record<string, unknown>
   )
+}
+
+/* ============ 差旅管理 ============ */
+// TODO: 后端 BusinessTripController 尚未实现，以下接口签名已就绪，待后端补全 Controller 后即可联调。
+const TRIP_BASE = '/business-trips'
+
+/** 分页查询差旅 */
+export function pageBusinessTrips(params: BusinessTripQueryParams) {
+  return http.get<PageResult<BusinessTrip>>(TRIP_BASE, params as Record<string, unknown>)
+}
+
+/** 差旅详情 */
+export function getBusinessTripDetail(id: number) {
+  return http.get<BusinessTrip>(`${TRIP_BASE}/${id}`)
+}
+
+/** 新增差旅 */
+export function createBusinessTrip(dto: BusinessTripDTO) {
+  return http.post<number>(TRIP_BASE, dto)
+}
+
+/** 编辑差旅 */
+export function updateBusinessTrip(id: number, dto: BusinessTripDTO) {
+  return http.put<void>(`${TRIP_BASE}/${id}`, dto)
+}
+
+/** 删除差旅 */
+export function deleteBusinessTrip(id: number) {
+  return http.delete<void>(`${TRIP_BASE}/${id}`)
+}
+
+/** 差旅审批（PENDING → APPROVED/REJECTED） */
+export function approveBusinessTrip(id: number, approved: boolean, remark?: string) {
+  return http.put<void>(`${TRIP_BASE}/${id}/approve`, { approved, remark })
+}
+
+/* ============ 工程师请假 ============ */
+// TODO: 后端 EngineerLeaveController 尚未实现，以下接口签名已就绪，待后端补全 Controller 后即可联调。
+const LEAVE_BASE = '/engineer-leaves'
+
+/** 分页查询请假单 */
+export function pageEngineerLeaves(params: EngineerLeaveQueryParams) {
+  return http.get<PageResult<EngineerLeave>>(LEAVE_BASE, params as Record<string, unknown>)
+}
+
+/** 请假单详情 */
+export function getEngineerLeaveDetail(id: number) {
+  return http.get<EngineerLeave>(`${LEAVE_BASE}/${id}`)
+}
+
+/** 新增请假单 */
+export function createEngineerLeave(dto: EngineerLeaveDTO) {
+  return http.post<number>(LEAVE_BASE, dto)
+}
+
+/** 编辑请假单 */
+export function updateEngineerLeave(id: number, dto: EngineerLeaveDTO) {
+  return http.put<void>(`${LEAVE_BASE}/${id}`, dto)
+}
+
+/** 删除请假单 */
+export function deleteEngineerLeave(id: number) {
+  return http.delete<void>(`${LEAVE_BASE}/${id}`)
+}
+
+/** 请假审批（PENDING → APPROVED/REJECTED） */
+export function approveEngineerLeave(id: number, approved: boolean, remark?: string) {
+  return http.put<void>(`${LEAVE_BASE}/${id}/approve`, { approved, remark })
 }

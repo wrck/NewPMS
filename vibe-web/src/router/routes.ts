@@ -49,6 +49,14 @@ export const routes: RouteRecordRaw[] = [
     redirect: '/dashboard',
     meta: { requireAuth: true },
     children: [
+      /* ============ 帮助中心（Task D4） ============ */
+      {
+        path: '/help',
+        name: 'HelpCenter',
+        component: () => import('@/views/help/index.vue'),
+        meta: { title: '功能说明', requireAuth: true, hideInMenu: true, keepAlive: false }
+      },
+
       /* ============ 工作台 ============ */
       {
         path: '/dashboard',
@@ -101,6 +109,12 @@ export const routes: RouteRecordRaw[] = [
             meta: { title: '项目模板', requireAuth: true, keepAlive: true, permission: 'project:view' }
           },
           {
+            path: 'customer',
+            name: 'ProjectCustomer',
+            component: () => import('@/views/project/customer.vue'),
+            meta: { title: '客户档案', requireAuth: true, keepAlive: true, permission: 'project:view' }
+          },
+          {
             path: 'report',
             name: 'ProjectReport',
             component: () => import('@/views/report/project.vue'),
@@ -141,6 +155,12 @@ export const routes: RouteRecordRaw[] = [
             meta: { title: '备件管理', requireAuth: true, keepAlive: true, permission: 'device:view' }
           },
           {
+            path: 'warehouse',
+            name: 'DeviceWarehouse',
+            component: () => import('@/views/device/warehouse.vue'),
+            meta: { title: '仓库管理', requireAuth: true, keepAlive: true, permission: 'device:view' }
+          },
+          {
             path: 'board',
             name: 'DeviceBoard',
             component: () => import('@/views/device/board.vue'),
@@ -179,6 +199,18 @@ export const routes: RouteRecordRaw[] = [
             name: 'ResourceTimesheet',
             component: () => import('@/views/resource/timesheet.vue'),
             meta: { title: '工时管理', requireAuth: true, keepAlive: true, permission: 'resource:view' }
+          },
+          {
+            path: 'business-trip',
+            name: 'ResourceBusinessTrip',
+            component: () => import('@/views/resource/business-trip.vue'),
+            meta: { title: '差旅管理', requireAuth: true, keepAlive: true, permission: 'resource:view' }
+          },
+          {
+            path: 'leave',
+            name: 'ResourceLeave',
+            component: () => import('@/views/resource/leave.vue'),
+            meta: { title: '请假管理', requireAuth: true, keepAlive: true, permission: 'resource:view' }
           }
         ]
       },
@@ -444,6 +476,12 @@ export const routes: RouteRecordRaw[] = [
             name: 'SystemNotice',
             component: () => import('@/views/system/notice.vue'),
             meta: { title: '站内信', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: 'feedback',
+            name: 'SystemFeedback',
+            component: () => import('@/views/system/feedback.vue'),
+            meta: { title: '反馈管理', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
           },
           {
             path: 'log',

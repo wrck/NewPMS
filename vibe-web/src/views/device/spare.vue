@@ -1,26 +1,53 @@
 <script setup lang="ts">
 /**
- * 备件管理
+ * 备件管理（增强版）
+ * - 备件台账 CRUD + 库存展示
+ * - 领用/归还/返修/入库 操作弹窗（对齐后端 POST /spare-parts/actions）
+ * - 流水查询抽屉（GET /spare-parts/logs）
  */
 import { ref, reactive, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import {
+  PlusOutlined,
+  ReloadOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  HistoryOutlined
+} from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { pageSpareParts, createSparePart, updateSparePart, deleteSparePart, sparePartAction } from '@/api/device'
-import type { SparePart, SparePartQueryParams } from '@/types/device'
+import {
+  pageSpareParts,
+  createSparePart,
+  updateSparePart,
+  deleteSparePart,
+  sparePartAction,
+  listSparePartLogs
+} from '@/api/device'
+import type { SparePart, SparePartQueryParams, SparePartLog, SparePartActionDTO } from '@/types/device'
 import type { PageResult } from '@/types/api'
 
 const loading = ref(false)
 const dataSource = ref<SparePart[]>([])
-const pagination = reactive({ current: 1, pageSize: 10, total: 0, showTotal: (t: number) => `共 ${t} 条` })
+const pagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+  showTotal: (t: number) => `共 ${t} 条`,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100']
+})
 const query = reactive<SparePartQueryParams>({ keyword: '', category: undefined, warehouseId: undefined, status: undefined })
 
 async function loadData() {
   loading.value = true
   try {
-    const res = (await pageSpareParts({ ...query, page: pagination.current, size: pagination.pageSize })) as unknown as PageResult<SparePart>
+    const res = (await pageSpareParts({
+      ...query,
+      page: pagination.current,
+      size: pagination.pageSize
+    })) as unknown as PageResult<SparePart>
     dataSource.value = res.records || []
     pagination.total = res.total || 0
   } catch (e) {
@@ -35,7 +62,21 @@ function handleSearch() {
   loadData()
 }
 
-// 弹窗
+function handleReset() {
+  query.keyword = ''
+  query.category = undefined
+  query.warehouseId = undefined
+  query.status = undefined
+  handleSearch()
+}
+
+function handleTableChange(p: any) {
+  pagination.current = p.current || 1
+  pagination.pageSize = p.pageSize || 10
+  loadData()
+}
+
+/* ============ 备件 CRUD 弹窗 ============ */
 const formVisible = ref(false)
 const formLoading = ref(false)
 const isEdit = ref(false)
@@ -91,7 +132,7 @@ async function handleSubmit() {
     formVisible.value = false
     loadData()
   } catch (e) {
-    // ignore
+    console.error('[device.spare] submit failed:', e)
   } finally {
     formLoading.value = false
   }
@@ -107,39 +148,99 @@ function handleDelete(row: SparePart) {
         await deleteSparePart(row.id)
         message.success('删除成功')
         loadData()
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        console.error('[device.spare] delete failed:', e)
+      }
     }
   })
 }
 
-// 领用 / 归还 / 返修 弹窗
+/* ============ 领用/归还/返修/入库 操作弹窗 ============ */
+type ActionType = 'IN' | 'OUT' | 'RETURN' | 'REPAIR'
+
 const actionVisible = ref(false)
 const actionLoading = ref(false)
-const actionType = ref<'OUT' | 'RETURN' | 'REPAIR'>('OUT')
+const actionType = ref<ActionType>('OUT')
 const actionRow = ref<SparePart | null>(null)
-const actionForm = reactive({ quantity: 1, remark: '' })
+const actionForm = reactive<{ quantity: number; projectId?: number; remark: string }>({
+  quantity: 1,
+  projectId: undefined,
+  remark: ''
+})
 
-function openAction(row: SparePart, type: 'OUT' | 'RETURN' | 'REPAIR') {
+const actionTypeLabel: Record<ActionType, string> = {
+  IN: '入库',
+  OUT: '领用',
+  RETURN: '归还',
+  REPAIR: '返修'
+}
+
+function openAction(row: SparePart, type: ActionType) {
   actionRow.value = row
   actionType.value = type
   actionForm.quantity = 1
+  actionForm.projectId = undefined
   actionForm.remark = ''
   actionVisible.value = true
 }
 
 async function handleAction() {
   if (!actionRow.value) return
+  if (!actionForm.quantity || actionForm.quantity < 1) {
+    message.warning('请填写有效数量')
+    return
+  }
+  // 领用/返修时校验库存
+  if (actionType.value === 'OUT' && actionForm.quantity > actionRow.value.stockQty) {
+    message.warning(`库存不足，当前库存 ${actionRow.value.stockQty}`)
+    return
+  }
   actionLoading.value = true
   try {
-    await sparePartAction(actionRow.value.id, actionType.value, actionForm.quantity, actionForm.remark)
-    message.success('操作成功')
+    const dto: SparePartActionDTO = {
+      sparePartId: actionRow.value.id,
+      actionType: actionType.value,
+      quantity: actionForm.quantity,
+      projectId: actionForm.projectId,
+      remark: actionForm.remark
+    }
+    await sparePartAction(dto)
+    message.success(`${actionTypeLabel[actionType.value]}成功`)
     actionVisible.value = false
     loadData()
   } catch (e) {
-    // ignore
+    console.error('[device.spare] action failed:', e)
   } finally {
     actionLoading.value = false
   }
+}
+
+/* ============ 流水查询抽屉 ============ */
+const logVisible = ref(false)
+const logLoading = ref(false)
+const logRow = ref<SparePart | null>(null)
+const logDataSource = ref<SparePartLog[]>([])
+
+async function openLogs(row: SparePart) {
+  logRow.value = row
+  logVisible.value = true
+  logLoading.value = true
+  try {
+    const res = (await listSparePartLogs({ sparePartId: row.id })) as unknown as SparePartLog[]
+    logDataSource.value = res || []
+  } catch (e) {
+    console.error('[device.spare] load logs failed:', e)
+    logDataSource.value = []
+  } finally {
+    logLoading.value = false
+  }
+}
+
+const actionTypeTone: Record<string, string> = {
+  IN: 'success',
+  OUT: 'warning',
+  RETURN: 'processing',
+  REPAIR: 'error'
 }
 
 const statusMap: Record<string, { tone: any; label: string }> = {
@@ -167,7 +268,15 @@ const columns = [
   { title: '库存', key: 'stock', width: 130 },
   { title: '仓库', dataIndex: 'warehouseName', key: 'warehouseName', width: 120 },
   { title: '状态', key: 'status', width: 100 },
-  { title: '操作', key: 'action', width: 230, fixed: 'right' }
+  { title: '操作', key: 'action', width: 320, fixed: 'right' as const }
+]
+
+const logColumns = [
+  { title: '操作类型', dataIndex: 'actionType', key: 'actionType', width: 100 },
+  { title: '数量', dataIndex: 'quantity', key: 'quantity', width: 80 },
+  { title: '关联项目', dataIndex: 'projectName', key: 'projectName', width: 160, ellipsis: true },
+  { title: '备注', dataIndex: 'remark', key: 'remark', ellipsis: true },
+  { title: '操作时间', dataIndex: 'createTime', key: 'createTime', width: 170 }
 ]
 
 onMounted(() => {
@@ -176,7 +285,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <PageContainer title="备件管理" description="备件库存、领用、归还、返修跟踪">
+  <PageContainer title="备件管理" description="备件台账与领用/归还/返修/入库操作及流水跟踪">
     <template #extra>
       <a-button @click="loadData"><template #icon><ReloadOutlined /></template>刷新</a-button>
       <a-button type="primary" @click="openCreate"><template #icon><PlusOutlined /></template>新备件</a-button>
@@ -185,7 +294,7 @@ onMounted(() => {
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
         <a-form-item label="关键字">
-          <a-input v-model:value="query.partName" placeholder="备件编码/名称" allow-clear style="width: 200px" @pressEnter="handleSearch" />
+          <a-input v-model:value="query.keyword" placeholder="备件编码/名称" allow-clear style="width: 200px" @pressEnter="handleSearch" />
         </a-form-item>
         <a-form-item label="类别">
           <a-select v-model:value="query.category" placeholder="全部" allow-clear style="width: 140px" :options="categoryOptions" />
@@ -196,16 +305,27 @@ onMounted(() => {
           </a-select>
         </a-form-item>
         <a-form-item>
-          <a-button type="primary" html-type="submit">查询</a-button>
+          <a-space>
+            <a-button type="primary" html-type="submit">查询</a-button>
+            <a-button @click="handleReset">重置</a-button>
+          </a-space>
         </a-form-item>
       </a-form>
     </div>
 
     <div class="vibe-card table-card">
-      <a-table :columns="columns" :data-source="dataSource" :loading="loading" :pagination="pagination" row-key="id" :scroll="{ x: 1200 }">
+      <a-table
+        :columns="columns"
+        :data-source="dataSource"
+        :loading="loading"
+        :pagination="pagination"
+        row-key="id"
+        :scroll="{ x: 1400 }"
+        @change="handleTableChange"
+      >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'category'">
-            {{ categoryOptions.find(c => c.value === record.category)?.label || record.category }}
+            {{ categoryOptions.find((c) => c.value === record.category)?.label || record.category }}
           </template>
           <template v-else-if="column.key === 'stock'">
             <span :class="{ warning: record.stockQty < record.safetyStockQty }">
@@ -217,10 +337,16 @@ onMounted(() => {
             <StatusTag :tone="statusMap[record.status]?.tone">{{ statusMap[record.status]?.label || record.status }}</StatusTag>
           </template>
           <template v-else-if="column.key === 'action'">
-            <a-space size="small">
+            <a-space size="small" wrap>
               <a @click="openAction(record, 'OUT')">领用</a>
               <a-divider type="vertical" />
               <a @click="openAction(record, 'RETURN')">归还</a>
+              <a-divider type="vertical" />
+              <a @click="openAction(record, 'REPAIR')">返修</a>
+              <a-divider type="vertical" />
+              <a @click="openAction(record, 'IN')">入库</a>
+              <a-divider type="vertical" />
+              <a @click="openLogs(record)"><HistoryOutlined /> 流水</a>
               <a-divider type="vertical" />
               <a @click="openEdit(record)"><EditOutlined /></a>
               <a-divider type="vertical" />
@@ -228,11 +354,21 @@ onMounted(() => {
             </a-space>
           </template>
         </template>
-        <template #emptyText><EmptyState description="暂无备件" action-text="新备件" @action="openCreate" /></template>
+        <template #emptyText>
+          <EmptyState description="暂无备件" action-text="新备件" @action="openCreate" />
+        </template>
       </a-table>
     </div>
 
-    <a-modal v-model:open="formVisible" :title="isEdit ? '编辑备件' : '新设备件'" width="560px" :confirm-loading="formLoading" @ok="handleSubmit">
+    <!-- 备件 CRUD 弹窗 -->
+    <a-modal
+      v-model:open="formVisible"
+      :title="isEdit ? '编辑备件' : '新设备件'"
+      width="560px"
+      :confirm-loading="formLoading"
+      :mask-closable="false"
+      @ok="handleSubmit"
+    >
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
@@ -279,16 +415,66 @@ onMounted(() => {
       </a-form>
     </a-modal>
 
-    <a-modal v-model:open="actionVisible" :title="{ OUT: '备件领用', RETURN: '备件归还', REPAIR: '返修登记' }[actionType]" :confirm-loading="actionLoading" @ok="handleAction">
+    <!-- 领用/归还/返修/入库 操作弹窗 -->
+    <a-modal
+      v-model:open="actionVisible"
+      :title="`${actionTypeLabel[actionType]}备件`"
+      :confirm-loading="actionLoading"
+      :mask-closable="false"
+      width="480px"
+      @ok="handleAction"
+    >
+      <a-alert
+        v-if="actionRow"
+        :message="`备件：${actionRow.partName}（${actionRow.partCode}）  当前库存：${actionRow.stockQty}`"
+        type="info"
+        show-icon
+        style="margin-bottom: 16px"
+      />
       <a-form layout="vertical">
         <a-form-item label="数量" required>
           <a-input-number v-model:value="actionForm.quantity" :min="1" style="width: 100%" />
         </a-form-item>
+        <a-form-item label="关联项目 ID">
+          <a-input-number v-model:value="actionForm.projectId" placeholder="可选" style="width: 100%" />
+        </a-form-item>
         <a-form-item label="备注">
-          <a-textarea v-model:value="actionForm.remark" :rows="2" />
+          <a-textarea v-model:value="actionForm.remark" :rows="2" placeholder="领用事由/归还说明等" />
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 流水查询抽屉 -->
+    <a-drawer
+      :open="logVisible"
+      :width="720"
+      :title="`备件流水 - ${logRow?.partName || ''}`"
+      @close="logVisible = false"
+    >
+      <a-table
+        :columns="logColumns"
+        :data-source="logDataSource"
+        :loading="logLoading"
+        row-key="id"
+        size="small"
+        :pagination="false"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === 'actionType'">
+            <a-tag :color="actionTypeTone[record.actionType]">{{ actionTypeLabel[record.actionType as ActionType] || record.actionType }}</a-tag>
+          </template>
+          <template v-else-if="column.key === 'quantity'">
+            <span class="tnum">{{ record.quantity }}</span>
+          </template>
+          <template v-else-if="column.key === 'projectName'">
+            {{ record.projectName || (record.projectId ? `项目#${record.projectId}` : '—') }}
+          </template>
+        </template>
+        <template #emptyText>
+          <EmptyState description="暂无操作记录" size="compact" />
+        </template>
+      </a-table>
+    </a-drawer>
   </PageContainer>
 </template>
 
@@ -297,4 +483,6 @@ onMounted(() => {
 .table-card { padding: 0; }
 .danger-link { color: @status-exception; }
 .warning { color: @status-exception; font-weight: 600; }
+.text-auxiliary { color: @text-tertiary; }
+.tnum { font-variant-numeric: tabular-nums; }
 </style>

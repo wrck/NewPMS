@@ -18,6 +18,11 @@ spring:
       encoding: UTF-8
       schema-locations: classpath:db/schema.sql
       data-locations: classpath:db/data.sql
+  # Flyway 禁用：本地 MySQL 5.7 不被 Flyway 8.x+ Community Edition 支持
+  # V2/V5 的幂等 DDL 由 scripts/init-db.js 在首次启动前手动执行
+  # 生产环境用 MySQL 8.0+ 时可删除此覆盖，恢复 spring.flyway.enabled=true
+  flyway:
+    enabled: false
   # MySQL 8.0
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver

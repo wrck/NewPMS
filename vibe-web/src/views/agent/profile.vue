@@ -10,7 +10,9 @@ import {
   ReloadOutlined,
   EditOutlined,
   DeleteOutlined,
-  TeamOutlined
+  TeamOutlined,
+  CheckCircleOutlined,
+  StopOutlined
 } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -25,6 +27,7 @@ import {
   createAgentEngineer,
   updateAgentEngineer,
   deleteAgentEngineer,
+  changeAgentEngineerStatus,
   listAgentScores
 } from '@/api/agent'
 import type {
@@ -271,7 +274,7 @@ const engineerColumns = [
   { title: '任务数', dataIndex: 'taskCount', key: 'taskCount', width: 80 },
   { title: '质量评分', dataIndex: 'qualityScore', key: 'qualityScore', width: 100 },
   { title: '状态', key: 'status', width: 90 },
-  { title: '操作', key: 'action', width: 130 }
+  { title: '操作', key: 'action', width: 200 }
 ]
 
 // 工程师弹窗
@@ -367,6 +370,25 @@ function handleEngDelete(row: AgentEngineer) {
         message.success('删除成功')
         loadEngineers(currentCompany.value!.id)
       } catch (e) { /* ignore */ }
+    }
+  })
+}
+
+/** 启用/停用代理商工程师 */
+function handleEngStatus(row: AgentEngineer, status: 'ACTIVE' | 'DISABLED') {
+  if (!currentCompany.value) return
+  const label = status === 'ACTIVE' ? '启用' : '停用'
+  Modal.confirm({
+    title: `确认${label}`,
+    content: `确定${label}工程师「${row.name}」吗？${status === 'DISABLED' ? '停用后该工程师将不再被分配新任务。' : ''}`,
+    async onOk() {
+      try {
+        await changeAgentEngineerStatus(currentCompany.value!.id, row.id, status)
+        message.success(`${label}成功`)
+        loadEngineers(currentCompany.value!.id)
+      } catch (e) {
+        console.error('[agent.profile] change engineer status failed:', e)
+      }
     }
   })
 }
@@ -562,6 +584,8 @@ onMounted(() => {
               <template v-else-if="column.key === 'action'">
                 <a-space size="small">
                   <a @click="openEngEdit(record)"><EditOutlined /> 编辑</a>
+                  <a v-if="record.status !== 'ACTIVE'" class="success-link" @click="handleEngStatus(record, 'ACTIVE')"><CheckCircleOutlined /> 启用</a>
+                  <a v-else class="warning-link" @click="handleEngStatus(record, 'DISABLED')"><StopOutlined /> 停用</a>
                   <a class="danger-link" @click="handleEngDelete(record)"><DeleteOutlined /></a>
                 </a-space>
               </template>
@@ -630,6 +654,8 @@ onMounted(() => {
 .search-card { padding: 16px 20px; margin-bottom: 16px; }
 .table-card { padding: 0; }
 .danger-link { color: @status-exception; }
+.success-link { color: @status-success; }
+.warning-link { color: @status-warning; }
 .tag-list { margin-top: 8px; }
 .drawer-toolbar { margin-bottom: 12px; }
 .text-warning { color: @status-warning; }

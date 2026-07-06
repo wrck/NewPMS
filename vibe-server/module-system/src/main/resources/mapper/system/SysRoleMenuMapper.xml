@@ -8,4 +8,27 @@
         WHERE role_id = #{roleId} AND deleted = 0
     </update>
 
+    <update id="deleteByMenuId">
+        UPDATE sys_role_menu SET deleted = 1
+        WHERE menu_id = #{menuId} AND deleted = 0
+    </update>
+
+    <select id="selectRolesByMenuId" resultType="com.vibe.system.vo.RoleSimpleVO">
+        SELECT r.id AS id,
+               r.role_name AS roleName,
+               r.role_code AS roleCode,
+               r.data_scope AS dataScope
+        FROM sys_role_menu rm
+        INNER JOIN sys_role r ON r.id = rm.role_id AND r.deleted = 0
+        WHERE rm.menu_id = #{menuId}
+          AND rm.deleted = 0
+        ORDER BY r.id ASC
+    </select>
+
+    <select id="selectRoleIdsByMenuId" resultType="java.lang.Long">
+        SELECT rm.role_id
+        FROM sys_role_menu rm
+        WHERE rm.menu_id = #{menuId} AND rm.deleted = 0
+    </select>
+
 </mapper>

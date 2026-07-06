@@ -29,6 +29,8 @@ import com.vibe.device.vo.DeviceInstanceDetailVO;
 import com.vibe.device.vo.DeviceInstanceVO;
 import com.vibe.device.vo.DeviceInventoryLogVO;
 import com.vibe.device.vo.DeviceStatusLogVO;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.DeviceStatusChangedEvent;
 import com.vibe.system.notification.NotificationConstant;
 import com.vibe.system.notification.NotificationEvent;
 import com.vibe.system.notification.producer.NotificationProducer;
@@ -73,6 +75,7 @@ public class DeviceInstanceServiceImpl implements DeviceInstanceService {
     private final DeviceInventoryLogMapper deviceInventoryLogMapper;
     private final ExcelUtils excelUtils;
     private final NotificationProducer notificationProducer;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     public PageResult<DeviceInstanceVO> page(DeviceInstanceQueryDTO query) {
@@ -247,6 +250,11 @@ public class DeviceInstanceServiceImpl implements DeviceInstanceService {
 
         // 通知事件投递：SHIPPED→RECEIVED 触发 DEVICE_ARRIVED；流转到异常状态触发 DEVICE_ABNORMAL
         sendDeviceTransitionNotification(device, from, to, dto);
+
+        // 发布设备状态变更领域事件
+        domainEventPublisher.publish(new DeviceStatusChangedEvent(
+                device.getId(), device.getSerialNumber(),
+                from.name(), to.name(), device.getProjectId()));
     }
 
     /**

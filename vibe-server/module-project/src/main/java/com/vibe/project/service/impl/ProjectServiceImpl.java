@@ -7,6 +7,9 @@ import com.vibe.common.constant.RedisKeyConstant;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.ResultCode;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.ProjectCreatedEvent;
+import com.vibe.event.events.ProjectStatusChangedEvent;
 import com.vibe.project.constant.ProjectConstant;
 import com.vibe.project.converter.ProjectConverters;
 import com.vibe.project.dto.ProjectArchiveDTO;
@@ -87,6 +90,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectTemplatePhaseMapper projectTemplatePhaseMapper;
     private final ProjectTemplateTaskMapper projectTemplateTaskMapper;
     private final RedisUtils redisUtils;
+    private final DomainEventPublisher domainEventPublisher;
 
     /** 项目编号序号格式化（3位补零） */
     private static final String SEQ_FORMAT = "%03d";
@@ -127,6 +131,10 @@ public class ProjectServiceImpl implements ProjectService {
         if (dto.getPmId() != null) {
             addMember(entity.getId(), dto.getPmId(), ProjectConstant.MEMBER_ROLE_PM);
         }
+
+        // 发布项目立项领域事件
+        domainEventPublisher.publish(new ProjectCreatedEvent(
+                entity.getId(), entity.getProjectName(), entity.getPmId(), null));
 
         return entity.getId();
     }
@@ -308,6 +316,10 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BusinessException(ResultCode.STATE_TRANSITION_INVALID,
                     "项目状态更新失败，可能已被并发修改");
         }
+
+        // 发布项目状态变更领域事件
+        domainEventPublisher.publish(new ProjectStatusChangedEvent(
+                exist.getId(), current.getCode(), target.getCode(), target.getCode()));
     }
 
     @Override

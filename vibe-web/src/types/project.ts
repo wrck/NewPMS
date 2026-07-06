@@ -227,17 +227,77 @@ export interface ProjectComment {
   createdAt: string
 }
 
-/** 项目模板 */
+/** 项目模板阶段 */
+export interface ProjectTemplatePhase {
+  id: number
+  templateId?: number
+  phaseCode: PhaseCode | string
+  phaseName: string
+  sortOrder?: number
+  /** 交付物清单（JSON 字符串） */
+  deliverables?: string
+}
+
+/** 项目模板任务 */
+export interface ProjectTemplateTask {
+  id: number
+  templateId?: number
+  phaseCode: PhaseCode | string
+  taskName: string
+  taskType?: TaskType | string
+  description?: string
+  /** 默认工期（天） */
+  defaultDays?: number
+}
+
+/** 项目模板（含阶段、任务详情） */
 export interface ProjectTemplate {
   id: number
   templateName: string
   projectType?: ProjectType
   productLine?: ProductLine
   description?: string
-  phases?: Array<{ phaseCode: PhaseCode; phaseName: string; sortOrder: number }>
-  tasks?: Array<{ taskName: string; taskType: TaskType; phaseCode?: PhaseCode; plannedDays?: number }>
+  phases?: ProjectTemplatePhase[]
+  tasks?: ProjectTemplateTask[]
   status?: 'ENABLED' | 'DISABLED'
   createdAt?: string
+}
+
+/** 客户档案 */
+export interface Customer {
+  id: number
+  customerName: string
+  customerCode: string
+  contactName?: string
+  contactPhone?: string
+  contactEmail?: string
+  address?: string
+  region?: string
+  industry?: string
+  remark?: string
+  createTime?: string
+}
+
+/** 客户查询参数 */
+export interface CustomerQueryParams extends PageParams {
+  customerName?: string
+  customerCode?: string
+  region?: string
+  industry?: string
+}
+
+/** 客户新增/编辑 DTO */
+export interface CustomerDTO {
+  id?: number
+  customerName: string
+  customerCode: string
+  contactName?: string
+  contactPhone?: string
+  contactEmail?: string
+  address?: string
+  region?: string
+  industry?: string
+  remark?: string
 }
 
 /** 看板分组项 */

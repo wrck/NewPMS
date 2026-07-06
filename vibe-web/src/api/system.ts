@@ -141,6 +141,88 @@ export function assignRolePermissions(id: number, permissionCodes: string[]) {
   return http.put<void>(`${ROLE_BASE}/${id}/permissions`, { permissionCodes })
 }
 
+/* ============ 菜单管理 ============ */
+
+/** 菜单类型：DIRECTORY-目录 / MENU-菜单 / BUTTON-按钮 */
+export type MenuType = 'DIRECTORY' | 'MENU' | 'BUTTON'
+
+export interface SysMenu {
+  id: number
+  parentId: number
+  menuName: string
+  menuType: MenuType
+  path?: string
+  component?: string
+  perms?: string
+  icon?: string
+  sortOrder?: number
+  visible?: 1 | 0
+  createTime?: string
+  children?: SysMenu[]
+}
+
+export interface SysMenuDTO {
+  id?: number
+  parentId?: number
+  menuName: string
+  menuType: MenuType
+  path?: string
+  component?: string
+  perms?: string
+  icon?: string
+  sortOrder?: number
+  visible?: 1 | 0
+}
+
+export interface MenuRoleSimple {
+  id: number
+  roleName: string
+  roleCode: string
+  dataScope?: string
+}
+
+const MENU_BASE = '/menus'
+
+/** 查询菜单树（全部） */
+export function listMenuTree() {
+  return http.get<SysMenu[]>(`${MENU_BASE}/tree`)
+}
+
+/** 查询菜单扁平列表 */
+export function listAllMenus() {
+  return http.get<SysMenu[]>(MENU_BASE)
+}
+
+/** 菜单详情 */
+export function getMenu(id: number) {
+  return http.get<SysMenu>(`${MENU_BASE}/${id}`)
+}
+
+/** 新增菜单 */
+export function createMenu(dto: SysMenuDTO) {
+  return http.post<number>(MENU_BASE, dto)
+}
+
+/** 编辑菜单 */
+export function updateMenu(id: number, dto: SysMenuDTO) {
+  return http.put<void>(`${MENU_BASE}/${id}`, dto)
+}
+
+/** 删除菜单 */
+export function deleteMenu(id: number) {
+  return http.delete<void>(`${MENU_BASE}/${id}`)
+}
+
+/** 查询菜单关联的角色列表 */
+export function listRolesByMenu(menuId: number) {
+  return http.get<MenuRoleSimple[]>(`${MENU_BASE}/${menuId}/roles`)
+}
+
+/** 给菜单分配角色（全量覆盖） */
+export function assignRolesToMenu(menuId: number, roleIds: number[]) {
+  return http.put<void>(`${MENU_BASE}/${menuId}/roles`, { roleIds })
+}
+
 /* ============ 组织架构 ============ */
 
 export interface SysOrg {

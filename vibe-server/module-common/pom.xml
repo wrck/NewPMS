@@ -41,6 +41,18 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- Spring Cache 抽象（Caffeine + Redis 二级缓存底层支撑，@Cacheable/@CacheEvict 注解生效所需） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <!-- Caffeine 高性能本地缓存（L1 缓存，报表明细查询热点数据） -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <!-- Spring Security (for AccessDeniedException 全局异常处理) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

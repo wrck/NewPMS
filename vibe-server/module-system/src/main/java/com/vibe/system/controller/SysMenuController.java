@@ -5,6 +5,7 @@ import com.vibe.common.result.Result;
 import com.vibe.annotation.OperationLog;
 import com.vibe.system.dto.SysMenuDTO;
 import com.vibe.system.service.SysMenuService;
+import com.vibe.system.vo.RoleSimpleVO;
 import com.vibe.system.vo.SysMenuVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -95,5 +96,29 @@ public class SysMenuController {
     @GetMapping("/my-tree")
     public Result<List<SysMenuVO>> myMenuTree() {
         return Result.success(sysMenuService.getMenusByUserId(UserContextHolder.getUserId()));
+    }
+
+    @Operation(summary = "查询菜单关联的角色列表")
+    @PreAuthorize("@ss.hasPermi('system:menu') or hasRole('SUPER_ADMIN')")
+    @GetMapping("/{menuId}/roles")
+    public Result<List<RoleSimpleVO>> menuRoles(@PathVariable Long menuId) {
+        return Result.success(sysMenuService.getRolesByMenuId(menuId));
+    }
+
+    @Operation(summary = "给菜单分配角色（全量覆盖）")
+    @OperationLog(module = "菜单管理", type = "UPDATE", description = "给菜单分配角色")
+    @PreAuthorize("@ss.hasPermi('system:menu') or hasRole('SUPER_ADMIN')")
+    @PutMapping("/{menuId}/roles")
+    public Result<Void> assignRoles(@PathVariable Long menuId, @RequestBody MenuRoleAssignDTO dto) {
+        sysMenuService.assignRolesToMenu(menuId, dto.getRoleIds());
+        return Result.success();
+    }
+
+    /**
+     * 菜单-角色分配入参
+     */
+    @lombok.Data
+    public static class MenuRoleAssignDTO {
+        private List<Long> roleIds;
     }
 }

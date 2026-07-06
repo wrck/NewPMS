@@ -186,3 +186,103 @@ export interface BatchDispatchDTO {
   agentEngineerId?: number
   remark?: string
 }
+
+/* ============ 差旅管理 ============ */
+
+/** 差旅状态 */
+export type BusinessTripStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED'
+
+/** 交通方式 */
+export type TransportMode = 'PLANE' | 'TRAIN' | 'CAR' | 'OTHER'
+
+/** 差旅记录 */
+export interface BusinessTrip {
+  id: number
+  engineerId: number
+  engineerName?: string
+  projectId?: number
+  projectName?: string
+  taskId?: number
+  origin?: string
+  destination?: string
+  startDate?: string
+  endDate?: string
+  transportMode?: TransportMode
+  accommodation?: string
+  estimatedCost?: number
+  actualCost?: number
+  reason?: string
+  status: BusinessTripStatus
+  approverId?: number
+  approverName?: string
+  approveTime?: string
+  remark?: string
+  createTime?: string
+}
+
+/** 差旅查询参数 */
+export interface BusinessTripQueryParams extends PageParams {
+  engineerId?: number
+  projectId?: number
+  status?: BusinessTripStatus
+  startDate?: string
+  endDate?: string
+}
+
+/** 差旅新增/编辑 DTO */
+export interface BusinessTripDTO {
+  id?: number
+  engineerId: number
+  projectId?: number
+  taskId?: number
+  origin?: string
+  destination?: string
+  startDate?: string
+  endDate?: string
+  transportMode?: TransportMode
+  accommodation?: string
+  estimatedCost?: number
+  actualCost?: number
+  reason?: string
+  remark?: string
+}
+
+/* ============ 工程师请假 ============ */
+
+/** 请假状态 */
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+/** 请假类型 */
+export type LeaveType = 'ANNUAL' | 'SICK' | 'PERSONAL' | 'OTHER'
+
+/** 请假记录 */
+export interface EngineerLeave {
+  id: number
+  engineerId: number
+  engineerName?: string
+  startDate: string
+  endDate: string
+  leaveType: LeaveType
+  reason?: string
+  status: LeaveStatus
+  createTime?: string
+}
+
+/** 请假查询参数 */
+export interface EngineerLeaveQueryParams extends PageParams {
+  engineerId?: number
+  leaveType?: LeaveType
+  status?: LeaveStatus
+  startDate?: string
+  endDate?: string
+}
+
+/** 请假新增/编辑 DTO */
+export interface EngineerLeaveDTO {
+  id?: number
+  engineerId: number
+  startDate: string
+  endDate: string
+  leaveType: LeaveType
+  reason?: string
+}

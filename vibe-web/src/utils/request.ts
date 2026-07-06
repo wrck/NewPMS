@@ -3,15 +3,45 @@
  * - baseURL 从 env 读取
  * - 请求拦截器：携带 Bearer Token
  * - 响应拦截器：统一处理 Result 响应体、401 跳登录、Token 续签响应头处理、错误 message 提示
+ *
+ * 错误处理策略（Task C1）：
+ * - 400xx 参数校验错误：提取 errors[] 并通过 window.__lastFieldErrors 暴露给表单组件高亮字段
+ * - 403xx 权限错误：提示「权限不足」
+ * - 409xx 业务冲突：提示后端返回的 message
+ * - 网络错误 / 超时：Modal.confirm 弹出友好提示与「重试」按钮，点击后重发原请求
  */
 import axios, { type AxiosInstance, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import type { Result } from '@/types/api'
 import { ErrorCode } from '@/types/api'
 
 const TOKEN_KEY = import.meta.env.VITE_TOKEN_KEY || 'vibe_token'
 // Token 续签响应头名称（与后端约定）
 const REFRESH_TOKEN_HEADER = 'X-Refresh-Token'
+
+// ============ 字段错误全局暴露（供表单组件读取并高亮）============
+/**
+ * 最近一次后端返回的字段级错误列表。
+ *
+ * <p>表单组件可在 catch 到请求拒绝后，读取此数组并设置对应字段的 errorStatus，
+ * 实现 400xx 错误的字段级高亮。每次新请求发起时会自动清空。</p>
+ */
+export interface FieldError {
+  field: string
+  message: string
+}
+
+;(globalThis as unknown as { __lastFieldErrors?: FieldError[] }).__lastFieldErrors = []
+
+/** 读取最近一次字段错误（表单组件使用） */
+export function getLastFieldErrors(): FieldError[] {
+  return (globalThis as unknown as { __lastFieldErrors?: FieldError[] }).__lastFieldErrors ?? []
+}
+
+/** 清空字段错误（表单组件在用户开始修正字段时调用） */
+export function clearLastFieldErrors(): void {
+  ;(globalThis as unknown as { __lastFieldErrors?: FieldError[] }).__lastFieldErrors = []
+}
 
 // ============ 创建实例 ============
 const service: AxiosInstance = axios.create({
@@ -25,6 +55,8 @@ const service: AxiosInstance = axios.create({
 // ============ 请求拦截器 ============
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // 每次发起新请求时清空上一次的字段错误，避免陈旧高亮
+    clearLastFieldErrors()
     const token = localStorage.getItem(TOKEN_KEY)
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
@@ -80,15 +112,21 @@ service.interceptors.response.use(
       message.error('登录已失效，请重新登录')
       redirectToLogin()
     } else if (status === 403) {
-      message.error('权限不足，无法访问该资源')
+      // 403xx 权限错误：优先展示后端 message，否则固定提示
+      message.error(respData?.message || '权限不足，无法访问该资源')
     } else if (status === 404) {
       message.error('请求的资源不存在')
+    } else if (status === 409) {
+      // 409xx 业务冲突：直接展示后端 message
+      message.error(respData?.message || '业务冲突，请刷新后重试')
     } else if (status && status >= 500) {
       message.error('服务器开小差了，请稍后重试')
     } else if (error.code === 'ECONNABORTED') {
-      message.error('请求超时，请检查网络后重试')
+      // 请求超时：弹出 Modal 提供重试
+      showRetryModal('请求超时', '网络请求超时，是否重试？', error.config)
     } else if (!error.response) {
-      message.error('网络异常，请检查网络连接')
+      // 网络异常（无法连接到服务器）：弹出 Modal 提供重试
+      showRetryModal('网络异常', '网络连接异常，请检查网络后重试。', error.config)
     } else if (respData?.message) {
       message.error(respData.message)
     } else {
@@ -100,15 +138,85 @@ service.interceptors.response.use(
 )
 
 /**
- * 处理业务错误（统一错误提示）
+ * 网络错误重试 Modal：友好提示并提供「重试」按钮重发原请求。
+ *
+ * <p>使用 Modal.confirm 弹出，避免在网络异常时反复弹出多个 Modal：
+ * 通过 isRetryModalShowing 标志位控制同时只显示一个重试 Modal。</p>
+ *
+ * @param title   Modal 标题
+ * @param content Modal 内容
+ * @param config  原始请求配置（axios AxiosRequestConfig），用于重发请求
  */
-function handleBusinessError(res: Result) {
-  // 参数校验错误：拼接字段级错误信息
-  if (res.code >= ErrorCode.PARAM_ERROR && res.code < ErrorCode.UNAUTHORIZED && res.errors?.length) {
-    const detail = res.errors.map((e) => `${e.field}: ${e.message}`).join('；')
-    message.error(`${res.message}（${detail}）`)
+let isRetryModalShowing = false
+function showRetryModal(title: string, content: string, config?: AxiosRequestConfig) {
+  if (isRetryModalShowing) {
+    // 已有重试 Modal 显示中，不再重复弹出
     return
   }
+  isRetryModalShowing = true
+  Modal.confirm({
+    title,
+    content,
+    okText: '重试',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        if (config) {
+          await service.request(config)
+        }
+      } catch (e) {
+        // 重试失败仍走拦截器逻辑（可能再次弹出 Modal），不在此处理
+        console.warn('[request] retry failed:', e)
+      } finally {
+        isRetryModalShowing = false
+      }
+    },
+    onCancel: () => {
+      isRetryModalShowing = false
+    }
+  })
+}
+
+/**
+ * 处理业务错误（统一错误提示）
+ *
+ * <p>分类策略：</p>
+ * <ul>
+ *   <li>400xx 参数校验错误：提取 errors[] 写入 window.__lastFieldErrors，
+ *       并以「字段: 消息」形式拼接提示</li>
+ *   <li>403xx 权限错误：固定提示「权限不足」</li>
+ *   <li>409xx 业务冲突：直接展示后端 message</li>
+ *   <li>其它：展示后端 message 或默认提示</li>
+ * </ul>
+ */
+function handleBusinessError(res: Result) {
+  const code = res.code
+
+  // 400xx 参数校验错误：提取 errors[] 高亮字段
+  if (code >= ErrorCode.PARAM_ERROR && code < ErrorCode.UNAUTHORIZED) {
+    const errors = res.errors ?? []
+    ;(globalThis as unknown as { __lastFieldErrors?: FieldError[] }).__lastFieldErrors = errors
+    if (errors.length > 0) {
+      const detail = errors.map((e) => `${e.field}: ${e.message}`).join('；')
+      message.error(`${res.message || '参数校验失败'}（${detail}）`)
+    } else {
+      message.error(res.message || '参数校验失败')
+    }
+    return
+  }
+
+  // 403xx 权限错误
+  if (code >= ErrorCode.FORBIDDEN && code < ErrorCode.NOT_FOUND) {
+    message.error(res.message || '权限不足')
+    return
+  }
+
+  // 409xx 业务冲突
+  if (code >= ErrorCode.CONFLICT && code < ErrorCode.SERVER_ERROR) {
+    message.error(res.message || '业务冲突，请刷新后重试')
+    return
+  }
+
   message.error(res.message || '操作失败')
 }
 

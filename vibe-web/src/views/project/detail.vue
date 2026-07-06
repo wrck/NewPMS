@@ -16,6 +16,8 @@ import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import FormModal from '@/components/FormModal/index.vue'
+import type { FormField } from '@/components/FormModal/types'
 import {
   getProjectDetail,
   listPhases,
@@ -27,9 +29,10 @@ import {
   listMembers,
   listComments,
   addComment,
-  transitionProjectStatus
+  transitionProjectStatus,
+  createTask
 } from '@/api/project'
-import type { ProjectDetail, ProjectPhase, ProjectTask, Milestone, ProjectRisk, ProjectIssue, ProjectChange, ProjectMember, ProjectComment } from '@/types/project'
+import type { ProjectDetail, ProjectPhase, ProjectTask, Milestone, ProjectRisk, ProjectIssue, ProjectChange, ProjectMember, ProjectComment, TaskType } from '@/types/project'
 import {
   ProjectStatus,
   ProjectStatusTone,
@@ -109,6 +112,94 @@ async function loadTabData(tab: typeof activeTab.value) {
 function handleTabChange(tab: string) {
   activeTab.value = tab as typeof activeTab.value
   loadTabData(activeTab.value)
+}
+
+// ============ 新增任务 FormModal ============
+/** 新增任务弹窗显隐 */
+const taskModalVisible = ref(false)
+/** 新增任务提交 loading */
+const taskSubmitting = ref(false)
+/** 新增任务表单数据 */
+const taskFormData = reactive<Record<string, any>>({
+  taskName: '',
+  taskType: 'OTHER',
+  executeMode: 'SELF',
+  priority: Priority.MEDIUM,
+  assigneeId: undefined,
+  plannedStart: '',
+  plannedEnd: '',
+  description: ''
+})
+
+/** 任务类型选项 */
+const taskTypeOptions = [
+  { label: '勘察', value: 'SURVEY' as TaskType },
+  { label: '安装', value: 'INSTALL' as TaskType },
+  { label: '调试', value: 'DEBUG' as TaskType },
+  { label: '割接', value: 'CUTOVER' as TaskType },
+  { label: '验收', value: 'ACCEPT' as TaskType },
+  { label: '其他', value: 'OTHER' as TaskType }
+]
+
+/** 执行模式选项 */
+const executeModeOptions = [
+  { label: '自施', value: 'SELF' },
+  { label: '代施', value: 'AGENT' }
+]
+
+/** 优先级选项 */
+const priorityOptions = [
+  { label: PriorityLabel[Priority.LOW], value: Priority.LOW },
+  { label: PriorityLabel[Priority.MEDIUM], value: Priority.MEDIUM },
+  { label: PriorityLabel[Priority.HIGH], value: Priority.HIGH },
+  { label: PriorityLabel[Priority.URGENT], value: Priority.URGENT }
+]
+
+/** 新增任务表单字段定义 */
+const taskFormFields: FormField[] = [
+  { field: 'taskName', label: '任务名称', type: 'input', required: true, placeholder: '请输入任务名称', maxLength: 100, span: 24 },
+  { field: 'taskType', label: '任务类型', type: 'select', required: true, options: taskTypeOptions, span: 12 },
+  { field: 'executeMode', label: '执行模式', type: 'select', required: true, options: executeModeOptions, span: 12 },
+  { field: 'priority', label: '优先级', type: 'select', required: true, options: priorityOptions, span: 12 },
+  { field: 'assigneeId', label: '指派给', type: 'inputNumber', placeholder: '执行人 ID（可留空后派单）', span: 12 },
+  { field: 'plannedStart', label: '计划开始', type: 'date', valueFormat: 'YYYY-MM-DD', span: 12 },
+  { field: 'plannedEnd', label: '计划结束', type: 'date', valueFormat: 'YYYY-MM-DD', span: 12 },
+  { field: 'description', label: '描述', type: 'textarea', placeholder: '任务描述 / 交付要求等', maxLength: 500, span: 24 }
+]
+
+/** 打开新增任务弹窗 */
+function handleOpenTaskModal() {
+  // 重置表单数据为默认值
+  Object.assign(taskFormData, {
+    taskName: '',
+    taskType: 'OTHER',
+    executeMode: 'SELF',
+    priority: Priority.MEDIUM,
+    assigneeId: undefined,
+    plannedStart: '',
+    plannedEnd: '',
+    description: ''
+  })
+  taskModalVisible.value = true
+}
+
+/** 新增任务提交 */
+async function handleTaskSubmit(payload: Record<string, any>) {
+  taskSubmitting.value = true
+  try {
+    await createTask(projectId.value, payload)
+    message.success('任务新增成功')
+    taskModalVisible.value = false
+    // 刷新任务列表
+    tasks.value = (await listTasksByProject(projectId.value)) || []
+    // 同步刷新项目详情（更新 taskStats）
+    loadDetail()
+  } catch (e: any) {
+    console.error('[project.detail] createTask failed:', e)
+    message.error(e?.message || '任务新增失败')
+  } finally {
+    taskSubmitting.value = false
+  }
 }
 
 // ============ 状态流转 ============
@@ -325,7 +416,7 @@ onMounted(() => {
           <!-- 任务 -->
           <a-tab-pane key="tasks" tab="任务">
             <div class="tab-toolbar">
-              <a-button type="primary" size="small">
+              <a-button type="primary" size="small" @click="handleOpenTaskModal">
                 <template #icon><PlusOutlined /></template>
                 新增任务
               </a-button>
@@ -531,6 +622,18 @@ onMounted(() => {
           </a-tab-pane>
         </a-tabs>
       </div>
+
+      <!-- 新增任务弹窗 -->
+      <FormModal
+        v-model:visible="taskModalVisible"
+        v-model:data="taskFormData"
+        title="新增任务"
+        :fields="taskFormFields"
+        :loading="taskSubmitting"
+        :width="720"
+        :span="12"
+        @submit="handleTaskSubmit"
+      />
     </a-spin>
   </PageContainer>
 </template>

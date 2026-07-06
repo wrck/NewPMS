@@ -1,5 +1,6 @@
 target
 logs
+node_modules
 
 build.log
 vibe-server/build.log
@@ -9,3 +10,8 @@ vibe-web/tsc-full.log
 
 # 测试用 token 文件，不应提交
 token.txt
+
+# 启动脚本运行时产物（PID 记录 / Maven 安装标记）
+.vibe-pids.json
+.vibe-mvn-installed
+

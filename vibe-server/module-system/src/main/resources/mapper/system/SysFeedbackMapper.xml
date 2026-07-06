@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.system.mapper.SysFeedbackMapper">
+
+    <select id="selectFeedbackPage" resultType="com.vibe.system.vo.SysFeedbackVO">
+        SELECT f.id, f.type, f.title, f.content, f.screenshot_url AS screenshotUrl,
+               f.contact, f.submitter_id AS submitterId,
+               u.real_name AS submitterName,
+               f.status, f.handler_id AS handlerId,
+               handler.real_name AS handlerName,
+               f.handle_note AS handleNote, f.handle_time AS handleTime,
+               f.create_time AS createTime
+        FROM sys_feedback f
+        LEFT JOIN sys_user u ON u.id = f.submitter_id AND u.deleted = 0
+        LEFT JOIN sys_user handler ON handler.id = f.handler_id AND handler.deleted = 0
+        <where>
+            f.deleted = 0
+            <if test="submitterId != null">
+                AND f.submitter_id = #{submitterId}
+            </if>
+            <if test="query.type != null and query.type != ''">
+                AND f.type = #{query.type}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND f.status = #{query.status}
+            </if>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND f.title LIKE CONCAT('%', #{query.keyword}, '%')
+            </if>
+            <if test="query.submitterId != null">
+                AND f.submitter_id = #{query.submitterId}
+            </if>
+        </where>
+        ORDER BY f.create_time DESC, f.id DESC
+    </select>
+
+</mapper>

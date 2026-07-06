@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.report.mapper.DeviceReportMapper">
+
+    <!-- ==================== 设备统计聚合 ==================== -->
+
+    <!-- 按状态统计设备数 -->
+    <select id="countDevicesByStatus" resultType="com.vibe.report.vo.ChartDataVO">
+        SELECT d.status AS name, COUNT(*) AS value
+        FROM device_instance d
+        WHERE d.deleted = 0
+        GROUP BY d.status
+        ORDER BY value DESC
+    </select>
+
+    <!-- ==================== 环比/活跃/总数 ==================== -->
+
+    <select id="countDevicesBefore" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM device_instance WHERE deleted = 0 AND create_time &lt; #{beforeDate}
+    </select>
+
+    <select id="countOnlineDevices" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM device_instance WHERE deleted = 0 AND status = 'ONLINE'
+    </select>
+
+    <select id="countAllDevices" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM device_instance WHERE deleted = 0
+    </select>
+
+    <!-- =============================================================== -->
+    <!-- ==================== 业务报表（设备） ========================== -->
+    <!-- =============================================================== -->
+
+    <!-- 设备报表 - 汇总指标 -->
+    <select id="deviceReportSummary" resultType="com.vibe.report.vo.DeviceReportVO$Summary">
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status = 'ONLINE' THEN 1 ELSE 0 END) AS online,
+            SUM(CASE WHEN status IN ('IN_FACTORY','SHIPPED','DELIVERED','WAIT_INSTALL') THEN 1 ELSE 0 END) AS offline,
+            SUM(CASE WHEN status IN ('FAULT','ABNORMAL','REPAIRING') THEN 1 ELSE 0 END) AS abnormal
+        FROM device_instance
+        WHERE deleted = 0
+          <if test="productLine != null and productLine != ''">
+              AND model_id IN (SELECT id FROM device_model WHERE deleted = 0 AND product_line = #{productLine})
+          </if>
+    </select>
+
+    <!-- 设备报表 - 按状态分组 -->
+    <select id="deviceReportByStatus" resultType="com.vibe.report.vo.DeviceReportVO$StatusDist">
+        SELECT status, COUNT(*) AS count
+        FROM device_instance
+        WHERE deleted = 0
+          <if test="productLine != null and productLine != ''">
+              AND model_id IN (SELECT id FROM device_model WHERE deleted = 0 AND product_line = #{productLine})
+          </if>
+        GROUP BY status
+        ORDER BY count DESC
+    </select>
+
+    <!-- 设备报表 - 按产品线分组（关联 device_model） -->
+    <select id="deviceReportByProductLine" resultType="com.vibe.report.vo.DeviceReportVO$ProductLineDist">
+        SELECT COALESCE(m.product_line, '未分类') AS productLine, COUNT(*) AS count
+        FROM device_instance d
+        LEFT JOIN device_model m ON m.id = d.model_id AND m.deleted = 0
+        WHERE d.deleted = 0
+          <if test="productLine != null and productLine != ''">AND m.product_line = #{productLine}</if>
+        GROUP BY m.product_line
+        ORDER BY count DESC
+    </select>
+
+    <!-- 设备报表 - 各项目 BOM 完成率 -->
+    <select id="deviceReportBomCompletion" resultType="com.vibe.report.vo.DeviceReportVO$BomCompletion">
+        SELECT
+            p.id AS projectId,
+            p.project_name AS projectName,
+            SUM(b.planned_qty) AS totalQty,
+            SUM(b.received_qty) AS completedQty,
+            CASE WHEN SUM(b.planned_qty) > 0
+                 THEN ROUND(SUM(b.received_qty) / SUM(b.planned_qty) * 100, 2)
+                 ELSE 0
+            END AS rate
+        FROM device_bom b
+        INNER JOIN project p ON p.id = b.project_id AND p.deleted = 0
+        WHERE b.deleted = 0
+        GROUP BY p.id, p.project_name
+        ORDER BY rate ASC
+    </select>
+
+    <!-- 设备报表 - 库存状态（按仓库汇总在库设备数） -->
+    <select id="deviceReportInventory" resultType="com.vibe.report.vo.DeviceReportVO$InventoryStatus">
+        SELECT
+            COALESCE(w.warehouse_name, '未分配仓库') AS warehouseName,
+            COUNT(d.id) AS totalQty,
+            0 AS warningQty
+        FROM device_instance d
+        LEFT JOIN warehouse w ON w.id = d.warehouse_id AND w.deleted = 0
+        WHERE d.deleted = 0 AND d.warehouse_id IS NOT NULL
+        GROUP BY w.id, w.warehouse_name
+        ORDER BY totalQty DESC
+    </select>
+
+</mapper>

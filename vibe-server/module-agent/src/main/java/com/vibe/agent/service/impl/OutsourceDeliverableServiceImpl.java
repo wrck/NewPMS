@@ -11,8 +11,12 @@ import com.vibe.agent.mapper.OutsourceTaskMapper;
 import com.vibe.agent.service.OutsourceDeliverableService;
 import com.vibe.agent.service.OutsourceTaskService;
 import com.vibe.agent.vo.OutsourceDeliverableVO;
+import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.DeliverableReviewedEvent;
+import com.vibe.event.events.DeliverableSubmittedEvent;
 import com.vibe.system.notification.NotificationConstant;
 import com.vibe.system.notification.NotificationEvent;
 import com.vibe.system.notification.producer.NotificationProducer;
@@ -44,6 +48,7 @@ public class OutsourceDeliverableServiceImpl implements OutsourceDeliverableServ
     private final OutsourceTaskMapper outsourceTaskMapper;
     private final OutsourceTaskService outsourceTaskService;
     private final NotificationProducer notificationProducer;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -87,6 +92,12 @@ public class OutsourceDeliverableServiceImpl implements OutsourceDeliverableServ
 
         // 通知事件投递：DELIVERABLE_REVIEW（通知 PM 审核交付物）
         sendDeliverableReviewNotification(task, count);
+
+        // 发布交付物提交领域事件
+        // 业务约定：deliverableId 用 outsourceTaskId 代表本批次提交，deliverableType 固定为 OUTSOURCE_DELIVERABLE
+        domainEventPublisher.publish(new DeliverableSubmittedEvent(
+                dto.getOutsourceTaskId(), task.getProjectId(), task.getAgentEngineerId(),
+                task.getTaskScope(), AgentConstant.DELIVERABLE_OTHER));
         return count;
     }
 
@@ -137,6 +148,12 @@ public class OutsourceDeliverableServiceImpl implements OutsourceDeliverableServ
         if (task != null) {
             sendDeliverableReviewResultNotification(task, dto.getApproved(), dto.getRejectReason());
         }
+
+        // 发布交付物审核领域事件
+        String reviewResult = Boolean.TRUE.equals(dto.getApproved()) ? "CONFIRMED" : "RETURNED";
+        domainEventPublisher.publish(new DeliverableReviewedEvent(
+                taskId, task == null ? null : task.getProjectId(),
+                UserContextHolder.getUserId(), reviewResult, dto.getRejectReason()));
     }
 
     /**

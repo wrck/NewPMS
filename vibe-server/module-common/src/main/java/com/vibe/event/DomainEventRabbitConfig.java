@@ -52,6 +52,18 @@ public class DomainEventRabbitConfig {
     }
 
     /**
+     * 通知触发消费队列（持久化）
+     *
+     * <p>由 module-system 的 {@code NoticeEventListener} 监听，将领域事件按 eventType
+     * 路由到对应通知模板（如 TASK_ASSIGNED → TASK_ASSIGNED 模板），实现"事件总线 → 通知引擎"
+     * 的解耦触发。</p>
+     */
+    @Bean
+    public Queue noticeTriggerQueue() {
+        return QueueBuilder.durable(DomainEventConstant.NOTICE_TRIGGER_QUEUE).build();
+    }
+
+    /**
      * 绑定：vibe.domain.event.* → vibe.es.sync.queue
      *
      * <p>ES 同步消费者订阅全部领域事件，按 eventType 决定更新哪个索引。</p>
@@ -59,6 +71,18 @@ public class DomainEventRabbitConfig {
     @Bean
     public Binding esSyncBinding(Queue esSyncQueue, TopicExchange domainEventExchange) {
         return BindingBuilder.bind(esSyncQueue)
+                .to(domainEventExchange)
+                .with(DomainEventConstant.ROUTING_KEY_PATTERN_ALL);
+    }
+
+    /**
+     * 绑定：vibe.domain.event.* → vibe.notice.trigger.queue
+     *
+     * <p>通知触发消费者订阅全部领域事件，按 eventType 路由到对应通知模板。</p>
+     */
+    @Bean
+    public Binding noticeTriggerBinding(Queue noticeTriggerQueue, TopicExchange domainEventExchange) {
+        return BindingBuilder.bind(noticeTriggerQueue)
                 .to(domainEventExchange)
                 .with(DomainEventConstant.ROUTING_KEY_PATTERN_ALL);
     }
@@ -82,8 +106,15 @@ public class DomainEventRabbitConfig {
 
     /**
      * 领域事件 RabbitTemplate（独立命名，避免与 notificationRabbitTemplate 冲突）
+     *
+     * <p>标记 {@code @Primary}：项目中存在多个 {@link RabbitTemplate} Bean
+     * （本 Bean 与 module-system 的 {@code notificationRabbitTemplate}），Flowable
+     * {@code EventRegistryRabbitConfiguration} 等自动配置按类型注入时需要唯一候选，
+     * 多候选且无 @Primary 会报 "required a single bean, but 2 were found"。
+     * 标记 @Primary 让自动配置优先选取本 Bean。</p>
      */
     @Bean
+    @Primary
     public RabbitTemplate domainEventRabbitTemplate(ConnectionFactory connectionFactory,
                                                      MessageConverter domainEventMessageConverter) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);

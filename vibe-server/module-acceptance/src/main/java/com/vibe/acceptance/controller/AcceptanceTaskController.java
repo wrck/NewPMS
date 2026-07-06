@@ -6,6 +6,7 @@ import com.vibe.acceptance.dto.AcceptanceTaskQueryDTO;
 import com.vibe.acceptance.service.AcceptanceTaskService;
 import com.vibe.acceptance.vo.AcceptanceTaskVO;
 import com.vibe.acceptance.vo.AcceptanceTestRecordVO;
+import com.vibe.annotation.OperationLog;
 import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
@@ -75,6 +76,7 @@ public class AcceptanceTaskController {
     }
 
     @Operation(summary = "创建验收任务")
+    @OperationLog(module = "验收任务", type = "INSERT", description = "创建验收任务")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody AcceptanceTaskCreateDTO dto) {
@@ -82,6 +84,7 @@ public class AcceptanceTaskController {
     }
 
     @Operation(summary = "更新验收任务（仅草稿可改）")
+    @OperationLog(module = "验收任务", type = "UPDATE", description = "更新验收任务")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody AcceptanceTaskCreateDTO dto) {
@@ -90,6 +93,7 @@ public class AcceptanceTaskController {
     }
 
     @Operation(summary = "删除验收任务（仅草稿可删）")
+    @OperationLog(module = "验收任务", type = "DELETE", description = "删除验收任务")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -98,6 +102,7 @@ public class AcceptanceTaskController {
     }
 
     @Operation(summary = "PM 提交验收申请")
+    @OperationLog(module = "验收任务", type = "UPDATE", description = "PM 提交验收申请")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/apply")
     public Result<Void> apply(@Valid @RequestBody AcceptanceTaskActionDTO dto) {
@@ -109,6 +114,7 @@ public class AcceptanceTaskController {
     }
 
     @Operation(summary = "内部技术审核")
+    @OperationLog(module = "验收任务", type = "APPROVE", description = "内部技术审核", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/internal-audit")
     public Result<Void> internalAudit(@Valid @RequestBody AcceptanceTaskActionDTO dto) {
@@ -120,6 +126,7 @@ public class AcceptanceTaskController {
     }
 
     @Operation(summary = "发起客户签核")
+    @OperationLog(module = "验收任务", type = "UPDATE", description = "发起客户签核")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/start-customer-sign")
     public Result<Void> startCustomerSign(@PathVariable Long id) {
@@ -128,6 +135,7 @@ public class AcceptanceTaskController {
     }
 
     @Operation(summary = "客户签核结果")
+    @OperationLog(module = "验收任务", type = "APPROVE", description = "客户签核", saveResponse = true)
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/customer-sign")
     public Result<Void> customerSign(@Valid @RequestBody AcceptanceTaskActionDTO dto) {

@@ -5,16 +5,17 @@
  */
 import { ref, reactive, onMounted } from 'vue'
 import { message, Modal } from 'ant-design-vue'
-import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, CheckSquareOutlined } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import {
   pageAcceptanceStandards,
   createAcceptanceStandard,
   updateAcceptanceStandard,
-  deleteAcceptanceStandard
+  deleteAcceptanceStandard,
+  getAcceptanceStandardDetail
 } from '@/api/acceptance'
-import type { AcceptanceStandard, AcceptanceStandardQuery, AcceptanceStandardDTO } from '@/types/acceptance'
+import type { AcceptanceStandard, AcceptanceStandardQuery, AcceptanceStandardDTO, AcceptanceStandardItem } from '@/types/acceptance'
 import type { PageResult } from '@/types/api'
 
 const loading = ref(false)
@@ -62,7 +63,7 @@ const columns = [
   { title: '版本', dataIndex: 'standardVersion', key: 'standardVersion', width: 100 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 100 },
   { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 180 },
-  { title: '操作', key: 'action', width: 160, fixed: 'right' as const }
+  { title: '操作', key: 'action', width: 260, fixed: 'right' as const }
 ]
 
 /* ============ 新增/编辑弹窗 ============ */
@@ -160,6 +161,100 @@ function removeItem(index: number) {
   form.items?.splice(index, 1)
 }
 
+/* ============ 检查项子表抽屉 ============ */
+const itemDrawerVisible = ref(false)
+const itemDrawerLoading = ref(false)
+const itemDrawerSaving = ref(false)
+const currentStandard = ref<AcceptanceStandard | null>(null)
+const itemRows = ref<AcceptanceStandardItem[]>([])
+
+const itemColumns = [
+  { title: '序号', key: 'sortOrder', width: 70 },
+  { title: '检查项名称', key: 'name', width: 180 },
+  { title: '检查要求', key: 'requirement' },
+  { title: '测试方法', key: 'testMethod', width: 160 },
+  { title: '权重', key: 'weight', width: 80 },
+  { title: '操作', key: 'action', width: 160, fixed: 'right' as const }
+]
+
+async function openItemDrawer(record: AcceptanceStandard) {
+  currentStandard.value = record
+  itemDrawerVisible.value = true
+  itemDrawerLoading.value = true
+  try {
+    const detail = (await getAcceptanceStandardDetail(record.id)) as unknown as AcceptanceStandard
+    itemRows.value = (detail.items || []).map((it) => ({ ...it }))
+  } catch (e) {
+    console.error('[acceptance.standard] load items failed:', e)
+    itemRows.value = (record.items || []).map((it) => ({ ...it }))
+  } finally {
+    itemDrawerLoading.value = false
+  }
+}
+
+function addItemRow() {
+  itemRows.value.push({
+    name: '',
+    requirement: '',
+    testMethod: '',
+    weight: 1,
+    sortOrder: itemRows.value.length
+  })
+}
+
+function removeItemRow(idx: number) {
+  itemRows.value.splice(idx, 1)
+  // 重新排序
+  itemRows.value.forEach((it, i) => (it.sortOrder = i))
+}
+
+function moveItemRow(idx: number, direction: 'up' | 'down') {
+  const target = direction === 'up' ? idx - 1 : idx + 1
+  if (target < 0 || target >= itemRows.value.length) return
+  const tmp = itemRows.value[idx]
+  itemRows.value[idx] = itemRows.value[target]
+  itemRows.value[target] = tmp
+  itemRows.value.forEach((it, i) => (it.sortOrder = i))
+}
+
+async function saveItems() {
+  if (!currentStandard.value) return
+  // 校验检查项名称非空
+  const emptyName = itemRows.value.find((it) => !it.name?.trim())
+  if (emptyName) {
+    message.warning('存在检查项名称为空，请补充')
+    return
+  }
+  itemDrawerSaving.value = true
+  try {
+    const dto: AcceptanceStandardDTO = {
+      id: currentStandard.value.id,
+      name: currentStandard.value.name,
+      projectType: currentStandard.value.projectType,
+      standardVersion: currentStandard.value.standardVersion,
+      description: currentStandard.value.description,
+      status: currentStandard.value.status,
+      items: itemRows.value.map((it, idx) => ({
+        id: it.id,
+        standardId: currentStandard.value!.id,
+        name: it.name,
+        requirement: it.requirement,
+        testMethod: it.testMethod,
+        weight: it.weight,
+        sortOrder: idx
+      }))
+    }
+    await updateAcceptanceStandard(currentStandard.value.id, dto)
+    message.success('检查项已保存')
+    itemDrawerVisible.value = false
+    loadData()
+  } catch (e) {
+    console.error('[acceptance.standard] save items failed:', e)
+  } finally {
+    itemDrawerSaving.value = false
+  }
+}
+
 onMounted(() => {
   loadData()
 })
@@ -216,6 +311,9 @@ onMounted(() => {
           </a-tag>
         </template>
         <template v-else-if="column.key === 'action'">
+          <a-button type="link" size="small" @click="openItemDrawer(record)">
+            <CheckSquareOutlined /> 检查项
+          </a-button>
           <a-button type="link" size="small" @click="openEdit(record)">
             <EditOutlined /> 编辑
           </a-button>
@@ -287,5 +385,77 @@ onMounted(() => {
         </div>
       </a-form>
     </a-modal>
+
+    <!-- 检查项子表抽屉 -->
+    <a-drawer
+      :open="itemDrawerVisible"
+      :width="960"
+      :title="`检查项管理 - ${currentStandard?.name || ''}`"
+      @close="itemDrawerVisible = false"
+    >
+      <a-spin :spinning="itemDrawerLoading">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+          <span class="text-auxiliary">共 {{ itemRows.length }} 项检查，编辑后点击底部保存。</span>
+          <a-button type="primary" size="small" @click="addItemRow">
+            <PlusOutlined /> 添加检查项
+          </a-button>
+        </div>
+        <a-table
+          :columns="itemColumns"
+          :data-source="itemRows"
+          row-key="sortOrder"
+          size="small"
+          :pagination="false"
+          :scroll="{ x: 900 }"
+        >
+          <template #bodyCell="{ column, record, index }">
+            <template v-if="column.key === 'sortOrder'">{{ index + 1 }}</template>
+            <template v-else-if="column.key === 'name'">
+              <a-input v-model:value="record.name" placeholder="检查项名称" size="small" />
+            </template>
+            <template v-else-if="column.key === 'requirement'">
+              <a-input v-model:value="record.requirement" placeholder="检查要求" size="small" />
+            </template>
+            <template v-else-if="column.key === 'testMethod'">
+              <a-input v-model:value="record.testMethod" placeholder="测试方法" size="small" />
+            </template>
+            <template v-else-if="column.key === 'weight'">
+              <a-input-number v-model:value="record.weight" :min="0" :step="0.1" size="small" style="width: 80px" />
+            </template>
+            <template v-else-if="column.key === 'action'">
+              <a-space size="small">
+                <a-button type="link" size="small" :disabled="index === 0" @click="moveItemRow(index, 'up')">上移</a-button>
+                <a-button type="link" size="small" :disabled="index === itemRows.length - 1" @click="moveItemRow(index, 'down')">下移</a-button>
+                <a-button type="link" size="small" danger @click="removeItemRow(index)">
+                  <DeleteOutlined />
+                </a-button>
+              </a-space>
+            </template>
+          </template>
+          <template #emptyText>
+            <EmptyState description="暂无检查项" action-text="添加检查项" @action="addItemRow" />
+          </template>
+        </a-table>
+      </a-spin>
+      <div class="drawer-footer">
+        <a-space>
+          <a-button @click="itemDrawerVisible = false">取消</a-button>
+          <a-button type="primary" :loading="itemDrawerSaving" @click="saveItems">保存</a-button>
+        </a-space>
+      </div>
+    </a-drawer>
   </PageContainer>
 </template>
+
+<style lang="less" scoped>
+.text-auxiliary { color: @text-tertiary; }
+.drawer-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 24px;
+  border-top: 1px solid @border-color-split;
+  text-align: right;
+}
+</style>

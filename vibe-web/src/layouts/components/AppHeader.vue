@@ -2,15 +2,30 @@
 /**
  * 顶部导航栏（设计文档 3.2）
  * height: 56px
- * LOGO + 面包屑导航 + 消息 + 用户头像/名称
+ * LOGO + 面包屑导航 + 帮助入口 + 消息 + 用户头像/名称
  */
 import { LayoutHeader } from 'ant-design-vue'
-import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons-vue'
+import { MenuFoldOutlined, MenuUnfoldOutlined, QuestionCircleOutlined } from '@ant-design/icons-vue'
+import { useRouter } from 'vue-router'
 import Breadcrumb from './Breadcrumb.vue'
 import UserMenu from './UserMenu.vue'
 import { useAppStore } from '@/stores/app'
+import { useUserStore } from '@/stores/user'
 
 const appStore = useAppStore()
+const router = useRouter()
+const userStore = useUserStore()
+
+function goHelp() {
+  router.push('/help')
+}
+
+/** 重新触发新手教程：清空 localStorage 标记后触发 */
+function restartTutorial() {
+  localStorage.removeItem('onboarding_done')
+  // 通过 appStore 标记触发 BasicLayout 监听
+  appStore.triggerTutorial()
+}
 </script>
 
 <template>
@@ -27,6 +42,14 @@ const appStore = useAppStore()
       <Breadcrumb />
     </div>
     <div class="header-right">
+      <span
+        v-if="userStore.isLogin"
+        class="header-action help-action"
+        title="功能说明文档中心"
+        @click="goHelp"
+      >
+        <QuestionCircleOutlined />
+      </span>
       <UserMenu />
     </div>
   </LayoutHeader>
@@ -88,5 +111,21 @@ const appStore = useAppStore()
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.help-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 18px;
+  color: @text-secondary;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover {
+    background: @bg-sub;
+    color: @brand-primary;
+  }
 }
 </style>

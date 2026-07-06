@@ -16,6 +16,8 @@ import com.vibe.acceptance.vo.AcceptanceTestRecordVO;
 import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.PageResult;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.AcceptancePassedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;

@@ -6,6 +6,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.ResultCode;
+import com.vibe.event.DomainEventPublisher;
+import com.vibe.event.events.TaskAssignedEvent;
+import com.vibe.event.events.TaskCompletedEvent;
 import com.vibe.project.constant.ProjectConstant;
 import com.vibe.project.converter.ProjectConverters;
 import com.vibe.project.dto.BatchTaskDispatchDTO;
@@ -61,6 +64,7 @@ public class ProjectTaskServiceImpl implements ProjectTaskService {
     private final ProjectTaskMapper projectTaskMapper;
     private final ProjectMapper projectMapper;
     private final NotificationProducer notificationProducer;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     public PageResult<ProjectTaskVO> page(ProjectTaskQueryDTO query) {
@@ -245,6 +249,13 @@ public class ProjectTaskServiceImpl implements ProjectTaskService {
 
         // 通知事件投递：TASK_ASSIGNED
         sendTaskAssignedNotification(exist, mode);
+
+        // 发布任务派发领域事件
+        Long assigneeIdForEvent = ProjectConstant.EXECUTE_MODE_AGENT.equals(mode)
+                ? exist.getAgentEngineerId() : exist.getAssigneeId();
+        domainEventPublisher.publish(new TaskAssignedEvent(
+                exist.getId(), exist.getProjectId(), assigneeIdForEvent,
+                exist.getTaskName(), mode));
     }
 
     /**
@@ -392,6 +403,13 @@ public class ProjectTaskServiceImpl implements ProjectTaskService {
             syncParentProgress(exist.getParentTaskId());
         }
         syncProjectProgress(exist.getProjectId());
+
+        // 任务流转至 COMPLETED 时发布任务完成领域事件
+        if (target == TaskStatusEnum.COMPLETED) {
+            domainEventPublisher.publish(new TaskCompletedEvent(
+                    exist.getId(), exist.getProjectId(),
+                    exist.getAssigneeId(), null));
+        }
     }
 
     @Override

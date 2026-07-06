@@ -4,10 +4,20 @@
     <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="vibe-server"/>
     <springProperty scope="context" name="LOG_PATH" source="logging.file.path" defaultValue="./logs"/>
 
+    <!--
+        Task 10：链路追踪日志格式
+        Micrometer Tracing 自动将 traceId/spanId 注入 MDC（启动 micrometer-tracing-bridge-brave 时）
+        当 Micrometer Tracing 未启用时，由 TraceContextFilter 兜底生成 traceId 写入 MDC
+        格式示例：2024-01-01 12:00:00.000 [http-nio-8080-exec-1] [a1b2c3d4e5f6,7g8h9i0j1k2l] INFO  c.v.common.handler.GlobalExceptionHandler - msg
+        traceId 为空时显示 "-"，便于日志解析与 ELK 索引
+    -->
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-},%X{spanId:-}] %-5level %logger{40} - %msg%n"/>
+
     <!-- 控制台 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{40}) - %msg%n</pattern>
+            <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>
@@ -22,7 +32,7 @@
             <totalSizeCap>5GB</totalSizeCap>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{60} - %msg%n</pattern>
+            <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>
@@ -41,7 +51,7 @@
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{60} - %msg%n</pattern>
+            <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>

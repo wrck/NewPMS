@@ -52,6 +52,106 @@ spring:
     # ES 8.x 默认开启 HTTPS 与账号密码；本地开发环境关闭安全特性，无需配置 username/password
     username: ${VIBE_ES_USERNAME:}
     password: ${VIBE_ES_PASSWORD:}
+  # Spring Cloud OpenFeign（声明式 HTTP 客户端，4 个 Adapter 对接 ERP/IM/物流/OA 外部系统）
+  cloud:
+    openfeign:
+      enabled: true
+      # 默认使用 HttpURLConnection，可切换为 OkHttp 或 Apache HttpClient
+      client:
+        config:
+          default:
+            connect-timeout: 5000
+            read-timeout: 15000
+            logger-level: BASIC
+      # 自动配置压缩
+      compression:
+        response:
+          enabled: true
+        request:
+          enabled: true
+
+# Resilience4j 熔断/重试配置（4 个 Adapter 独立阈值）
+# erp-adapter：50% 失败率熔断，10 分钟后半开试探，3 次重试
+# im-adapter：30% 失败率熔断（IM 系统敏感），5 分钟半开
+# logistics-adapter：50% 失败率熔断，10 分钟半开
+# oa-adapter：50% 失败率熔断，10 分钟半开
+resilience4j:
+  circuitbreaker:
+    instances:
+      erp-adapter:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10m
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+      im-adapter:
+        failure-rate-threshold: 30
+        wait-duration-in-open-state: 5m
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+      logistics-adapter:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10m
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+      oa-adapter:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10m
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+  retry:
+    instances:
+      erp-adapter:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+          - feign.RetryableException
+      im-adapter:
+        max-attempts: 2
+        wait-duration: 500ms
+        retry-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+      logistics-adapter:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+      oa-adapter:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - java.io.IOException
+          - feign.RetryableException
+
+# 外部系统集成接入点配置（4 个 Adapter 默认 disabled，通过环境变量覆盖启用）
+integration:
+  erp:
+    url: ${VIBE_ERP_URL:http://erp.example.com/api}
+    enabled: ${VIBE_ERP_ENABLED:false}
+  im:
+    url: ${VIBE_IM_URL:http://im.example.com/api}
+    enabled: ${VIBE_IM_ENABLED:false}
+  logistics:
+    url: ${VIBE_LOGISTICS_URL:http://logistics.example.com/api}
+    enabled: ${VIBE_LOGISTICS_ENABLED:false}
+  oa:
+    url: ${VIBE_OA_URL:http://oa.example.com/api}
+    enabled: ${VIBE_OA_ENABLED:false}
 
 # MyBatis-Plus
 mybatis-plus:
@@ -107,6 +207,11 @@ xxl:
 
 # JWT（com.vibe.utils.JwtUtils 读取 vibe.jwt.* 前缀）
 vibe:
+  # ElasticSearch 聚合查询开关（Task 7：高并发聚合查询走 ES，默认 false 兜底 MySQL）
+  # 启用后 ManagementCockpitServiceImpl 的 getProjectPhaseDistribution/getProjectTrend 走 ES terms/date_histogram 聚合
+  # 明细查询始终走 MySQL + Caffeine 二级缓存，与本开关无关
+  es:
+    enabled: ${VIBE_ES_ENABLED:false}
   jwt:
     # 密钥（生产环境通过环境变量 VIBE_JWT_SECRET 覆盖，至少 32 字节）
     secret: ${VIBE_JWT_SECRET:vibe-secret-key-for-jwt-signing-please-change-in-production-2024}
@@ -153,3 +258,27 @@ logging:
   config: classpath:logback-spring.xml
   level:
     com.vibe: info
+  # Task 10：链路追踪日志格式（与 logback-spring.xml LOG_PATTERN 对齐）
+  # Micrometer Tracing 自动将 traceId/spanId 注入 MDC，此处通过 pattern.level 在日志级别字段后追加 traceId/spanId
+  # 格式示例：INFO [vibe-server,a1b2c3d4e5f6,7g8h9i0j1k2l]
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
+# Spring Boot Actuator 管理端点
+management:
+  # Task 10：Micrometer Tracing 采样配置（适配 Spring Boot 3.2，替代 Spring Cloud Sleuth）
+  tracing:
+    sampling:
+      # 采样率：1.0 = 100% 采样（生产环境建议 0.1 降低开销；开发/测试全量采样便于排查）
+      probability: 1.0
+  # Task 10：Zipkin 链路追踪上报配置
+  # Zipkin Server 默认本地 9411 端口；生产环境通过环境变量 VIBE_ZIPKIN_ENDPOINT 覆盖
+  # docker-compose 中可通过 http://zipkin:9411/api/v2/spans 访问容器内 Zipkin
+  zipkin:
+    tracing:
+      endpoint: ${VIBE_ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+  # 暴露健康检查与 tracing 端点（生产环境按需收紧）
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,tracing

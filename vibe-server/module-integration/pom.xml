@@ -21,6 +21,22 @@
             <groupId>com.vibe</groupId>
             <artifactId>module-common</artifactId>
         </dependency>
+
+        <!-- Spring Cloud OpenFeign：声明式 HTTP 客户端，4 个 Adapter 通过 @FeignClient 对接外部系统 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <!-- Resilience4j Spring Boot 3 Starter：熔断/重试/限流，通过 @CircuitBreaker/@Retry 注解保护外部调用 -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-reactor</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

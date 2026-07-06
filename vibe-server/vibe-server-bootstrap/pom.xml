@@ -88,6 +88,24 @@
             <artifactId>flyway-mysql</artifactId>
         </dependency>
 
+        <!-- Spring Boot Actuator：暴露 management 端点，支撑 Micrometer Tracing 采样配置与 Zipkin 上报 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Micrometer Tracing + Zipkin（适配 Spring Boot 3.2，替代 Spring Cloud Sleuth） -->
+        <!-- micrometer-tracing-bridge-brave：将 Micrometer Observation 桥接到 Brave，自动注入 traceId/spanId 到 MDC -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+        <!-- zipkin-reporter-brave：将 Span 数据以 Zipkin v2 格式上报到 Zipkin Server -->
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
+        </dependency>
+
         <!-- Spring Boot 测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

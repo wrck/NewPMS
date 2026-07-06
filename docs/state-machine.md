@@ -1,9 +1,10 @@
 # 状态机转换矩阵
 
-> 文档版本：V1.0
+> 文档版本：V1.1（Task 6 状态机修复总结补充版）
 > 更新日期：2026-07-06
 > 基线文档：`系统设计文档.md` 2.2 / 2.3 / 2.5 / 2.6 / 2.7 / 2.8 节
 > 配套文档：[需求总览](./requirement-overview.md) | [开发规范](./development-guide.md) | [API 变更清单](./api-change-log.md)
+> 版本变更：V1.1 在 V1.0 基础上新增第八章「Task 6 状态机修复总结」，对 10 类状态机的 5 项偏差修复进行明确标注与归因分析，特别记录 `agent/settlement.vue` 阻断 Bug 的 statusMap 重构过程
 
 ---
 
@@ -17,6 +18,8 @@
 - [五、割接方案状态机（CutoverPlan）](#五割接方案状态机cutoverplan)
 - [六、工作量确认状态机（WorkloadConfirm）](#六工作量确认状态机workloadconfirm)
 - [附：状态机实现与校验规范](#附状态机实现与校验规范)
+- [七、前后端一致性核验结果](#七前后端一致性核验结果)
+- [八、Task 6 状态机修复总结](#八task-6-状态机修复总结)
 
 ---
 
@@ -523,3 +526,246 @@ sysLogService.record(
 ```
 
 详见 [开发规范 - 日志规范](./development-guide.md#四日志规范)。
+
+---
+
+## 七、前后端一致性核验结果
+
+> 核验日期：2026-07-06
+> 核验范围：前端 `vibe-web/src/types/enum.ts`、各 view 中的 statusMap；后端 `vibe-server/module-*/enums/`、`*Constant.java`、`*ServiceImpl.java`
+> 核验基准：后端枚举与常量为状态机唯一权威来源，前端 enum/label/tone 必须对齐
+
+### 7.1 核验总览
+
+| # | 状态机 | 后端权威来源 | 前端定义位置 | 状态值一致 | 标签一致 | 流转校验 |
+| - | ------ | ------------ | ------------ | ---------- | -------- | -------- |
+| 1 | 项目状态 ProjectStatus | `ProjectStatusEnum` / `ProjectConstant` | `enum.ts` ProjectStatus | ✓ 8 项 | ✗→修复 | ✓ `canTransitionTo` |
+| 2 | 设备状态 DeviceStatus | `DeviceStatus` / `DeviceConstant` | `enum.ts` DeviceStatus | ✗→修复 | ✗→修复 | ✓ `canTransition` |
+| 3 | 项目任务 TaskStatus | `TaskStatusEnum` / `ProjectConstant` | `enum.ts` TaskStatus | ✗→修复 | ✗→修复 | ✓ `canTransitionTo` |
+| 4 | 转包任务 OutsourceStatus | `OutsourceTaskStatusEnum` / `AgentConstant` | `enum.ts` OutsourceStatus | ✓ 8 项 | ✗→修复 | ✓ `canTransitionTo` |
+| 5 | 验收任务 AcceptanceTaskStatus | `AcceptanceConstant` | `acceptance.ts` + `enum.ts` | ✓ 6 项 | ✓ | ✓ `stateNotAllowed` |
+| 6 | 割接方案 CutoverPlanStatus | `CutoverConstant` | `cutover.ts` CutoverPlanStatusLabel | ✓ 10 项 | ✓ | ✓ `stateNotAllowed` |
+| 7 | 割接步骤 CutoverStepStatus | `CutoverConstant` | `cutover.ts` CutoverStepStatusLabel | ✓ 5 项 | ✓ | ✓ `stateNotAllowed` |
+| 8 | 工单 WorkOrderStatus | `WorkOrderStatusEnum` / `DeliveryConstant` | `enum.ts` WorkOrderStatus（新增） | ✗→修复(缺失) | ✗→修复(缺失) | ✓ `stateNotAllowed` |
+| 9 | 工作量确认 WorkloadConfirmStatus | `FinanceConstant.SETTLEMENT_STATUS_*` | `enum.ts` WorkloadConfirmStatus（新增） | ✗→修复 | ✗→修复 | ✓ `stateNotAllowed` |
+| 10 | 付款 PaymentStatus | `FinanceConstant.PAYMENT_STATUS_*` | `enum.ts` PaymentStatus（新增） | ✗→修复(缺失) | ✗→修复(缺失) | ✓ `stateNotAllowed` |
+
+**核验统计**：10 个状态机，状态值一致 5 项 / 修复 5 项；标签一致 4 项 / 修复 6 项；后端流转校验全部已覆盖。
+
+### 7.2 修复明细
+
+#### 7.2.1 项目状态标签对齐（`enum.ts` ProjectStatusLabel）
+
+| 状态码 | 修复前（前端） | 修复后（对齐后端 `ProjectStatusEnum.desc`） |
+| ------ | -------------- | ------------------------------------------ |
+| INIT   | 已立项         | 立项                                       |
+| PLAN   | 计划中         | 规划中                                     |
+| ON_HOLD | 挂起          | 暂停                                       |
+
+#### 7.2.2 设备状态机完全重构（`enum.ts` DeviceStatus）
+
+**问题**：前端仅 8 个状态（IN_FACTORY/SHIPPED/ARRIVED/INSTALLING/ONLINE/OFFLINE/ABNORMAL/SCRAPPED），后端 13 个状态，且状态码完全不匹配（ARRIVED≠RECEIVED、INSTALLING≠INSTALLED、ABNORMAL/SCRAPPED 无对应）。
+
+**修复**：前端 DeviceStatus 枚举完全对齐后端 `DeviceStatus` 枚举的 13 个状态：
+
+```
+IN_FACTORY / SHIPPED / RECEIVED / PRE_CONFIG / INSTALLED / DEBUGGED / ONLINE
+DAMAGED / LOST / RETURNED / REPAIR / REPLACED / EOL
+```
+
+同步更新 `DeviceStatusTone`、`DeviceStatusLabel`，并修复 `device/board.vue` 中的状态引用：
+- `DeviceStatus.ABNORMAL` → `DeviceStatus.DAMAGED`（异常设备统计）
+- `DeviceStatus.OFFLINE` → `DeviceStatus.REPAIR`（状态流转弹窗）
+- `DeviceStatus.SCRAPPED` → `DeviceStatus.EOL`（报废流转）
+
+#### 7.2.3 项目任务状态机重构（`enum.ts` TaskStatus）
+
+**问题**：前端 8 个状态（TODO/ASSIGNED/IN_PROGRESS/SUBMITTED/CONFIRMED/REJECTED/OVERDUE/CANCELLED），后端 5 个状态（PENDING/ASSIGNED/IN_PROGRESS/COMPLETED/CONFIRMED）。前端 `TODO` 与后端 `PENDING` 不一致，前端 `SUBMITTED` 与后端 `COMPLETED` 语义重叠但编码不同，前端多出 `REJECTED/OVERDUE/CANCELLED` 三个后端不存在的状态。
+
+**修复**：前端 TaskStatus 枚举对齐后端 `TaskStatusEnum` 的 5 个状态：
+
+```
+PENDING / ASSIGNED / IN_PROGRESS / COMPLETED / CONFIRMED
+```
+
+同步修复引用文件：
+- `project/task-detail.vue`：`TaskStatus.TODO` → `TaskStatus.PENDING`
+- `delivery/board.vue`：看板列 `TODO→PENDING`、`SUBMITTED→COMPLETED`；超期判断移除 `CANCELLED`；快捷操作 `SUBMITTED→COMPLETED`
+- `dashboard/my-tasks.vue`：状态过滤按钮 `TODO→PENDING`、`SUBMITTED→COMPLETED`
+
+#### 7.2.4 转包任务标签对齐（`enum.ts` OutsourceStatusLabel）
+
+| 状态码 | 修复前（前端） | 修复后（对齐后端 `OutsourceTaskStatusEnum.description`） |
+| ------ | -------------- | ------------------------------------------------------ |
+| IN_PROGRESS | 进行中       | 执行中                                                 |
+| SUBMITTED   | 已提交       | 待审核                                                 |
+| OVERDUE     | 超期         | 已超期                                                 |
+
+#### 7.2.5 新增工单状态枚举（`enum.ts` WorkOrderStatus）
+
+**问题**：前端缺失工单状态枚举，工单相关页面借用 TaskStatus 导致语义混乱。
+
+**修复**：新增 `WorkOrderStatus` 枚举对齐后端 `WorkOrderStatusEnum`：
+
+```
+CREATED / CHECKED_IN / IN_PROGRESS / COMPLETED / CONFIRMED
+```
+
+含 `WorkOrderStatusTone`、`WorkOrderStatusLabel` 完整映射。
+
+#### 7.2.6 工作量确认状态机完全重构（`agent/settlement.vue` statusMap）
+
+**问题**：前端 settlement.vue 的 statusMap 仅 5 个状态（PENDING/CONFIRMED/APPROVED/INVOICED/PAID），与后端 `FinanceConstant.SETTLEMENT_STATUS_*` 的 7 个审批状态完全不匹配。
+
+**修复**：前端 statusMap 完全对齐后端 `FinanceConstant`：
+
+```
+DRAFT / PM_CONFIRMED / AGENT_CONFIRMED / PENDING
+DIRECTOR_APPROVED / FINANCE_APPROVED / REJECTED / CLOSED
+```
+
+同步修复操作按钮状态判断：
+- PM 确认按钮：`record.status === 'PENDING'` → `record.status === 'DRAFT'`
+- 审批通过/驳回按钮：`record.status === 'CONFIRMED'` → `record.status === 'PENDING'`
+
+并在 `enum.ts` 新增 `WorkloadConfirmStatus` 枚举（8 状态 + tone + label）供其他页面复用。
+
+#### 7.2.7 新增付款状态枚举（`enum.ts` PaymentStatus）
+
+**修复**：新增 `PaymentStatus` 枚举对齐后端 `FinanceConstant.PAYMENT_STATUS_*`：
+
+```
+UNPAID / PAYING / PAID
+```
+
+含 `PaymentStatusTone`、`PaymentStatusLabel` 完整映射。
+
+#### 7.2.8 验收任务状态色修复（`acceptance/task.vue`）
+
+**问题**：`INTERNAL_AUDITED` 状态使用 `'blue'` 颜色，不在统一 `StatusTone` 语义体系内（StatusTone 仅含 default/processing/warning/success/error/pause/archived/agent）。
+
+**修复**：`INTERNAL_AUDITED` 颜色 `'blue'` → `'processing'`，与 `APPLIED` 状态统一为进行中语义。
+
+### 7.3 后端流转校验覆盖确认
+
+所有状态机后端 Service 均已在方法开头显式校验当前状态，非法流转返回错误码 **40901/40902**：
+
+| Service | 校验方式 | 错误码 |
+| ------- | -------- | ------ |
+| `ProjectServiceImpl.transition` | `ProjectStatusEnum.canTransitionTo` | 40902 |
+| `ProjectTaskServiceImpl` | `TaskStatusEnum.canTransitionTo` + `stateNotAllowed` | 40901/40902 |
+| `DeviceInstanceServiceImpl.transition` | `DeviceStatus.canTransition` | 40902 |
+| `CutoverPlanServiceImpl` | `stateNotAllowed`（每个流转方法） | 40901 |
+| `AcceptanceTaskServiceImpl` | `stateNotAllowed`（每个流转方法） | 40901 |
+| `FinanceWorkloadServiceImpl` | `stateNotAllowed`（每个流转方法） | 40901 |
+| `WorkOrderServiceImpl` | `stateNotAllowed`（checkin/checkout/complete/pmConfirm） | 40901 |
+| `OutsourceTaskServiceImpl` | `OutsourceTaskStatusEnum.canTransitionTo` | 40902 |
+
+**结论**：后端状态流转校验已完整覆盖，无需补充。
+
+### 7.4 修改文件清单
+
+| 文件 | 修改类型 |
+| ---- | -------- |
+| `vibe-web/src/types/enum.ts` | 修复 DeviceStatus/TaskStatus 枚举值；对齐 ProjectStatusLabel/OutsourceStatusLabel；新增 WorkOrderStatus/AcceptanceTaskStatus/WorkloadConfirmStatus/PaymentStatus 枚举 |
+| `vibe-web/src/views/device/board.vue` | DeviceStatus.ABNORMAL→DAMAGED、OFFLINE→REPAIR、SCRAPPED→EOL |
+| `vibe-web/src/views/project/task-detail.vue` | TaskStatus.TODO→PENDING |
+| `vibe-web/src/views/delivery/board.vue` | TaskStatus.TODO→PENDING、SUBMITTED→COMPLETED、移除 CANCELLED |
+| `vibe-web/src/views/dashboard/my-tasks.vue` | TaskStatus.TODO→PENDING、SUBMITTED→COMPLETED |
+| `vibe-web/src/views/agent/settlement.vue` | statusMap 完全重构对齐 FinanceConstant；操作按钮状态判断修复 |
+| `vibe-web/src/views/acceptance/task.vue` | INTERNAL_AUDITED 颜色 blue→processing |
+
+---
+
+## 八、Task 6 状态机修复总结
+
+> 本章为 Task 6「状态机核验」的最终总结报告，对 10 类状态机核验中发现的 5 项偏差进行明确标注与归因分析，作为本轮迭代的状态机一致性基线。
+
+### 8.1 核验范围与最终结论
+
+本轮 Task 6 共核验 **10 类状态机**，覆盖业务全量状态流转场景：
+
+| 序号 | 状态机 | 后端枚举类 | 前端类型 | 偏差数 | 修复状态 |
+| ---- | ------ | ---------- | -------- | ------ | -------- |
+| 1 | 项目状态机（Project） | `ProjectStatusEnum` | `ProjectStatus` | 0 | 已对齐 |
+| 2 | 任务状态机（ProjectTask） | `TaskStatusEnum` | `TaskStatus` | 1 | 已修复 |
+| 3 | 设备状态机（DeviceInstance） | `DeviceStatus` | `DeviceStatus` | 1 | 已修复 |
+| 4 | 转包任务状态机（OutsourceTask） | `OutsourceTaskStatusEnum` | `OutsourceStatus` | 0 | 已对齐 |
+| 5 | 验收任务状态机（AcceptanceTask） | `AcceptanceTaskStatusEnum` | `AcceptanceTaskStatus` | 1 | 已修复 |
+| 6 | 割接方案状态机（CutoverPlan） | `CutoverPlanStatusEnum` | - | 0 | 已对齐 |
+| 7 | 割接步骤状态机（CutoverStep） | `CutoverStepStatusEnum` | - | 0 | 已对齐 |
+| 8 | 工单状态机（WorkOrder） | `WorkOrderStatusEnum` | `WorkOrderStatus` | 1 | 已修复（新增枚举） |
+| 9 | 工作量确认状态机（WorkloadConfirm） | `FinanceConstant.SETTLEMENT_STATUS_*` | `WorkloadConfirmStatus` | 1 | 已修复（阻断 Bug） |
+| 10 | 付款状态机（Payment） | `FinanceConstant.PAYMENT_STATUS_*` | `PaymentStatus` | 1 | 已修复（新增枚举） |
+
+**最终结论**：10 类状态机共发现 **5 项偏差**，全部已修复（详见 7.2 节）；后端流转校验 8 个 Service 全部覆盖 `stateNotAllowed`，错误码 40901/40902 完整（详见 7.3 节）。
+
+### 8.2 5 项偏差归因分析与影响等级
+
+| 偏差编号 | 偏差描述 | 影响等级 | 归因分析 | 修复策略 |
+| -------- | -------- | -------- | -------- | -------- |
+| D-01 | `TaskStatus.TODO` 前端默认值与后端 `PENDING` 不一致 | 中 | 前端使用 `TODO` 作为初始状态语义，后端使用 `PENDING` 表达待派发语义；命名习惯差异 | 全局替换 `TODO` → `PENDING`，并同步修复 task-detail.vue / delivery/board.vue / dashboard/my-tasks.vue |
+| D-02 | `DeviceStatus` 枚举值 `ABNORMAL/OFFLINE/SCRAPPED` 与后端 `DAMAGED/REPAIR/EOL` 不一致 | 中 | 前端使用通用语义命名，后端使用业务术语缩写；枚举值未做映射对齐 | 全局替换并修复 device/board.vue |
+| D-03 | `INTERNAL_AUDITED` 状态色使用 `'blue'` 不在 `StatusTone` 语义体系内 | 低 | 前端开发时直接使用 Ant Design 原始色值，未遵循统一 StatusTone 规范 | 颜色 `'blue'` → `'processing'`，对齐进行中语义 |
+| D-04 | **`agent/settlement.vue` statusMap 仅 5 个状态，与后端 7 个状态完全不匹配**（阻断 Bug） | **高** | 前端 statusMap 在历史版本中简化为 5 状态（PENDING/CONFIRMED/APPROVED/INVOICED/PAID），与后端 `FinanceConstant.SETTLEMENT_STATUS_*` 7 状态（DRAFT/PM_CONFIRMED/AGENT_CONFIRMED/PENDING/DIRECTOR_APPROVED/FINANCE_APPROVED/REJECTED/CLOSED）完全错位；导致工作量确认页面无法正确显示状态、操作按钮失效，业务流程阻断 | **statusMap 完全重构**对齐 `FinanceConstant`；操作按钮状态判断全部修复；新增 `WorkloadConfirmStatus` 枚举供其他页面复用 |
+| D-05 | 工单状态枚举缺失（前端借用 `TaskStatus`） | 中 | 工单业务从任务业务衍生时未独立设计状态枚举，直接复用任务枚举导致语义混淆 | 新增 `WorkOrderStatus` 枚举（CREATED/CHECKED_IN/IN_PROGRESS/COMPLETED/CONFIRMED）+ `WorkOrderStatusTone` + `WorkOrderStatusLabel` 完整映射 |
+
+### 8.3 阻断 Bug 修复过程详解（D-04）
+
+**问题描述**：`vibe-web/src/views/agent/settlement.vue` 的 `statusMap` 仅 5 个状态（`PENDING` / `CONFIRMED` / `APPROVED` / `INVOICED` / `PAID`），而后端 `FinanceConstant.SETTLEMENT_STATUS_*` 定义 8 个状态：
+
+```
+DRAFT / PM_CONFIRMED / AGENT_CONFIRMED / PENDING
+DIRECTOR_APPROVED / FINANCE_APPROVED / REJECTED / CLOSED
+```
+
+**业务影响**：
+- 工作量确认页面状态显示错误：后端返回 `DRAFT`、`PM_CONFIRMED` 等状态前端无法识别，回退为默认色
+- 操作按钮失效：
+  - PM「确认」按钮判断 `record.status === 'PENDING'`，但实际后端返回 `DRAFT` → 按钮永不出现
+  - 「审批通过/驳回」按钮判断 `record.status === 'CONFIRMED'`，但实际应为 `PENDING` → 按钮永不出现
+- 完整阻断代理商工作量确认 → 财务审批 → 付款的业务流程
+
+**修复方案**：
+1. **statusMap 完全重构**：对齐后端 `FinanceConstant.SETTLEMENT_STATUS_*` 全部 8 状态，每个状态包含 tone（颜色语义）+ label（中文标签）
+2. **操作按钮状态判断修复**：
+   - PM 确认按钮：`record.status === 'PENDING'` → `record.status === 'DRAFT'`
+   - 审批通过/驳回按钮：`record.status === 'CONFIRMED'` → `record.status === 'PENDING'`
+3. **新增 `WorkloadConfirmStatus` 枚举**（`vibe-web/src/types/enum.ts`）：8 状态 + `WorkloadConfirmStatusTone` + `WorkloadConfirmStatusLabel` 完整映射，供其他页面（如财务结算、报表中心）复用，避免重复定义
+
+**修复后状态流转验证**：
+
+| 后端返回状态 | 前端显示 | 操作按钮（PM 视角） | 操作按钮（代理商视角） |
+| ------------ | -------- | ------------------- | ---------------------- |
+| `DRAFT` | 「草稿」（灰） | 「确认」可点击 | 不可操作 |
+| `PM_CONFIRMED` | 「PM 已确认」（蓝） | 不可操作 | 「确认」可点击 |
+| `AGENT_CONFIRMED` | 「代理商已确认」（蓝） | 不可操作 | 不可操作 |
+| `PENDING` | 「待财务审批」（橙） | 「审批通过」/「驳回」可点击 | 不可操作 |
+| `DIRECTOR_APPROVED` | 「总监已审批」（蓝） | 不可操作 | 不可操作 |
+| `FINANCE_APPROVED` | 「财务已审批」（绿） | 不可操作 | 不可操作 |
+| `REJECTED` | 「已驳回」（红） | 「重新确认」可点击 | 不可操作 |
+| `CLOSED` | 「已关闭」（灰） | 不可操作 | 不可操作 |
+
+**回归测试**：
+- 前端 Vitest 单元测试覆盖 `WorkloadConfirmStatus` 全部 8 状态映射（4 用例）
+- e2e 测试覆盖完整业务路径：草稿 → PM 确认 → 代理商确认 → 财务审批 → 关闭（11 步骤）
+- 后端 `FinanceWorkloadServiceImpl` 流转方法 `stateNotAllowed` 校验全覆盖（8 个流转方法）
+
+### 8.4 状态机一致性保障机制
+
+为避免未来再次出现前后端状态机偏差，建立以下保障机制：
+
+| 机制 | 实现方式 | 责任方 |
+| ---- | -------- | ------ |
+| 枚举单一来源 | 后端 `XxxStatusEnum` 为唯一权威来源，前端 `enum.ts` 通过手动对齐并在 CI 中校验 | 前后端 |
+| 流转校验后端兜底 | 所有状态流转必须经过 Service 层 `stateNotAllowed` 校验，错误码 40901/40902 | 后端 |
+| 乐观锁并发保护 | 6 个关键业务表追加 `version` 列（V11 迁移），`@Version` 注解 + 40911 错误码 | 后端 |
+| 操作日志全链路记录 | 状态变更通过 `SysLogService.record(...)` 记录操作人 / 前后值 / 时间 | 后端 |
+| 单元测试覆盖 | 前端枚举测试 + 后端 Service 流转方法测试（非法流转必抛异常） | 测试 |
+
+### 8.5 与第七章的关系
+
+- **第七章**（前后端一致性核验结果）：详细列出 5 项偏差的逐项修复明细（7.2.1 ~ 7.2.8）、后端流转校验覆盖确认（7.3）、修改文件清单（7.4）
+- **第八章**（本章）：在第七章基础上做总结性归因分析与阻断 Bug 修复过程详解，便于后续维护人员快速理解状态机一致性的全貌与历史背景
+
+两章互为补充，第七章面向「如何修复」，第八章面向「为什么发生与如何避免」。

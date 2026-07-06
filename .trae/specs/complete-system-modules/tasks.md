@@ -146,12 +146,12 @@
   - [ ] SubTask 16.3: 支持搜索、展开/折叠、节点选择
   - [ ] SubTask 16.4: 支持嵌入表单作为树选择器
 
-- [ ] Task 17: 抽取 Charts 图表包装组件（ECharts 5） [P]
-  - [ ] SubTask 17.1: 引入 echarts 5 + vue-echarts 依赖（package.json 已声明 echarts）
-  - [ ] SubTask 17.2: 创建 `src/components/charts/BaseChart.vue`（基础组件，处理 resize/dispose）
-  - [ ] SubTask 17.3: 创建 8 个图表子组件：PieChart / LineChart / BarChart / StackedChart / FunnelChart / MapChart / RadarChart / GaugeChart
-  - [ ] SubTask 17.4: 统一主题（品牌色 #1677FF + 状态色映射），统一 tooltip/legend/grid 样式
-  - [ ] SubTask 17.5: 支持响应式 resize、loading 状态、空数据 EmptyState
+- [x] Task 17: 抽取 Charts 图表包装组件（ECharts 5） [P]
+  - [x] SubTask 17.1: 引入 echarts 5 + vue-echarts 依赖（package.json 已声明 echarts）
+  - [x] SubTask 17.2: 创建 `src/components/charts/BaseChart.vue`（基础组件，处理 resize/dispose）
+  - [x] SubTask 17.3: 创建 8 个图表子组件：PieChart / LineChart / BarChart / StackedChart / FunnelChart / MapChart / RadarChart / GaugeChart
+  - [x] SubTask 17.4: 统一主题（品牌色 #1677FF + 状态色映射），统一 tooltip/legend/grid 样式
+  - [x] SubTask 17.5: 支持响应式 resize、loading 状态、空数据 EmptyState
 
 - [ ] Task 18: 抽取 Gantt 甘特图组件（dhtmlx-gantt） [P]
   - [ ] SubTask 18.1: 确认 dhtmlx-gantt 8.x 依赖已声明

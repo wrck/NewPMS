@@ -76,10 +76,10 @@
 - [ ] RichEditor 支持 HTML 输出与纯文本输出
 - [ ] OrgTree 组件就位：调用 `/api/v1/orgs/tree` + 搜索 + 展开/折叠 + 节点选择
 - [ ] OrgTree 支持嵌入表单作为树选择器
-- [ ] Charts 组件就位（基于 ECharts 5 + vue-echarts）
-- [ ] 8 个图表子组件：PieChart / LineChart / BarChart / StackedChart / FunnelChart / MapChart / RadarChart / GaugeChart
-- [ ] Charts 统一主题（品牌色 #1677FF + 状态色映射）
-- [ ] Charts 支持响应式 resize、loading 状态、空数据 EmptyState
+- [x] Charts 组件就位（基于 ECharts 5 + vue-echarts）
+- [x] 8 个图表子组件：PieChart / LineChart / BarChart / StackedChart / FunnelChart / MapChart / RadarChart / GaugeChart
+- [x] Charts 统一主题（品牌色 #1677FF + 状态色映射）
+- [x] Charts 支持响应式 resize、loading 状态、空数据 EmptyState
 - [ ] Gantt 组件就位（基于 dhtmlx-gantt 8.x）
 - [ ] Gantt 支持任务拖拽调整时间、拖拽创建依赖关系
 - [ ] Gantt 支持视图切换：日/周/月/季/年
@@ -88,7 +88,7 @@
 - [ ] AMap 组件就位（基于 @amap/amap-jsapi-loader）
 - [ ] AMap 配置 VITE_AMAP_KEY 与 VITE_AMAP_SECURITY_CODE
 - [ ] AMap 支持标记点、点击弹窗、聚合（markerCluster）
-- [ ] MapChart.vue ECharts 地图组件作为 AMap 轻量替代
+- [x] MapChart.vue ECharts 地图组件作为 AMap 轻量替代
 - [ ] ImportExport 组件就位：导出 Excel + 导入文件 + 模板下载
 
 ## 四、前端可视化能力落地

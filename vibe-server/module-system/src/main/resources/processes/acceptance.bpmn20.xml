@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:flowable="http://flowable.org/bpmn"
+            xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+            xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+            xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+            targetNamespace="http://flowable.org/bpmn">
+  <!-- 验收审批流：PM 发起 → 内部审核 → 多部门会签 → 客户签核 → 完成/驳回 -->
+  <process id="acceptance" name="验收审批流" isExecutable="true">
+
+    <!-- 开始 -->
+    <startEvent id="start" name="开始"/>
+
+    <!-- PM 发起验收申请 -->
+    <userTask id="pmApply" name="PM 提交验收申请"
+              flowable:assignee="${initiator}"/>
+
+    <!-- 内部技术审核 -->
+    <userTask id="internalAudit" name="内部技术审核"
+              flowable:candidateGroups="technical_auditor"/>
+
+    <!-- 多部门会签节点（并行 3 个审批人：PM/总监/客户代表） -->
+    <userTask id="counterSign" name="多部门会签"
+              flowable:assignee="${approver}">
+      <multiInstanceLoopCharacteristics isSequential="false"
+                                        flowable:collection="${approvers}"
+                                        flowable:elementVariable="approver">
+        <!-- 全部完成 或 任一拒绝时即完成本会签节点 -->
+        <completionCondition>${nrOfCompletedInstances == nrOfInstances || approved == false}</completionCondition>
+      </multiInstanceLoopCharacteristics>
+    </userTask>
+
+    <!-- 会签结果路由 -->
+    <exclusiveGateway id="counterSignGateway" name="会签结果"/>
+
+    <!-- 客户签核 -->
+    <userTask id="customerSign" name="客户签核"
+              flowable:candidateGroups="customer_signer"/>
+
+    <!-- 客户签核结果路由 -->
+    <exclusiveGateway id="customerSignGateway" name="客户签核结果"/>
+
+    <!-- 终态：通过 / 驳回 -->
+    <endEvent id="approvedEnd" name="验收通过"/>
+    <endEvent id="rejectedEnd" name="验收驳回"/>
+
+    <!-- 流转线 -->
+    <sequenceFlow sourceRef="start" targetRef="pmApply"/>
+    <sequenceFlow sourceRef="pmApply" targetRef="internalAudit"/>
+
+    <!-- 内部审核结果分支 -->
+    <sequenceFlow sourceRef="internalAudit" targetRef="counterSign">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="internalAudit" targetRef="pmApply">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 会签结果分支 -->
+    <sequenceFlow sourceRef="counterSign" targetRef="counterSignGateway"/>
+    <sequenceFlow sourceRef="counterSignGateway" targetRef="customerSign">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="counterSignGateway" targetRef="pmApply">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 客户签核结果分支 -->
+    <sequenceFlow sourceRef="customerSign" targetRef="customerSignGateway"/>
+    <sequenceFlow sourceRef="customerSignGateway" targetRef="approvedEnd">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="customerSignGateway" targetRef="rejectedEnd">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+  </process>
+</definitions>

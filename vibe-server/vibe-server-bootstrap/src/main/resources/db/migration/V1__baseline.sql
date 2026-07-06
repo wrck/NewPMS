@@ -1,0 +1,14 @@
+-- =====================================================================================
+-- V1 Baseline —— 现有 schema.sql 内容标记为 Flyway 基线
+-- =====================================================================================
+-- 说明（complete-system-modules Task 4.1 / 4.4）：
+--   * application.yml 配置 spring.flyway.baseline-on-migrate=true & baseline-version=1
+--   * 当 Flyway 首次对一个已存在 schema 的数据库执行时，会在 flyway_schema_history
+--     中插入一条 type=BASELINE、version=1 的记录，把"V1 之前的所有 schema"视为已应用。
+--   * 现有 baseline 表（customer / project / device_instance / integration_config / ...）
+--     的实际 DDL 仍保留在 db/schema.sql 中（由 spring.sql.init 在初始化阶段执行，或
+--     在全新数据库手动执行 schema.sql + data.sql 一次后由 Flyway 接管）。
+--   * 本文件仅作版本占位，不执行任何 DDL，确保 Flyway baseline 版本 = 1。
+--   * 自 V2 起的所有增量 DDL（新增表 / 字段扩展）由 Flyway 严格按版本顺序执行。
+-- =====================================================================================
+SELECT 1;

@@ -119,6 +119,36 @@
             <artifactId>redisson-spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- Spring Boot Data Elasticsearch（自动装配 RestClient/ElasticsearchClient） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+        </dependency>
+
+        <!-- Elasticsearch Java API Client 8.x（替代 deprecated 的 RestHighLevelClient） -->
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
+        </dependency>
+
+        <!-- Spring AMQP（领域事件投递与 ES 同步消费者复用 RabbitMQ） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- Flowable 7 工作流引擎（BPMN 2.0 流程引擎） -->
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-spring-boot-starter-process</artifactId>
+        </dependency>
+
+        <!-- XXL-JOB 分布式任务调度（XxlJobConfig + 7 个 JobHandler 集成） -->
+        <dependency>
+            <groupId>com.xuxueli</groupId>
+            <artifactId>xxl-job-core</artifactId>
+        </dependency>
+
         <!-- Apache Commons Lang3 (spring-boot 已传递) -->
         <dependency>
             <groupId>org.apache.commons</groupId>

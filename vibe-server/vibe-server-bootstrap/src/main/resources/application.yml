@@ -31,6 +31,27 @@ spring:
   web:
     resources:
       add-mappings: false
+  # Flyway 数据库迁移（替代 spring.sql.init，管理 V2+ 增量 DDL）
+  # V1__baseline.sql 为占位脚本，标记现有 schema.sql 内容为基线（baseline-version=1）
+  # baseline-on-migrate=true：首次对已有数据库执行时自动建立 baseline，不会清空既有表
+  # 新表（customer_preference/lowcode_*/...）与 integration_config 字段扩展均由 Flyway 管理
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 1
+    out-of-order: false
+    validate-on-migrate: true
+    # 默认表名 flyway_schema_history；如需隔离可配置 table
+    # encoding 默认 UTF-8，与 MySQL utf8mb4 对齐
+  # Elasticsearch 8.x（默认本地单节点，生产通过环境变量覆盖）
+  elasticsearch:
+    uris: ${VIBE_ES_URIS:http://localhost:9200}
+    connection-timeout: 5s
+    socket-timeout: 30s
+    # ES 8.x 默认开启 HTTPS 与账号密码；本地开发环境关闭安全特性，无需配置 username/password
+    username: ${VIBE_ES_USERNAME:}
+    password: ${VIBE_ES_PASSWORD:}
 
 # MyBatis-Plus
 mybatis-plus:
@@ -50,6 +71,39 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+# Flowable 7 工作流引擎
+# 自动建表（38 张 ACT_* 表）、自动部署 classpath:/processes/ 下的 BPMN 2.0 流程定义
+flowable:
+  # 数据库 schema 自动更新（create-upgrade），首次启动自动建表
+  database-schema-update: true
+  # 启用异步执行器（定时任务/异步服务任务执行所需）
+  async-executor-activate: true
+  # 流程定义文件扫描路径：classpath:/processes/*.bpmn20.xml
+  process-definition-location-prefix: classpath:/processes/
+  # 历史数据级别：full（保留全部历史，包括流程变量与表单属性，便于审计追溯）
+  history-level: full
+  # 关闭 Flowable 启动 Banner（由 Spring Boot 统一管理）
+  banner: false
+
+# XXL-JOB 2.4 分布式任务调度
+# 调度中心地址（默认本地 docker-compose 暴露 8081 端口；容器内通过 http://xxl-job-admin:8080/xxl-job-admin 访问）
+xxl:
+  job:
+    # 调度中心地址列表，多地址逗号分隔
+    admin:
+      addresses: ${VIBE_XXL_JOB_ADMIN:http://localhost:8081/xxl-job-admin}
+    # 执行器通讯 Token，需与调度中心配置一致
+    access-token: ${VIBE_XXL_JOB_TOKEN:vibe-xxl-job-token}
+    executor:
+      # 执行器AppName，调度中心据此分发任务
+      appname: vibe-server
+      # 执行器内嵌服务端口（默认9999）
+      port: ${VIBE_XXL_JOB_PORT:9999}
+      # 执行器日志路径
+      logpath: /data/applogs/xxl-job/jobhandler
+      # 日志保留天数（超过自动清理）
+      logretentiondays: 30
 
 # JWT（com.vibe.utils.JwtUtils 读取 vibe.jwt.* 前缀）
 vibe:

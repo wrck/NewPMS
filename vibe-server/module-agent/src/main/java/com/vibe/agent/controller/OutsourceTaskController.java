@@ -7,12 +7,16 @@ import com.vibe.agent.dto.OutsourceTaskQueryDTO;
 import com.vibe.agent.service.OutsourceTaskService;
 import com.vibe.agent.vo.OutsourceTaskVO;
 import com.vibe.annotation.OperationLog;
+import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
+import com.vibe.service.FlowableProcessService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.flowable.task.api.Task;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,8 +25,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 转包任务管理 Controller
@@ -39,15 +46,28 @@ import org.springframework.web.bind.annotation.RestController;
  * <p><b>状态机：</b>PENDING → ACCEPTED → IN_PROGRESS → SUBMITTED → CONFIRMED，
  * 异常分支 REJECTED / RETURNED / OVERDUE。非法流转返回 40902 错误。</p>
  *
+ * <p><b>Flowable 集成（增量增强）：</b>
+ * <ul>
+ *   <li>{@link #create}：PM 创建转包任务后启动 Flowable {@code outsource} 流程</li>
+ *   <li>{@link #accept} / {@link #reject}：代理商接单/拒绝，完成 Flowable 的"代理商接单"任务</li>
+ *   <li>{@link #confirm} / {@link #returnTask}：PM 审核，完成 Flowable 的"交付物审核"任务</li>
+ * </ul>
+ * Flowable 操作采用 try/catch 兜底，若引擎异常不影响原状态机流转。</p>
+ *
  * @author vibe
  */
+@Slf4j
 @Tag(name = "转包任务管理", description = "创建/列表/详情/接单/拒绝/指派/退回/重新提交")
 @RestController
 @RequestMapping("/api/v1/outsource-tasks")
 @RequiredArgsConstructor
 public class OutsourceTaskController {
 
+    /** Flowable 流程定义 key：转包任务流程 */
+    private static final String PROCESS_KEY = "outsource";
+
     private final OutsourceTaskService outsourceTaskService;
+    private final FlowableProcessService flowableProcessService;
 
     @Operation(summary = "分页查询转包任务（数据权限：代理商仅看本公司/自己的任务）")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','AGENT_ADMIN','AGENT_ENGINEER')")
@@ -68,7 +88,10 @@ public class OutsourceTaskController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody OutsourceTaskCreateDTO dto) {
-        return Result.success(outsourceTaskService.create(dto));
+        Long taskId = outsourceTaskService.create(dto);
+        // Flowable 增强：启动转包流程（异常不阻断主流程）
+        startFlowableSafely(taskId);
+        return Result.success(taskId);
     }
 
     @Operation(summary = "代理商接单（PENDING → ACCEPTED）")
@@ -77,6 +100,8 @@ public class OutsourceTaskController {
     @PutMapping("/{id}/accept")
     public Result<Void> accept(@PathVariable Long id) {
         outsourceTaskService.accept(id);
+        // Flowable 增强：完成"代理商接单"任务（accepted=true）
+        completeAcceptTaskSafely(id, true);
         return Result.success();
     }
 
@@ -87,6 +112,8 @@ public class OutsourceTaskController {
     public Result<Void> reject(@PathVariable Long id,
                                @RequestBody(required = false) OutsourceTaskActionDTO dto) {
         outsourceTaskService.reject(id, dto != null ? dto : new OutsourceTaskActionDTO());
+        // Flowable 增强：完成"代理商接单"任务（accepted=false）
+        completeAcceptTaskSafely(id, false);
         return Result.success();
     }
 
@@ -106,6 +133,8 @@ public class OutsourceTaskController {
     @PutMapping("/{id}/confirm")
     public Result<Void> confirm(@PathVariable Long id) {
         outsourceTaskService.confirm(id);
+        // Flowable 增强：完成"交付物审核"任务（approved=true → 流程结束）
+        completeReviewTaskSafely(id, true, null);
         return Result.success();
     }
 
@@ -116,6 +145,8 @@ public class OutsourceTaskController {
     public Result<Void> returnTask(@PathVariable Long id,
                                    @RequestBody OutsourceTaskActionDTO dto) {
         outsourceTaskService.returnTask(id, dto);
+        // Flowable 增强：完成"交付物审核"任务（approved=false → 回到执行节点）
+        completeReviewTaskSafely(id, false, dto != null ? dto.getReason() : null);
         return Result.success();
     }
 
@@ -140,5 +171,82 @@ public class OutsourceTaskController {
     @PostMapping("/mark-overdue")
     public Result<Integer> markOverdue() {
         return Result.success(outsourceTaskService.markOverdueTasks());
+    }
+
+    /* ============ Flowable 集成辅助方法（兜底，异常仅记录日志） ============ */
+
+    private void startFlowableSafely(Long taskId) {
+        if (taskId == null) {
+            return;
+        }
+        try {
+            Long userId = UserContextHolder.getUserId();
+            if (userId == null) {
+                log.warn("[Flowable] 启动转包流程失败：当前用户上下文为空，taskId={}", taskId);
+                return;
+            }
+            Map<String, Object> variables = new HashMap<>();
+            variables.put(FlowableProcessService.VAR_INITIATOR, String.valueOf(userId));
+            flowableProcessService.startProcess(PROCESS_KEY, String.valueOf(taskId), variables);
+            log.info("[Flowable] 转包流程已启动：taskId={}, initiator={}", taskId, userId);
+        } catch (Exception e) {
+            log.error("[Flowable] 启动转包流程异常（不影响主流程）：taskId={}", taskId, e);
+        }
+    }
+
+    /**
+     * 完成 Flowable 的"代理商接单"任务（设置 accepted 变量）。
+     */
+    private void completeAcceptTaskSafely(Long taskId, boolean accepted) {
+        if (taskId == null) {
+            return;
+        }
+        try {
+            List<Task> activeTasks = flowableProcessService.findActiveTasksByBusinessKey(
+                    PROCESS_KEY, String.valueOf(taskId));
+            if (activeTasks.isEmpty()) {
+                log.warn("[Flowable] 未找到活动任务：taskId={}, processKey={}", taskId, PROCESS_KEY);
+                return;
+            }
+            Task task = activeTasks.get(0);
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("accepted", accepted);
+            flowableProcessService.approve(task.getId(), variables);
+            log.info("[Flowable] 转包流程接单任务完成：taskId={}, flowableTaskId={}, accepted={}",
+                    taskId, task.getId(), accepted);
+        } catch (Exception e) {
+            log.error("[Flowable] 完成转包接单任务异常（不影响主流程）：taskId={}", taskId, e);
+        }
+    }
+
+    /**
+     * 完成 Flowable 的"交付物审核"任务（设置 approved 变量）。
+     */
+    private void completeReviewTaskSafely(Long taskId, boolean approved, String remark) {
+        if (taskId == null) {
+            return;
+        }
+        try {
+            List<Task> activeTasks = flowableProcessService.findActiveTasksByBusinessKey(
+                    PROCESS_KEY, String.valueOf(taskId));
+            if (activeTasks.isEmpty()) {
+                log.warn("[Flowable] 未找到活动任务：taskId={}, processKey={}", taskId, PROCESS_KEY);
+                return;
+            }
+            Task task = activeTasks.get(0);
+            Map<String, Object> variables = new HashMap<>();
+            if (remark != null) {
+                variables.put("remark", remark);
+            }
+            if (approved) {
+                flowableProcessService.approve(task.getId(), variables);
+            } else {
+                flowableProcessService.reject(task.getId(), remark);
+            }
+            log.info("[Flowable] 转包流程审核任务完成：taskId={}, flowableTaskId={}, approved={}",
+                    taskId, task.getId(), approved);
+        } catch (Exception e) {
+            log.error("[Flowable] 完成转包审核任务异常（不影响主流程）：taskId={}", taskId, e);
+        }
     }
 }

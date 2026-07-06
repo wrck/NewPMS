@@ -144,6 +144,76 @@ services:
       - vibe-net
 
   # ---------------------------------------------------------------------------
+  # Elasticsearch 8.11 全文检索引擎（项目/设备/工单索引）
+  # 本地开发关闭 xpack.security，无需账号密码；生产环境须开启并配置证书
+  # ---------------------------------------------------------------------------
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: vibe-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"   # REST API
+      - "9300:9300"   # 节点通信
+    volumes:
+      - ./docker/elasticsearch/data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "curl -f http://localhost:9200/_cluster/health || exit 1"
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 40s
+    networks:
+      - vibe-net
+
+  # ---------------------------------------------------------------------------
+  # XXL-JOB 2.4.1 调度中心（定时任务调度平台，含管理界面）
+  # ---------------------------------------------------------------------------
+  # 默认启动（中间件）。容器内访问地址：http://xxl-job-admin:8080/xxl-job-admin
+  # 宿主机访问地址：http://localhost:8081/xxl-job-admin （默认账号 admin/123456）
+  #
+  # 注意 1：首次启动前需初始化 xxl_job 数据库（执行 tables_xxl_job.sql）。
+  #         建议将该 SQL 放置到 ./docker/mysql/init/ 目录，MySQL 容器首启自动执行；
+  #         或通过 Flyway V4__xxl_job_schema.sql 迁移（见 Task 4）。
+  # 注意 2：宿主机端口 8081 与 vibe-mobile 冲突，开发环境二选一即可；
+  #         生产环境建议改用其他端口（如 8083）并通过环境变量 VIBE_XXL_JOB_ADMIN 覆盖。
+  # 注意 3：调度中心 Token 需与 vibe-server application.yml 中
+  #         xxl.job.access-token 保持一致（默认 vibe-xxl-job-token）。
+  # ---------------------------------------------------------------------------
+  xxl-job-admin:
+    image: xuxueli/xxl-job-admin:2.4.1
+    container_name: vibe-xxl-job-admin
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      # PARAMS 透传给 xxl-job-admin 内置 Spring Boot 启动参数
+      # 使用 MySQL root 账号（与 mysql 服务 MYSQL_ROOT_PASSWORD 一致）
+      PARAMS: >-
+        --spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
+        --spring.datasource.username=root
+        --spring.datasource.password=vibe123
+        --xxl.job.accessToken=vibe-xxl-job-token
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "curl -fsS http://localhost:8080/xxl-job-admin/api/login || exit 1"
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
+    networks:
+      - vibe-net
+
+  # ---------------------------------------------------------------------------
   # vibe-server 后端应用（Spring Boot 3.2 / JDK 17）
   # 默认不启动，需指定 profile：docker compose --profile app up -d vibe-server
   # ---------------------------------------------------------------------------
@@ -172,6 +242,8 @@ services:
       SPRING_RABBITMQ_PORT: "5672"
       SPRING_RABBITMQ_USERNAME: vibe
       SPRING_RABBITMQ_PASSWORD: vibe123
+      # Elasticsearch（容器内通过服务名访问，关闭安全特性无需账号密码）
+      VIBE_ES_URIS: http://elasticsearch:9200
       TZ: Asia/Shanghai
     depends_on:
       mysql:
@@ -181,6 +253,8 @@ services:
       minio:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks:
       - vibe-net

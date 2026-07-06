@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:flowable="http://flowable.org/bpmn"
+            xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+            xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+            xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+            targetNamespace="http://flowable.org/bpmn">
+  <!-- 割接审批流：PM 编制 → 技术审核 → 总监审批 → 客户审批 → 完成/驳回 -->
+  <process id="cutover" name="割接审批流" isExecutable="true">
+
+    <!-- 开始 -->
+    <startEvent id="start" name="开始"/>
+
+    <!-- PM 编制割接方案 -->
+    <userTask id="pmEdit" name="PM 编制割接方案"
+              flowable:assignee="${initiator}"/>
+
+    <!-- 技术审核 -->
+    <userTask id="techAudit" name="技术审核"
+              flowable:candidateGroups="tech_auditor"/>
+
+    <!-- 技术审核结果路由 -->
+    <exclusiveGateway id="techAuditGateway" name="技术审核结果"/>
+
+    <!-- 总监审批 -->
+    <userTask id="directorApprove" name="总监审批"
+              flowable:candidateGroups="director"/>
+
+    <!-- 总监审批结果路由 -->
+    <exclusiveGateway id="directorGateway" name="总监审批结果"/>
+
+    <!-- 客户审批 -->
+    <userTask id="customerApprove" name="客户审批"
+              flowable:candidateGroups="customer_approver"/>
+
+    <!-- 客户审批结果路由 -->
+    <exclusiveGateway id="customerGateway" name="客户审批结果"/>
+
+    <!-- 终态 -->
+    <endEvent id="approvedEnd" name="割接审批通过"/>
+    <endEvent id="rejectedEnd" name="割接审批驳回"/>
+
+    <!-- 流转线 -->
+    <sequenceFlow sourceRef="start" targetRef="pmEdit"/>
+    <sequenceFlow sourceRef="pmEdit" targetRef="techAudit"/>
+
+    <!-- 技术审核分支 -->
+    <sequenceFlow sourceRef="techAudit" targetRef="techAuditGateway"/>
+    <sequenceFlow sourceRef="techAuditGateway" targetRef="directorApprove">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="techAuditGateway" targetRef="pmEdit">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 总监审批分支 -->
+    <sequenceFlow sourceRef="directorApprove" targetRef="directorGateway"/>
+    <sequenceFlow sourceRef="directorGateway" targetRef="customerApprove">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="directorGateway" targetRef="pmEdit">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 客户审批分支 -->
+    <sequenceFlow sourceRef="customerApprove" targetRef="customerGateway"/>
+    <sequenceFlow sourceRef="customerGateway" targetRef="approvedEnd">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="customerGateway" targetRef="rejectedEnd">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+  </process>
+</definitions>

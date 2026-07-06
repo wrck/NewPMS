@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:flowable="http://flowable.org/bpmn"
+            xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+            xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+            xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+            targetNamespace="http://flowable.org/bpmn">
+  <!-- 转包任务流程：PM 创建 → 代理商接单 → 执行 → 交付物审核 → 完成/退回 -->
+  <process id="outsource" name="转包任务流程" isExecutable="true">
+
+    <!-- 开始 -->
+    <startEvent id="start" name="开始"/>
+
+    <!-- PM 创建转包任务 -->
+    <userTask id="pmCreate" name="PM 创建转包任务"
+              flowable:assignee="${initiator}"/>
+
+    <!-- 代理商接单 -->
+    <userTask id="agentAccept" name="代理商接单"
+              flowable:candidateGroups="agent_admin"/>
+
+    <!-- 接单结果路由（接受 / 拒绝） -->
+    <exclusiveGateway id="acceptGateway" name="接单结果"/>
+
+    <!-- 代理商执行任务 -->
+    <userTask id="agentExecute" name="代理商执行任务"
+              flowable:assignee="${agentEngineer}"/>
+
+    <!-- 交付物提交审核 -->
+    <userTask id="deliverableReview" name="PM 审核交付物"
+              flowable:candidateGroups="pm_reviewer"/>
+
+    <!-- 审核结果路由（通过 / 退回） -->
+    <exclusiveGateway id="reviewGateway" name="交付物审核结果"/>
+
+    <!-- 终态 -->
+    <endEvent id="completedEnd" name="转包完成"/>
+    <endEvent id="rejectedEnd" name="代理商拒绝接单"/>
+
+    <!-- 流转线 -->
+    <sequenceFlow sourceRef="start" targetRef="pmCreate"/>
+    <sequenceFlow sourceRef="pmCreate" targetRef="agentAccept"/>
+
+    <!-- 代理商接单分支 -->
+    <sequenceFlow sourceRef="agentAccept" targetRef="acceptGateway"/>
+    <sequenceFlow sourceRef="acceptGateway" targetRef="agentExecute">
+      <conditionExpression>${accepted == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="acceptGateway" targetRef="rejectedEnd">
+      <conditionExpression>${accepted == false}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 执行 → 交付物审核 -->
+    <sequenceFlow sourceRef="agentExecute" targetRef="deliverableReview"/>
+
+    <!-- 交付物审核分支：通过 → 完成；退回 → 回到执行节点重新执行 -->
+    <sequenceFlow sourceRef="deliverableReview" targetRef="reviewGateway"/>
+    <sequenceFlow sourceRef="reviewGateway" targetRef="completedEnd">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="reviewGateway" targetRef="agentExecute">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+  </process>
+</definitions>

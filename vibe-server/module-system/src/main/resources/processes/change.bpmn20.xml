@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns:flowable="http://flowable.org/bpmn"
+            xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+            xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+            xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+            targetNamespace="http://flowable.org/bpmn">
+  <!-- 项目变更流程：PM 发起 → 影响评估 → 总监审批 → 执行 → 完成/驳回 -->
+  <process id="change" name="项目变更流程" isExecutable="true">
+
+    <!-- 开始 -->
+    <startEvent id="start" name="开始"/>
+
+    <!-- PM 发起变更申请 -->
+    <userTask id="pmApply" name="PM 发起变更申请"
+              flowable:assignee="${initiator}"/>
+
+    <!-- 影响评估 -->
+    <userTask id="impactAssess" name="影响评估"
+              flowable:candidateGroups="tech_auditor"/>
+
+    <!-- 影响评估结果路由 -->
+    <exclusiveGateway id="impactGateway" name="影响评估结果"/>
+
+    <!-- 总监审批 -->
+    <userTask id="directorApprove" name="总监审批"
+              flowable:candidateGroups="director"/>
+
+    <!-- 总监审批结果路由 -->
+    <exclusiveGateway id="directorGateway" name="总监审批结果"/>
+
+    <!-- 执行变更 -->
+    <userTask id="execute" name="执行变更"
+              flowable:assignee="${initiator}"/>
+
+    <!-- 终态 -->
+    <endEvent id="completedEnd" name="变更完成"/>
+    <endEvent id="rejectedEnd" name="变更驳回"/>
+
+    <!-- 流转线 -->
+    <sequenceFlow sourceRef="start" targetRef="pmApply"/>
+    <sequenceFlow sourceRef="pmApply" targetRef="impactAssess"/>
+
+    <!-- 影响评估分支 -->
+    <sequenceFlow sourceRef="impactAssess" targetRef="impactGateway"/>
+    <sequenceFlow sourceRef="impactGateway" targetRef="directorApprove">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="impactGateway" targetRef="pmApply">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 总监审批分支 -->
+    <sequenceFlow sourceRef="directorApprove" targetRef="directorGateway"/>
+    <sequenceFlow sourceRef="directorGateway" targetRef="execute">
+      <conditionExpression>${approved == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow sourceRef="directorGateway" targetRef="pmApply">
+      <conditionExpression>${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- 执行变更 → 完成 -->
+    <sequenceFlow sourceRef="execute" targetRef="completedEnd"/>
+
+  </process>
+</definitions>

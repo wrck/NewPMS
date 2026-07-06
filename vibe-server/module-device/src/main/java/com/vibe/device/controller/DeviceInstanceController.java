@@ -11,12 +11,17 @@ import com.vibe.device.service.DeviceInstanceService;
 import com.vibe.device.vo.DeviceImportResultVO;
 import com.vibe.device.vo.DeviceInstanceDetailVO;
 import com.vibe.device.vo.DeviceInstanceVO;
+import com.vibe.es.ElasticSearchService;
+import com.vibe.es.EsQueryHelper;
+import com.vibe.es.index.EsIndexConstant;
+import com.vibe.es.index.VibeDeviceIndex;
 import com.vibe.utils.ExcelUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,7 +35,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * 设备实例 Controller
@@ -41,8 +48,12 @@ import java.util.Collections;
  * <p>列表查询受 @DataPermission 数据权限控制：PM 仅看自己负责项目下的设备，
  * 客户看自己关联项目的设备。</p>
  *
+ * <p>列表查询支持 ES 检索：{@code useEs=true} 时走 ElasticSearch 全文检索，
+ * ES 不可用或返回空时自动回退 MySQL。</p>
+ *
  * @author vibe
  */
+@Slf4j
 @Tag(name = "设备实例", description = "录入、导入、状态机、搜索")
 @RestController
 @RequestMapping("/api/v1/devices/instances")
@@ -51,12 +62,59 @@ public class DeviceInstanceController {
 
     private final DeviceInstanceService deviceInstanceService;
     private final ExcelUtils excelUtils;
+    private final ElasticSearchService<VibeDeviceIndex> elasticSearchService;
 
-    @Operation(summary = "分页查询设备实例（受数据权限控制）")
+    @Operation(summary = "分页查询设备实例（受数据权限控制，支持 ES 检索）")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DEVICE_ADMIN','PM','ENGINEER')")
     @GetMapping
-    public Result<PageResult<DeviceInstanceVO>> page(@ParameterObject DeviceInstanceQueryDTO query) {
+    public Result<PageResult<DeviceInstanceVO>> page(@ParameterObject DeviceInstanceQueryDTO query,
+                                                       @RequestParam(required = false, defaultValue = "false") Boolean useEs) {
+        if (Boolean.TRUE.equals(useEs)) {
+            PageResult<DeviceInstanceVO> esResult = searchByEs(query);
+            if (esResult != null) {
+                return Result.success(esResult);
+            }
+            log.info("ES 检索不可用或无结果，回退 MySQL: keyword={}", query.getKeyword());
+        }
         return Result.success(deviceInstanceService.page(query));
+    }
+
+    /**
+     * 通过 ElasticSearch 检索设备实例（useEs=true 时调用）。
+     *
+     * @param query 查询条件
+     * @return 检索结果（ES 不可用或异常时返回 null，触发 MySQL 回退）
+     */
+    private PageResult<DeviceInstanceVO> searchByEs(DeviceInstanceQueryDTO query) {
+        try {
+            String queryJson = EsQueryHelper.buildDeviceQuery(
+                    query.getKeyword(), query.getStatus(), query.getProjectId());
+            int page = query.getPage() == null || query.getPage() < 1 ? 1 : query.getPage();
+            int size = query.getSize() == null || query.getSize() < 1 ? 20 : query.getSize();
+            int from = (page - 1) * size;
+            List<VibeDeviceIndex> hits = elasticSearchService.search(
+                    EsIndexConstant.INDEX_VIBE_DEVICE, queryJson, from, size, VibeDeviceIndex.class);
+            if (hits.isEmpty()) {
+                return null;
+            }
+            List<DeviceInstanceVO> records = new ArrayList<>(hits.size());
+            for (VibeDeviceIndex idx : hits) {
+                DeviceInstanceVO vo = new DeviceInstanceVO();
+                vo.setId(idx.getId());
+                vo.setSerialNumber(idx.getSn());
+                vo.setMacAddress(idx.getMacAddress());
+                vo.setModelName(idx.getModelName());
+                vo.setProjectId(idx.getProjectId());
+                vo.setProjectName(idx.getProjectName());
+                vo.setStatus(idx.getStatus());
+                vo.setWarehouseName(idx.getWarehouse());
+                records.add(vo);
+            }
+            return PageResult.of(records, hits.size(), page, size);
+        } catch (Exception e) {
+            log.warn("ES 设备检索异常，将回退 MySQL: error={}", e.getMessage());
+            return null;
+        }
     }
 
     @Operation(summary = "设备详情（含状态轨迹与出入库历史）")

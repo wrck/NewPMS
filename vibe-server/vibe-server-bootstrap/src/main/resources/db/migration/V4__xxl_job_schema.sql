@@ -1,0 +1,14 @@
+-- =====================================================================================
+-- V4 XXL-JOB 调度框架 schema 占位
+-- =====================================================================================
+-- 说明（complete-system-modules Task 4.4 / 2.5）：
+--   * XXL-JOB 的 16 张 xxl_job_* 表（xxl_job_info / xxl_job_log / xxl_job_log_report /
+--     xxl_job_logglue / xxl_job_registry / xxl_job_group / xxl_job_user / xxl_job_lock /
+--     xxl_job_datasource 等）由 xxl-job-admin 容器初始化时执行官方 tables_xxl_job.sql 创建。
+--   * xxl-job-admin 默认连接独立的 xxl_job 库；本系统主库（vibe_db）不强制落这些表。
+--   * 本文件仅作为 Flyway 版本占位，确保 V4 版本号被记录，保留版本顺序完整性，无实际 DDL。
+--   * 部署时参考：docker-compose.yml 中 xxl-job-admin 服务通过环境变量
+--     PARAMS="--spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?..." 指向 XXL-JOB 库，
+--     并在首次启动时由 admin 自动建表（或手动执行 tables_xxl_job.sql）。
+-- =====================================================================================
+SELECT 1;

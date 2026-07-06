@@ -58,6 +58,14 @@
         <thumbnailator.version>0.4.20</thumbnailator.version>
         <redisson.version>3.31.0</redisson.version>
         <mysql.version>8.0.33</mysql.version>
+        <!-- 工作流引擎：Flowable 7（兼容 Spring Boot 3.2 / Jakarta EE） -->
+        <flowable.version>7.0.1</flowable.version>
+        <!-- Elasticsearch Java API Client 8.x -->
+        <elasticsearch-java.version>8.11.0</elasticsearch-java.version>
+        <!-- XXL-JOB 分布式任务调度 -->
+        <xxl-job.version>2.4.1</xxl-job.version>
+        <!-- Flyway 9.22.3 数据库迁移（9.x 保留 MySQL 开源支持 flyway-mysql 模块，核心 API 与 Spring Boot 3.2 自动配置兼容） -->
+        <flyway.version>9.22.3</flyway.version>
     </properties>
 
     <dependencyManagement>
@@ -212,6 +220,42 @@
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
                 <version>${mysql.version}</version>
+            </dependency>
+
+            <!-- Flowable 7 工作流引擎（BPMN 2.0 流程引擎，支撑验收/割接/外包/项目变更等审批流） -->
+            <dependency>
+                <groupId>org.flowable</groupId>
+                <artifactId>flowable-spring-boot-starter-process</artifactId>
+                <version>${flowable.version}</version>
+            </dependency>
+
+            <!-- Spring Boot Data Elasticsearch（版本由 spring-boot-dependencies BOM 管理，此处无需重复声明） -->
+
+            <!-- Elasticsearch Java API Client 8.x（替代 deprecated 的 RestHighLevelClient） -->
+            <dependency>
+                <groupId>co.elastic.clients</groupId>
+                <artifactId>elasticsearch-java</artifactId>
+                <version>${elasticsearch-java.version}</version>
+            </dependency>
+
+            <!-- XXL-JOB 分布式任务调度（库存预警/备件补货/工单超时/验收逾期/进度同步/数据清理/财务对账） -->
+            <dependency>
+                <groupId>com.xuxueli</groupId>
+                <artifactId>xxl-job-core</artifactId>
+                <version>${xxl-job.version}</version>
+            </dependency>
+
+            <!-- Flyway 数据库迁移（替代 spring.sql.init，管理 V2+ 增量 DDL；V1 baseline 占位标记现有 schema.sql） -->
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-core</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+            <!-- Flyway MySQL 8 支持模块（Flyway 9.x 起 MySQL 支持独立为 flyway-mysql artifact） -->
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-mysql</artifactId>
+                <version>${flyway.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

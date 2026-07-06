@@ -1,5 +1,6 @@
 package com.vibe.delivery.controller;
 
+import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import com.vibe.delivery.dto.CutoverApprovalDTO;
@@ -11,12 +12,15 @@ import com.vibe.delivery.service.CutoverPlanService;
 import com.vibe.delivery.vo.CutoverExecutionLogVO;
 import com.vibe.delivery.vo.CutoverPlanDetailVO;
 import com.vibe.delivery.vo.CutoverPlanVO;
+import com.vibe.service.FlowableProcessService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.flowable.task.api.Task;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,7 +33,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 割接方案 Controller（割接管理全流程：编制→内部审批→客户审批→执行→完成/中止）
@@ -44,15 +50,27 @@ import java.util.List;
  *   <li>客户审批：CUSTOMER 角色（由客户门户调用，见 CustomerPortalController）</li>
  * </ul>
  *
+ * <p><b>Flowable 集成（增量增强）：</b>
+ * <ul>
+ *   <li>{@link #submitInternalApproval}：启动 Flowable {@code cutover} 流程</li>
+ *   <li>{@link #internalApprove} / {@link #internalReject}：完成"技术审核"任务</li>
+ * </ul>
+ * Flowable 操作采用 try/catch 兜底，若引擎异常不影响原状态机流转。</p>
+ *
  * @author vibe
  */
+@Slf4j
 @Tag(name = "割接管理", description = "割接方案编制/审批/执行/总结全流程")
 @RestController
 @RequestMapping("/api/v1/cutover/plans")
 @RequiredArgsConstructor
 public class CutoverPlanController {
 
+    /** Flowable 流程定义 key：割接审批流 */
+    private static final String PROCESS_KEY = "cutover";
+
     private final CutoverPlanService cutoverPlanService;
+    private final FlowableProcessService flowableProcessService;
 
     /* ============ 基础 CRUD ============ */
 
@@ -103,7 +121,10 @@ public class CutoverPlanController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/submit-internal-approval")
     public Result<Void> submitInternalApproval(@PathVariable Long id) {
+        // 1. 原状态机流转
         cutoverPlanService.submitInternalApproval(id);
+        // 2. Flowable 增强：启动割接审批流
+        startFlowableSafely(id);
         return Result.success();
     }
 
@@ -111,7 +132,10 @@ public class CutoverPlanController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/internal-approve")
     public Result<Void> internalApprove(@Valid @RequestBody CutoverApprovalDTO dto) {
+        // 1. 原状态机流转
         cutoverPlanService.internalApprove(dto);
+        // 2. Flowable 增强：完成"技术审核"任务（approved=true）
+        completeFlowableTaskSafely(dto.getPlanId(), true, dto.getRemark());
         return Result.success();
     }
 
@@ -119,7 +143,10 @@ public class CutoverPlanController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/internal-reject")
     public Result<Void> internalReject(@Valid @RequestBody CutoverApprovalDTO dto) {
+        // 1. 原状态机流转
         cutoverPlanService.internalReject(dto);
+        // 2. Flowable 增强：完成"技术审核"任务（approved=false，回退到 PM）
+        completeFlowableTaskSafely(dto.getPlanId(), false, dto.getRemark());
         return Result.success();
     }
 
@@ -188,5 +215,54 @@ public class CutoverPlanController {
     @GetMapping("/{id}/logs")
     public Result<List<CutoverExecutionLogVO>> listLogs(@PathVariable Long id) {
         return Result.success(cutoverPlanService.listLogs(id));
+    }
+
+    /* ============ Flowable 集成辅助方法（兜底，异常仅记录日志） ============ */
+
+    private void startFlowableSafely(Long planId) {
+        if (planId == null) {
+            return;
+        }
+        try {
+            Long userId = UserContextHolder.getUserId();
+            if (userId == null) {
+                log.warn("[Flowable] 启动割接流程失败：当前用户上下文为空，planId={}", planId);
+                return;
+            }
+            Map<String, Object> variables = new HashMap<>();
+            variables.put(FlowableProcessService.VAR_INITIATOR, String.valueOf(userId));
+            flowableProcessService.startProcess(PROCESS_KEY, String.valueOf(planId), variables);
+            log.info("[Flowable] 割接流程已启动：planId={}, initiator={}", planId, userId);
+        } catch (Exception e) {
+            log.error("[Flowable] 启动割接流程异常（不影响主流程）：planId={}", planId, e);
+        }
+    }
+
+    private void completeFlowableTaskSafely(Long planId, boolean approved, String remark) {
+        if (planId == null) {
+            return;
+        }
+        try {
+            List<Task> activeTasks = flowableProcessService.findActiveTasksByBusinessKey(
+                    PROCESS_KEY, String.valueOf(planId));
+            if (activeTasks.isEmpty()) {
+                log.warn("[Flowable] 未找到活动任务：planId={}, processKey={}", planId, PROCESS_KEY);
+                return;
+            }
+            Task task = activeTasks.get(0);
+            Map<String, Object> variables = new HashMap<>();
+            if (remark != null) {
+                variables.put("remark", remark);
+            }
+            if (approved) {
+                flowableProcessService.approve(task.getId(), variables);
+            } else {
+                flowableProcessService.reject(task.getId(), remark);
+            }
+            log.info("[Flowable] 割接流程任务完成：planId={}, flowableTaskId={}, approved={}",
+                    planId, task.getId(), approved);
+        } catch (Exception e) {
+            log.error("[Flowable] 完成割接流程任务异常（不影响主流程）：planId={}", planId, e);
+        }
     }
 }

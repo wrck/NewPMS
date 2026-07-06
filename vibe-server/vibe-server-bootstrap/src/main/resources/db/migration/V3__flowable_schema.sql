@@ -1,0 +1,13 @@
+-- =====================================================================================
+-- V3 Flowable 7 工作流引擎 schema 占位
+-- =====================================================================================
+-- 说明（complete-system-modules Task 4.3 / 1.3）：
+--   * Flowable 7 启动时通过 spring.flowable.database-schema-update=true 自动创建全部
+--     ACT_* 表（约 38 张：ACT_RE_*/ACT_RU_*/ACT_HI_*/ACT_GE_*/ACT_ID_*）。
+--   * Flowable 自身管理与 Flyway 无关，不纳入 Flyway 校验范围。
+--   * 本文件仅作为 Flyway 版本占位，确保 V3 版本号被记录在 flyway_schema_history，
+--     保留版本顺序完整性（V2 → V3 → V4 → V5），无实际 DDL。
+--   * 若需离线初始化 Flowable 表结构，可执行 Flowable 官方 scripts/flowable.mysql.all.create.sql
+--     或在应用启动后由 Flowable 自动建表。
+-- =====================================================================================
+SELECT 1;

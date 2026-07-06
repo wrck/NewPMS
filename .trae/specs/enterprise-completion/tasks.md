@@ -4,43 +4,43 @@
 
 ## A. 低代码模块前端完整实现（最高优先级）
 
-- [ ] Task A1: 创建前端低代码 API 层 `vibe-web/src/api/lowcode.ts`
-  - [ ] SubTask A1.1: 封装 FormConfig CRUD + copy + import/export + instantiate 接口（对齐后端 `/api/v1/lowcode/forms`）
-  - [ ] SubTask A1.2: 封装 ListConfig / TabConfig / RelationConfig CRUD 接口
-  - [ ] SubTask A1.3: 封装 Template CRUD + instantiate 接口
-  - [ ] SubTask A1.4: 补充 `vibe-web/src/types/lowcode.ts` 类型定义（FormSchema / ListSchema / TabSchema / RelationSchema / TemplateVO）
+- [x] Task A1: 创建前端低代码 API 层 `vibe-web/src/api/lowcode.ts`
+  - [x] SubTask A1.1: 封装 FormConfig CRUD + copy + import/export + instantiate 接口（对齐后端 `/api/v1/lowcode/forms`）
+  - [x] SubTask A1.2: 封装 ListConfig / TabConfig / RelationConfig CRUD 接口
+  - [x] SubTask A1.3: 封装 Template CRUD + instantiate 接口
+  - [x] SubTask A1.4: 补充 `vibe-web/src/types/lowcode.ts` 类型定义（FormSchema / ListSchema / TabSchema / RelationSchema / TemplateVO）
 
-- [ ] Task A2: 实现低代码通用组件 `vibe-web/src/components/Lowcode/`
-  - [ ] SubTask A2.1: `SchemaDesigner.vue` 设计器壳（左字段库 / 中画布 / 右属性面板三栏布局）
-  - [ ] SubTask A2.2: `FieldPalette.vue` 可拖拽字段组件库（input/select/date/switch/cascader/richText/file/relSelect/number/textarea 共 10 类）
-  - [ ] SubTask A2.3: `PropertyPanel.vue` 字段属性配置面板（label/required/defaultValue/rules/width/placeholder）
-  - [ ] SubTask A2.4: `SchemaPreview.vue` 实时预览渲染（调用运行时渲染器，只读模式）
-  - [ ] SubTask A2.5: `SchemaImporter.vue` JSON 导入校验（Ajv）+ 模板选择下拉
+- [x] Task A2: 实现低代码通用组件 `vibe-web/src/components/Lowcode/`
+  - [x] SubTask A2.1: `SchemaDesigner.vue` 设计器壳（左字段库 / 中画布 / 右属性面板三栏布局）
+  - [x] SubTask A2.2: `FieldPalette.vue` 可拖拽字段组件库（input/select/date/switch/cascader/richText/file/relSelect/number/textarea 共 10 类）
+  - [x] SubTask A2.3: `PropertyPanel.vue` 字段属性配置面板（label/required/defaultValue/rules/width/placeholder）
+  - [x] SubTask A2.4: `SchemaPreview.vue` 实时预览渲染（调用运行时渲染器，只读模式）
+  - [x] SubTask A2.5: `SchemaImporter.vue` JSON 导入校验（Ajv）+ 模板选择下拉
 
-- [ ] Task A3: 实现运行时渲染器 `vibe-web/src/components/Lowcode/RuntimeRenderer.vue`
-  - [ ] SubTask A3.1: 根据 schema.type 动态渲染表单（基于 a-form）
-  - [ ] SubTask A3.2: 根据 schema.type 动态渲染列表（基于 CrudTable）
-  - [ ] SubTask A3.3: 根据 schema.type 动态渲染标签页（a-tabs）
-  - [ ] SubTask A3.4: 根据 schema.type 动态渲染关联页（master-detail）
-  - [ ] SubTask A3.5: 数据源绑定（apiUrl + 字段映射）+ 分页 + 操作按钮回调
+- [x] Task A3: 实现运行时渲染器 `vibe-web/src/components/Lowcode/RuntimeRenderer.vue`
+  - [x] SubTask A3.1: 根据 schema.type 动态渲染表单（基于 a-form）
+  - [x] SubTask A3.2: 根据 schema.type 动态渲染列表（基于 CrudTable）
+  - [x] SubTask A3.3: 根据 schema.type 动态渲染标签页（a-tabs）
+  - [x] SubTask A3.4: 根据 schema.type 动态渲染关联页（master-detail）
+  - [x] SubTask A3.5: 数据源绑定（apiUrl + 字段映射）+ 分页 + 操作按钮回调
 
-- [ ] Task A4: 实现低代码配置管理视图 `vibe-web/src/views/lowcode/`
-  - [ ] SubTask A4.1: `form-config.vue` 表单配置列表 + 设计器抽屉
-  - [ ] SubTask A4.2: `list-config.vue` 列表配置 + 设计器
-  - [ ] SubTask A4.3: `tab-config.vue` 标签页配置 + 设计器
-  - [ ] SubTask A4.4: `relation-config.vue` 关联页配置 + 设计器
-  - [ ] SubTask A4.5: `template-library.vue` 模板库（CRUD + 复制 + 导入导出 + 实例化按钮）
-  - [ ] SubTask A4.6: `runtime-renderer.vue` 路由入口页（`/lowcode/runtime/:bizType/:bizId`）
+- [x] Task A4: 实现低代码配置管理视图 `vibe-web/src/views/lowcode/`
+  - [x] SubTask A4.1: `form-config.vue` 表单配置列表 + 设计器抽屉
+  - [x] SubTask A4.2: `list-config.vue` 列表配置 + 设计器
+  - [x] SubTask A4.3: `tab-config.vue` 标签页配置 + 设计器
+  - [x] SubTask A4.4: `relation-config.vue` 关联页配置 + 设计器
+  - [x] SubTask A4.5: `template-library.vue` 模板库（CRUD + 复制 + 导入导出 + 实例化按钮）
+  - [x] SubTask A4.6: `runtime-renderer.vue` 路由入口页（`/lowcode/runtime/:bizType/:bizId`）
 
-- [ ] Task A5: 路由与菜单接入
-  - [ ] SubTask A5.1: `router/routes.ts` 新增 6 条低代码路由（仅 SUPER_ADMIN）
-  - [ ] SubTask A5.2: 菜单「系统管理」下追加「低代码配置」一级菜单（含 5 个子项）
-  - [ ] SubTask A5.3: 后端 `sys_menu` 数据迁移：插入低代码菜单项与权限标识 `lowcode:config:*`
+- [x] Task A5: 路由与菜单接入
+  - [x] SubTask A5.1: `router/routes.ts` 新增 6 条低代码路由（仅 SUPER_ADMIN）
+  - [x] SubTask A5.2: 菜单「系统管理」下追加「低代码配置」一级菜单（含 5 个子项）
+  - [x] SubTask A5.3: 后端 `sys_menu` 数据迁移：插入低代码菜单项与权限标识 `lowcode:config:*`
 
-- [ ] Task A6: 低代码实现率达标（≥ 60%）
-  - [ ] SubTask A6.1: 评估 10 个通用 CRUD 实体改为低代码渲染：客户档案、设备型号、备件、仓库、工程师技能、代理商工程师、验收标准项、通知模板、字典数据、岗位
-  - [ ] SubTask A6.2: 为上述 10 个实体创建对应 schema 记录（插入 `lowcode_*_config` 种子数据）
-  - [ ] SubTask A6.3: 改造对应菜单项指向 `/lowcode/runtime/:bizType`，验证渲染效果
+- [x] Task A6: 低代码实现率达标（≥ 60%）
+  - [x] SubTask A6.1: 评估 10 个通用 CRUD 实体改为低代码渲染：客户档案、设备型号、备件、仓库、工程师技能、代理商工程师、验收标准项、通知模板、字典数据、岗位
+  - [x] SubTask A6.2: 为上述 10 个实体创建对应 schema 记录（插入 `lowcode_*_config` 种子数据）
+  - [x] SubTask A6.3: 改造对应菜单项指向 `/lowcode/runtime/:bizType`，验证渲染效果
 
 ## B. 引用实体管理界面补全
 

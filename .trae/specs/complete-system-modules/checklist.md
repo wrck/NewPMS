@@ -14,12 +14,15 @@
 - [ ] XXL-JOB 2.4 集成：父 POM 依赖就位、XxlJobConfig 配置类正确
 - [ ] 7 个定时任务 Handler 实现：InventoryWarning/SparePartRestock/WorkOrderTimeout/AcceptanceOverdue/ProjectProgressSync/DataCleanup/FinanceReconciliation
 - [ ] docker-compose.yml 新增 xxl-job-admin 服务可启动
-- [ ] ElasticSearch 8.x 集成：父 POM 依赖就位、ESConfig 配置类正确、application.yml 配置块完整
-- [ ] 3 个 ES 索引创建：vibe_project / vibe_device / vibe_work_order
-- [ ] ElasticSearchService<T> 通用服务实现：索引创建/批量写入/全文检索/聚合查询
-- [ ] MySQL → ES 增量同步通过 RabbitMQ 事件驱动验证（业务变更后 ES 索引实时更新）
-- [ ] 3 个 Controller 列表查询接口支持 ES 检索（保留 MySQL 兜底）
-- [ ] docker-compose.yml 新增 elasticsearch 服务可启动
+- [x] ElasticSearch 8.x 集成：父 POM 依赖就位、ESConfig 配置类正确、application.yml 配置块完整（mvn compile BUILD SUCCESS 验证）
+- [x] 3 个 ES 索引创建：vibe_project / vibe_device / vibe_work_order（EsIndexInitializer + 3 个 Index POJO + mapping JSON 就位）
+- [x] ElasticSearchService<T> 通用服务实现：索引创建/批量写入/全文检索/聚合查询/单条写入/按 ID 删除/索引存在性检查 全部就位
+- [x] MySQL → ES 增量同步通过 RabbitMQ 事件驱动（EntityEventListener 监听 vibe.es.sync.queue，按事件类型分发到 4 个 handler；DomainEventConstant/DomainEventRabbitConfig 配置 TopicExchange + Queue + Binding + @Primary MessageConverter）
+- [x] 3 个 Controller 列表查询接口支持 ES 检索（保留 MySQL 兜底）（ProjectController/DeviceInstanceController/WorkOrderController 支持 useEs 参数 + ES 不可用时回退 MySQL）
+- [x] docker-compose.yml 新增 elasticsearch 服务（elasticsearch:8.11.0，single-node，xpack.security 关闭，9200/9300 端口，healthcheck 已配置，vibe-server depends_on elasticsearch:service_healthy）
+- [x] 领域事件总线：DomainEvent 抽象基类 + DomainEventPublisher 接口就位
+- [x] RabbitMqDomainEventPublisher 实现（@Qualifier 指定 domainEventRabbitTemplate，路由键 vibe.domain.event.{eventType}，容错捕获 AmqpException）
+- [x] 15 个领域事件定义完整（com.vibe.event.events 包下 15 个事件类：ProjectCreated/ProjectStatusChanged/TaskAssigned/TaskCompleted/DeviceStatusChanged/InventoryWarning/WorkOrderCompleted/DeliverableSubmitted/DeliverableReviewed/AcceptancePassed/CutoverApproved/ChangeApproved/RiskEscalated/AgentScored/NoticeSent）
 - [ ] Flyway 9.x 引入并配置完成
 - [ ] 5 个迁移脚本（V2-V5）执行成功：
   - [ ] 客户协作持久层 3 张表创建

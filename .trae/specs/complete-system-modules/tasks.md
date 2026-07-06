@@ -30,18 +30,18 @@
     - [ ] `FinanceReconciliationJobHandler`：每月 1 日 00:00 财务对账（成本/预算/工作量汇总）
   - [ ] SubTask 2.5: 在 `docker-compose.yml` 新增 `xxl-job-admin` 服务（xuxueli/xxl-job-admin:2.4.1）
 
-- [ ] Task 3: 集成 ElasticSearch 8.x [P]
-  - [ ] SubTask 3.1: 在父 POM 添加 spring-boot-starter-data-elasticsearch 依赖（ES 8.x Java Client）
-  - [ ] SubTask 3.2: 在 `module-common` 创建 ESConfig 配置类（RestClient/ ElasticsearchClient）
-  - [ ] SubTask 3.3: 在 `application.yml` 添加 es 配置块（uris/username/password/socket-timeout）
-  - [ ] SubTask 3.4: 创建 ES 索引映射：
-    - [ ] `vibe_project`（项目索引：id/name/customerName/productLine/region/status/pmId/phase/createdAt）
-    - [ ] `vibe_device`（设备索引：id/sn/modelName/projectId/status/warehouse/region/installedAt）
-    - [ ] `vibe_work_order`（工单索引：id/projectId/engineerId/status/plannedStart/plannedEnd/actualEnd）
-  - [ ] SubTask 3.5: 实现 `ElasticSearchService<T>` 通用服务（索引创建/批量写入/全文检索/聚合查询）
-  - [ ] SubTask 3.6: 通过 RabbitMQ 事件驱动实现 MySQL → ES 增量同步（CDC 模式：业务变更投递事件，消费者更新 ES）
-  - [ ] SubTask 3.7: 改造 ProjectController/DeviceInstanceController/WorkOrderController 列表查询接口支持 ES 检索（保留 MySQL 兜底）
-  - [ ] SubTask 3.8: 在 `docker-compose.yml` 新增 elasticsearch 服务（elasticsearch:8.11.0）
+- [x] Task 3: 集成 ElasticSearch 8.x [P]
+  - [x] SubTask 3.1: 在父 POM 添加 spring-boot-starter-data-elasticsearch 依赖（ES 8.x Java Client）
+  - [x] SubTask 3.2: 在 `module-common` 创建 ESConfig 配置类（RestClient/ ElasticsearchClient）
+  - [x] SubTask 3.3: 在 `application.yml` 添加 es 配置块（uris/username/password/socket-timeout）
+  - [x] SubTask 3.4: 创建 ES 索引映射：
+    - [x] `vibe_project`（项目索引：id/name/customerName/productLine/region/status/pmId/phase/createdAt）
+    - [x] `vibe_device`（设备索引：id/sn/modelName/projectId/status/warehouse/region/installedAt）
+    - [x] `vibe_work_order`（工单索引：id/projectId/engineerId/status/plannedStart/plannedEnd/actualEnd）
+  - [x] SubTask 3.5: 实现 `ElasticSearchService<T>` 通用服务（索引创建/批量写入/全文检索/聚合查询）
+  - [x] SubTask 3.6: 通过 RabbitMQ 事件驱动实现 MySQL → ES 增量同步（CDC 模式：业务变更投递事件，消费者更新 ES）
+  - [x] SubTask 3.7: 改造 ProjectController/DeviceInstanceController/WorkOrderController 列表查询接口支持 ES 检索（保留 MySQL 兜底）
+  - [x] SubTask 3.8: 在 `docker-compose.yml` 新增 elasticsearch 服务（elasticsearch:8.11.0）
 
 - [ ] Task 4: 数据库迁移与新增表 [P]
   - [ ] SubTask 4.1: 引入 Flyway 9.x 依赖与配置（替代 spring.sql.init）
@@ -83,9 +83,9 @@
   - [ ] SubTask 8.6: 集成 Resilience4j 实现熔断/降级/重试/限流（每个 Adapter 独立配置阈值）
 
 - [ ] Task 9: 领域事件总线与模块间通信 [P]
-  - [ ] SubTask 9.1: 在 `module-common` 创建 `DomainEvent` 抽象基类与 `DomainEventPublisher` 接口
-  - [ ] SubTask 9.2: 实现 `RabbitMqDomainEventPublisher`（基于现有 RabbitMQ 配置）
-  - [ ] SubTask 9.3: 定义 15 个领域事件：ProjectCreated/ProjectStatusChanged/TaskAssigned/TaskCompleted/DeviceStatusChanged/InventoryWarning/WorkOrderCompleted/DeliverableSubmitted/DeliverableReviewed/AcceptancePassed/CutoverApproved/ChangeApproved/RiskEscalated/AgentScored/NoticeSent
+  - [x] SubTask 9.1: 在 `module-common` 创建 `DomainEvent` 抽象基类与 `DomainEventPublisher` 接口
+  - [x] SubTask 9.2: 实现 `RabbitMqDomainEventPublisher`（基于现有 RabbitMQ 配置）
+  - [x] SubTask 9.3: 定义 15 个领域事件：ProjectCreated/ProjectStatusChanged/TaskAssigned/TaskCompleted/DeviceStatusChanged/InventoryWarning/WorkOrderCompleted/DeliverableSubmitted/DeliverableReviewed/AcceptancePassed/CutoverApproved/ChangeApproved/RiskEscalated/AgentScored/NoticeSent
   - [ ] SubTask 9.4: 各业务模块发布事件（在 Service 层关键业务操作后调用 publisher.publish）
   - [ ] SubTask 9.5: module-report 监听事件实时更新 ES 索引；module-system 通知引擎监听事件触发通知
 

@@ -2,19 +2,30 @@ package com.vibe.collaboration.controller;
 
 import com.vibe.collaboration.dto.CustomerAcceptanceSignDTO;
 import com.vibe.collaboration.dto.CustomerCutoverApprovalDTO;
+import com.vibe.collaboration.dto.CustomerPreferenceDTO;
+import com.vibe.collaboration.dto.CustomerSubscriptionDTO;
 import com.vibe.collaboration.service.CustomerPortalService;
+import com.vibe.collaboration.service.CustomerPreferenceService;
+import com.vibe.collaboration.service.CustomerSessionService;
+import com.vibe.collaboration.service.CustomerSubscriptionService;
 import com.vibe.collaboration.vo.CustomerAcceptanceTaskVO;
 import com.vibe.collaboration.vo.CustomerCutoverPlanVO;
 import com.vibe.collaboration.vo.CustomerMessageVO;
+import com.vibe.collaboration.vo.CustomerPreferenceVO;
 import com.vibe.collaboration.vo.CustomerProjectVO;
+import com.vibe.collaboration.vo.CustomerSessionVO;
+import com.vibe.collaboration.vo.CustomerSubscriptionVO;
 import com.vibe.collaboration.vo.CustomerTodoVO;
 import com.vibe.collaboration.vo.DocumentVO;
 import com.vibe.collaboration.vo.ProjectProgressVO;
+import com.vibe.common.base.PageQuery;
+import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -37,6 +48,9 @@ import java.util.List;
 public class CustomerPortalController {
 
     private final CustomerPortalService customerPortalService;
+    private final CustomerPreferenceService customerPreferenceService;
+    private final CustomerSubscriptionService customerSubscriptionService;
+    private final CustomerSessionService customerSessionService;
 
     /* ============ 3.1 进度查看 ============ */
 
@@ -141,6 +155,72 @@ public class CustomerPortalController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public Result<Void> markAllMessagesRead() {
         customerPortalService.markAllMessagesRead();
+        return Result.success();
+    }
+
+    /* ============ 3.6 偏好管理 ============ */
+
+    @Operation(summary = "查询客户偏好列表", description = "查询指定客户的全部偏好设置")
+    @GetMapping("/customers/{customerId}/preferences")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public Result<List<CustomerPreferenceVO>> listPreferences(
+            @Parameter(name = "customerId", description = "客户ID", required = true, in = ParameterIn.PATH)
+            @PathVariable Long customerId) {
+        return Result.success(customerPreferenceService.listByCustomerId(customerId));
+    }
+
+    @Operation(summary = "批量更新客户偏好", description = "upsert 指定客户的偏好（存在则更新，不存在则新增）")
+    @PutMapping("/customers/{customerId}/preferences")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public Result<Void> updatePreferences(
+            @Parameter(name = "customerId", description = "客户ID", required = true, in = ParameterIn.PATH)
+            @PathVariable Long customerId,
+            @RequestBody @Valid List<CustomerPreferenceDTO> dtos) {
+        customerPreferenceService.updatePreferences(customerId, dtos);
+        return Result.success();
+    }
+
+    /* ============ 3.7 订阅管理 ============ */
+
+    @Operation(summary = "查询客户订阅列表", description = "查询指定客户的全部事件订阅")
+    @GetMapping("/customers/{customerId}/subscriptions")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public Result<List<CustomerSubscriptionVO>> listSubscriptions(
+            @Parameter(name = "customerId", description = "客户ID", required = true, in = ParameterIn.PATH)
+            @PathVariable Long customerId) {
+        return Result.success(customerSubscriptionService.listByCustomerId(customerId));
+    }
+
+    @Operation(summary = "批量更新客户订阅", description = "upsert 指定客户的事件订阅（存在则更新，不存在则新增）")
+    @PutMapping("/customers/{customerId}/subscriptions")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public Result<Void> updateSubscriptions(
+            @Parameter(name = "customerId", description = "客户ID", required = true, in = ParameterIn.PATH)
+            @PathVariable Long customerId,
+            @RequestBody @Valid List<CustomerSubscriptionDTO> dtos) {
+        customerSubscriptionService.updateSubscriptions(customerId, dtos);
+        return Result.success();
+    }
+
+    /* ============ 3.8 会话管理 ============ */
+
+    @Operation(summary = "分页查询客户会话", description = "分页查询指定客户的登录会话列表（按登录时间倒序）")
+    @GetMapping("/customers/{customerId}/sessions")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public Result<PageResult<CustomerSessionVO>> pageSessions(
+            @Parameter(name = "customerId", description = "客户ID", required = true, in = ParameterIn.PATH)
+            @PathVariable Long customerId,
+            PageQuery query) {
+        return Result.success(customerSessionService.pageByCustomerId(customerId, query));
+    }
+
+    @Operation(summary = "强制下线", description = "删除指定会话使其 token 立即失效（状态置为 REVOKED 并逻辑删除）")
+    @DeleteMapping("/sessions/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public Result<Void> deleteSession(
+            @Parameter(name = "id", description = "会话ID", required = true, in = ParameterIn.PATH)
+            @PathVariable Long id) {
+        customerSessionService.forceOffline(id);
         return Result.success();
     }
 }

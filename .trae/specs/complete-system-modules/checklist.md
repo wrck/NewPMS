@@ -33,11 +33,11 @@
 
 ## 二、后端模块补全
 
-- [ ] module-auth 重构：独立 SysUserMapper、AuthUser 聚合根就位
-- [ ] 多类型用户认证：内部/代理商/客户三类独立认证，Token 载荷含 userType 字段
-- [ ] AuthController 新增 `/auth/agent/login`、`/auth/customer/login` 端点
-- [ ] module-collaboration 独立持久层：3 张表 + Entity + Mapper + Service 就位
-- [ ] CustomerPortalController 增加偏好/订阅/会话管理端点
+- [x] module-auth 重构：独立 SysUserMapper、AuthUser 聚合根就位
+- [x] 多类型用户认证：内部/代理商/客户三类独立认证，Token 载荷含 userType 字段
+- [x] AuthController 新增 `/auth/agent/login`、`/auth/customer/login` 端点
+- [x] module-collaboration 独立持久层：3 张表 + Entity + Mapper + Service 就位
+- [x] CustomerPortalController 增加偏好/订阅/会话管理端点
 - [ ] module-report ReportMapper 拆分为 4 个：ProjectReport/DeviceReport/ResourceReport/FinanceReport
 - [ ] 对应 XML 拆分为 4 个文件
 - [ ] 高并发聚合查询走 ES（验证：报表接口 P95 < 200ms）

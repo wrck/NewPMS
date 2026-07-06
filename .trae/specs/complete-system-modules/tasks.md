@@ -57,16 +57,16 @@
 
 ## 阶段二：后端模块补全与重构
 
-- [ ] Task 5: module-auth 多类型用户认证重构
-  - [ ] SubTask 5.1: 创建 `module-auth/dao/SysUserMapper.java`（独立 Mapper，从 module-system 解耦）
-  - [ ] SubTask 5.2: 创建 `AuthUser` 聚合根（统一内部/代理商/客户三类用户身份）
-  - [ ] SubTask 5.3: 扩展 AuthController 增加 `/auth/agent/login`、`/auth/customer/login` 端点
-  - [ ] SubTask 5.4: Token 载荷扩展 userType 字段（INTERNAL/AGENT/CUSTOMER），不同类型独立有效期配置
+- [x] Task 5: module-auth 多类型用户认证重构
+  - [x] SubTask 5.1: 创建 `module-auth/dao/SysUserMapper.java`（独立 Mapper，从 module-system 解耦）
+  - [x] SubTask 5.2: 创建 `AuthUser` 聚合根（统一内部/代理商/客户三类用户身份）
+  - [x] SubTask 5.3: 扩展 AuthController 增加 `/auth/agent/login`、`/auth/customer/login` 端点
+  - [x] SubTask 5.4: Token 载荷扩展 userType 字段（INTERNAL/AGENT/CUSTOMER），不同类型独立有效期配置
 
-- [ ] Task 6: module-collaboration 独立持久层 [P]
-  - [ ] SubTask 6.1: 创建 Entity：`CustomerPreferenceEntity` / `CustomerSubscriptionEntity` / `CustomerSessionEntity`
-  - [ ] SubTask 6.2: 创建对应 Mapper 与 Service
-  - [ ] SubTask 6.3: 扩展 CustomerPortalController 增加偏好/订阅/会话管理端点
+- [x] Task 6: module-collaboration 独立持久层 [P]
+  - [x] SubTask 6.1: 创建 Entity：`CustomerPreferenceEntity` / `CustomerSubscriptionEntity` / `CustomerSessionEntity`
+  - [x] SubTask 6.2: 创建对应 Mapper 与 Service
+  - [x] SubTask 6.3: 扩展 CustomerPortalController 增加偏好/订阅/会话管理端点
 
 - [ ] Task 7: module-report Mapper 拆分 [P]
   - [ ] SubTask 7.1: 拆分 `ReportMapper.java` 为 `ProjectReportMapper` / `DeviceReportMapper` / `ResourceReportMapper` / `FinanceReportMapper`

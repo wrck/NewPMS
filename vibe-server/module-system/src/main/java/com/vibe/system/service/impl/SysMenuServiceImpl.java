@@ -9,7 +9,9 @@ import com.vibe.system.constant.SystemConstant;
 import com.vibe.system.converter.SysConverters;
 import com.vibe.system.dto.SysMenuDTO;
 import com.vibe.system.entity.SysMenuEntity;
+import com.vibe.system.entity.SysRoleMenuEntity;
 import com.vibe.system.mapper.SysMenuMapper;
+import com.vibe.system.mapper.SysRoleMenuMapper;
 import com.vibe.system.service.SysMenuService;
 import com.vibe.system.service.SysRoleService;
 import com.vibe.system.vo.RoleSimpleVO;
@@ -36,6 +38,7 @@ import java.util.List;
 public class SysMenuServiceImpl implements SysMenuService {
 
     private final SysMenuMapper sysMenuMapper;
+    private final SysRoleMenuMapper sysRoleMenuMapper;
     private final SysRoleService sysRoleService;
 
     @Override
@@ -190,6 +193,40 @@ public class SysMenuServiceImpl implements SysMenuService {
             }
         }
         return menuIds;
+    }
+
+    @Override
+    public List<RoleSimpleVO> getRolesByMenuId(Long menuId) {
+        if (menuId == null) {
+            return Collections.emptyList();
+        }
+        List<RoleSimpleVO> roles = sysRoleMenuMapper.selectRolesByMenuId(menuId);
+        return roles == null ? Collections.emptyList() : roles;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void assignRolesToMenu(Long menuId, List<Long> roleIds) {
+        if (menuId == null) {
+            throw new BusinessException(ResultCode.PARAM_MISSING, "菜单ID不能为空");
+        }
+        if (sysMenuMapper.selectById(menuId) == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "菜单不存在");
+        }
+        // 先清除旧关联（逻辑删除）
+        sysRoleMenuMapper.deleteByMenuId(menuId);
+        if (CollectionUtils.isEmpty(roleIds)) {
+            return;
+        }
+        for (Long roleId : roleIds) {
+            if (roleId == null) {
+                continue;
+            }
+            SysRoleMenuEntity rm = new SysRoleMenuEntity();
+            rm.setRoleId(roleId);
+            rm.setMenuId(menuId);
+            sysRoleMenuMapper.insert(rm);
+        }
     }
 
     private void copyDtoToEntity(SysMenuDTO dto, SysMenuEntity entity) {

@@ -1,6 +1,7 @@
 package com.vibe.system.service;
 
 import com.vibe.system.dto.SysMenuDTO;
+import com.vibe.system.vo.RoleSimpleVO;
 import com.vibe.system.vo.SysMenuVO;
 
 import java.util.List;
@@ -59,4 +60,20 @@ public interface SysMenuService {
      * @return 菜单ID列表
      */
     List<Long> getMenuIdsByPermissionCodes(List<String> permissionCodes);
+
+    /**
+     * 查询菜单关联的角色列表。
+     *
+     * @param menuId 菜单ID
+     * @return 角色简要信息列表
+     */
+    List<RoleSimpleVO> getRolesByMenuId(Long menuId);
+
+    /**
+     * 给菜单分配角色（覆盖原关联）。
+     *
+     * @param menuId  菜单ID
+     * @param roleIds 角色ID列表（全量覆盖）
+     */
+    void assignRolesToMenu(Long menuId, List<Long> roleIds);
 }

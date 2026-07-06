@@ -404,6 +404,12 @@ export const routes: RouteRecordRaw[] = [
             meta: { title: '角色权限', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
           },
           {
+            path: 'menu',
+            name: 'SystemMenu',
+            component: () => import('@/views/system/menu.vue'),
+            meta: { title: '菜单管理', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
             path: 'org',
             name: 'SystemOrg',
             component: () => import('@/views/system/org.vue'),

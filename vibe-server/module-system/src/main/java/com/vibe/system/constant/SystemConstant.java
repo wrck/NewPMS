@@ -22,6 +22,8 @@ public final class SystemConstant {
     public static final String TENANT_CUSTOMER = "CUSTOMER";
 
     /* ============ 菜单类型 ============ */
+    /** 目录（仅用于分组，不出现在前端动态路由） */
+    public static final String MENU_TYPE_DIRECTORY = "DIRECTORY";
     /** 菜单 */
     public static final String MENU_TYPE_MENU = "MENU";
     /** 按钮 */

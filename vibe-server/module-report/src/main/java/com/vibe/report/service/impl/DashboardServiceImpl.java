@@ -5,7 +5,9 @@ import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
 import com.vibe.report.constant.ReportConstant;
-import com.vibe.report.mapper.ReportMapper;
+import com.vibe.report.mapper.FinanceReportMapper;
+import com.vibe.report.mapper.ProjectReportMapper;
+import com.vibe.report.mapper.ResourceReportMapper;
 import com.vibe.report.service.DashboardService;
 import com.vibe.report.service.ManagementCockpitService;
 import com.vibe.report.vo.AgentDashboardVO;
@@ -50,7 +52,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
 
-    private final ReportMapper reportMapper;
+    private final ProjectReportMapper projectReportMapper;
+    private final ResourceReportMapper resourceReportMapper;
+    private final FinanceReportMapper financeReportMapper;
     private final ManagementCockpitService managementCockpitService;
 
     @Override
@@ -96,17 +100,17 @@ public class DashboardServiceImpl implements DashboardService {
         // 核心指标（含环比）
         vo.setStats(managementCockpitService.getStats());
         // 审批待办
-        Long pendingChange = nvl(reportMapper.countPendingChangeLogs());
-        Long pendingWorkload = nvl(reportMapper.countPendingWorkloads());
+        Long pendingChange = nvl(projectReportMapper.countPendingChangeLogs());
+        Long pendingWorkload = nvl(financeReportMapper.countPendingWorkloads());
         vo.setPendingChangeCount(pendingChange);
         vo.setPendingWorkloadCount(pendingWorkload);
         vo.setPendingApprovalCount(pendingChange + pendingWorkload);
         // 项目状态分布（饼图）
-        vo.setProjectStatusDist(reportMapper.countProjectsByStatus());
+        vo.setProjectStatusDist(projectReportMapper.countProjectsByStatus());
         // 近12月项目趋势（折线图）
         vo.setProjectTrend(managementCockpitService.getProjectTrend());
         // 风险项目
-        List<RiskProjectVO> risks = reportMapper.selectRiskProjects(ReportConstant.DASHBOARD_LIST_SIZE);
+        List<RiskProjectVO> risks = projectReportMapper.selectRiskProjects(ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setRiskProjects(risks != null ? risks : Collections.emptyList());
         return vo;
     }
@@ -115,22 +119,22 @@ public class DashboardServiceImpl implements DashboardService {
 
     private PmDashboardVO buildPmDashboard(Long userId) {
         PmDashboardVO vo = new PmDashboardVO();
-        vo.setMyProjectCount(nvl(reportMapper.countProjectsByPm(userId)));
-        vo.setActiveProjectCount(nvl(reportMapper.countActiveProjectsByPm(userId)));
-        vo.setPendingDispatchCount(nvl(reportMapper.countPendingDispatchByPm(userId)));
-        vo.setPendingReviewCount(nvl(reportMapper.countPendingReviewByPm(userId)));
+        vo.setMyProjectCount(nvl(projectReportMapper.countProjectsByPm(userId)));
+        vo.setActiveProjectCount(nvl(projectReportMapper.countActiveProjectsByPm(userId)));
+        vo.setPendingDispatchCount(nvl(projectReportMapper.countPendingDispatchByPm(userId)));
+        vo.setPendingReviewCount(nvl(projectReportMapper.countPendingReviewByPm(userId)));
         // 风险项目数（取风险列表中属于该 PM 的数量，此处简化为全局风险数）
-        List<RiskProjectVO> allRisks = reportMapper.selectRiskProjects(ReportConstant.RISK_LIST_SIZE);
+        List<RiskProjectVO> allRisks = projectReportMapper.selectRiskProjects(ReportConstant.RISK_LIST_SIZE);
         vo.setRiskProjectCount(allRisks != null ? (long) allRisks.size() : 0L);
         // 我的项目列表
-        List<ProjectItemVO> projects = reportMapper.selectMyProjects(userId, ReportConstant.DASHBOARD_LIST_SIZE);
+        List<ProjectItemVO> projects = projectReportMapper.selectMyProjects(userId, ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setMyProjects(projects != null ? projects : Collections.emptyList());
-        // 待派单任务
-        List<TaskItemVO> tasks = reportMapper.selectMyTasks(userId, ReportConstant.TASK_PENDING,
+        // 待派单任务（保留原行为：按 engineer.user_id 查询，PM 兼任工程师场景下返回其待处理任务）
+        List<TaskItemVO> tasks = resourceReportMapper.selectMyTasks(userId, ReportConstant.TASK_PENDING,
                 ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setPendingDispatchTasks(tasks != null ? tasks : Collections.emptyList());
         // 待审核交付物
-        List<DeliverableItemVO> deliverables = reportMapper.selectMyDeliverables(userId,
+        List<DeliverableItemVO> deliverables = projectReportMapper.selectMyDeliverables(userId,
                 ReportConstant.OUTSOURCE_SUBMITTED, ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setPendingReviewDeliverables(deliverables != null ? deliverables : Collections.emptyList());
         return vo;
@@ -142,30 +146,30 @@ public class DashboardServiceImpl implements DashboardService {
         EngineerDashboardVO vo = new EngineerDashboardVO();
         LocalDate today = LocalDate.now();
 
-        vo.setTodayTaskCount(nvl(reportMapper.countTodayTasksByEngineer(userId, today)));
-        vo.setPendingTaskCount(nvl(reportMapper.countPendingTasksByEngineer(userId)));
-        vo.setOverdueTaskCount(nvl(reportMapper.countOverdueTasksByEngineer(userId, today)));
+        vo.setTodayTaskCount(nvl(resourceReportMapper.countTodayTasksByEngineer(userId, today)));
+        vo.setPendingTaskCount(nvl(resourceReportMapper.countPendingTasksByEngineer(userId)));
+        vo.setOverdueTaskCount(nvl(resourceReportMapper.countOverdueTasksByEngineer(userId, today)));
 
         // 工时统计：今日 / 本周（周一至周日） / 本月
-        BigDecimal todayHours = reportMapper.sumWorkHours(userId, today, today);
+        BigDecimal todayHours = resourceReportMapper.sumWorkHours(userId, today, today);
         vo.setTodayWorkHours(todayHours != null ? todayHours : BigDecimal.ZERO);
 
         LocalDate weekStart = today.with(DayOfWeek.MONDAY);
         LocalDate weekEnd = weekStart.plusDays(6);
-        BigDecimal weekHours = reportMapper.sumWorkHours(userId, weekStart, weekEnd);
+        BigDecimal weekHours = resourceReportMapper.sumWorkHours(userId, weekStart, weekEnd);
         vo.setWeekWorkHours(weekHours != null ? weekHours : BigDecimal.ZERO);
 
         LocalDate monthStart = YearMonth.now().atDay(1);
         LocalDate monthEnd = YearMonth.now().atEndOfMonth();
-        BigDecimal monthHours = reportMapper.sumWorkHours(userId, monthStart, monthEnd);
+        BigDecimal monthHours = resourceReportMapper.sumWorkHours(userId, monthStart, monthEnd);
         vo.setMonthWorkHours(monthHours != null ? monthHours : BigDecimal.ZERO);
 
         // 今日任务列表（计划区间覆盖今天的未完成任务）
-        List<TaskItemVO> todayTasks = reportMapper.selectMyTasks(userId, null, ReportConstant.DASHBOARD_LIST_SIZE);
+        List<TaskItemVO> todayTasks = resourceReportMapper.selectMyTasks(userId, null, ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setTodayTasks(todayTasks != null ? todayTasks : Collections.emptyList());
 
         // 超期任务列表
-        List<TaskItemVO> overdueTasks = reportMapper.selectOverdueTasks(userId, today, ReportConstant.DASHBOARD_LIST_SIZE);
+        List<TaskItemVO> overdueTasks = resourceReportMapper.selectOverdueTasks(userId, today, ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setOverdueTasks(overdueTasks != null ? overdueTasks : Collections.emptyList());
         return vo;
     }
@@ -187,12 +191,12 @@ public class DashboardServiceImpl implements DashboardService {
             return vo;
         }
 
-        vo.setTotalCount(nvl(reportMapper.countAgentTasks(agentCompanyId, null)));
-        vo.setPendingCount(nvl(reportMapper.countAgentTasks(agentCompanyId, ReportConstant.OUTSOURCE_PENDING)));
-        vo.setInProgressCount(nvl(reportMapper.countAgentTasks(agentCompanyId, ReportConstant.OUTSOURCE_IN_PROGRESS)));
-        vo.setSubmittedCount(nvl(reportMapper.countAgentTasks(agentCompanyId, ReportConstant.OUTSOURCE_SUBMITTED)));
+        vo.setTotalCount(nvl(financeReportMapper.countAgentTasks(agentCompanyId, null)));
+        vo.setPendingCount(nvl(financeReportMapper.countAgentTasks(agentCompanyId, ReportConstant.OUTSOURCE_PENDING)));
+        vo.setInProgressCount(nvl(financeReportMapper.countAgentTasks(agentCompanyId, ReportConstant.OUTSOURCE_IN_PROGRESS)));
+        vo.setSubmittedCount(nvl(financeReportMapper.countAgentTasks(agentCompanyId, ReportConstant.OUTSOURCE_SUBMITTED)));
         // 超期数
-        List<OutsourceTaskItemVO> allTasks = reportMapper.selectAgentTasks(agentCompanyId, null, ReportConstant.RISK_LIST_SIZE);
+        List<OutsourceTaskItemVO> allTasks = financeReportMapper.selectAgentTasks(agentCompanyId, null, ReportConstant.RISK_LIST_SIZE);
         long overdue = 0L;
         if (allTasks != null) {
             overdue = allTasks.stream().filter(t -> t.getOverdue() != null && t.getOverdue() == 1).count();
@@ -200,15 +204,15 @@ public class DashboardServiceImpl implements DashboardService {
         vo.setOverdueCount(overdue);
 
         // 各状态任务列表
-        List<OutsourceTaskItemVO> pending = reportMapper.selectAgentTasks(agentCompanyId,
+        List<OutsourceTaskItemVO> pending = financeReportMapper.selectAgentTasks(agentCompanyId,
                 ReportConstant.OUTSOURCE_PENDING, ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setPendingTasks(pending != null ? pending : Collections.emptyList());
 
-        List<OutsourceTaskItemVO> inProgress = reportMapper.selectAgentTasks(agentCompanyId,
+        List<OutsourceTaskItemVO> inProgress = financeReportMapper.selectAgentTasks(agentCompanyId,
                 ReportConstant.OUTSOURCE_IN_PROGRESS, ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setInProgressTasks(inProgress != null ? inProgress : Collections.emptyList());
 
-        List<OutsourceTaskItemVO> submitted = reportMapper.selectAgentTasks(agentCompanyId,
+        List<OutsourceTaskItemVO> submitted = financeReportMapper.selectAgentTasks(agentCompanyId,
                 ReportConstant.OUTSOURCE_SUBMITTED, ReportConstant.DASHBOARD_LIST_SIZE);
         vo.setSubmittedTasks(submitted != null ? submitted : Collections.emptyList());
         return vo;

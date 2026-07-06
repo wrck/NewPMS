@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.report.mapper.FinanceReportMapper">
+
+    <!-- ==================== 代理商统计聚合 ==================== -->
+
+    <select id="countAgentCompanies" resultType="com.vibe.report.vo.ChartDataVO">
+        SELECT 'TOTAL' AS name, COUNT(*) AS value FROM agent_company WHERE deleted = 0
+        UNION ALL
+        SELECT 'ACTIVE' AS name, COUNT(*) AS value FROM agent_company WHERE deleted = 0 AND status = 'ACTIVE'
+    </select>
+
+    <!-- ==================== 代理商维度查询 ==================== -->
+
+    <resultMap id="outsourceTaskItemMap" type="com.vibe.report.vo.OutsourceTaskItemVO">
+        <result property="outsourceTaskId" column="outsource_task_id"/>
+        <result property="projectTaskId" column="project_task_id"/>
+        <result property="taskName" column="task_name"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectCode" column="project_code"/>
+        <result property="projectName" column="project_name"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="agentCompanyName" column="agent_company_name"/>
+        <result property="agentEngineerId" column="agent_engineer_id"/>
+        <result property="agentEngineerName" column="agent_engineer_name"/>
+        <result property="status" column="status"/>
+        <result property="taskScope" column="task_scope"/>
+        <result property="deadline" column="deadline"/>
+        <result property="submitCount" column="submit_count"/>
+        <result property="createTime" column="create_time"/>
+        <result property="overdue" column="overdue"/>
+    </resultMap>
+
+    <select id="countAgentTasks" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM outsource_task ot
+        WHERE ot.deleted = 0
+          AND ot.agent_company_id = #{agentCompanyId}
+          <if test="status != null and status != ''">
+              AND ot.status = #{status}
+          </if>
+    </select>
+
+    <select id="selectAgentTasks" resultMap="outsourceTaskItemMap">
+        SELECT
+            ot.id AS outsource_task_id, ot.task_id AS project_task_id,
+            t.task_name,
+            ot.project_id, p.project_code, p.project_name,
+            ot.agent_company_id, ac.company_name AS agent_company_name,
+            ot.agent_engineer_id, ae.name AS agent_engineer_name,
+            ot.status, ot.task_scope, ot.deadline,
+            ot.submit_count, ot.create_time,
+            CASE WHEN ot.deadline IS NOT NULL
+                 AND ot.deadline &lt; CURDATE()
+                 AND ot.status NOT IN ('CONFIRMED', 'REJECTED')
+                 THEN 1 ELSE 0 END AS overdue
+        FROM outsource_task ot
+        INNER JOIN project_task t ON t.id = ot.task_id AND t.deleted = 0
+        INNER JOIN project p ON p.id = ot.project_id AND p.deleted = 0
+        LEFT JOIN agent_company ac ON ac.id = ot.agent_company_id AND ac.deleted = 0
+        LEFT JOIN agent_engineer ae ON ae.id = ot.agent_engineer_id AND ae.deleted = 0
+        WHERE ot.deleted = 0
+          AND ot.agent_company_id = #{agentCompanyId}
+          <if test="status != null and status != ''">
+              AND ot.status = #{status}
+          </if>
+        ORDER BY ot.create_time DESC
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ==================== 总监审批待办计数 ==================== -->
+
+    <select id="countPendingWorkloads" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM outsource_workload WHERE deleted = 0 AND status = 'SUBMITTED'
+    </select>
+
+    <!-- ==================== 环比/活跃/总数 ==================== -->
+
+    <select id="countAgentCompaniesBefore" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM agent_company WHERE deleted = 0 AND create_time &lt; #{beforeDate}
+    </select>
+
+    <select id="countActiveAgentCompanies" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM agent_company WHERE deleted = 0 AND status = 'ACTIVE'
+    </select>
+
+    <select id="countAllAgentCompanies" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM agent_company WHERE deleted = 0
+    </select>
+
+    <!-- =============================================================== -->
+    <!-- ==================== 业务报表（财务） ========================== -->
+    <!-- =============================================================== -->
+
+    <!--
+        财务报表 - 汇总指标
+        收入代理：finance_budget.total_amount（审批通过的预算视为项目预计收入）
+        成本：finance_cost.amount
+    -->
+    <select id="financeReportSummary" resultType="com.vibe.report.vo.FinanceReportVO$Summary">
+        SELECT
+            COALESCE(rev.total, 0) AS totalRevenue,
+            COALESCE(cost.total, 0) AS totalCost,
+            COALESCE(rev.total, 0) - COALESCE(cost.total, 0) AS totalProfit,
+            CASE WHEN COALESCE(rev.total, 0) > 0
+                 THEN ROUND((COALESCE(rev.total, 0) - COALESCE(cost.total, 0)) / rev.total * 100, 2)
+                 ELSE 0
+            END AS profitMargin
+        FROM (
+            SELECT COALESCE(SUM(b.total_amount), 0) AS total
+            FROM finance_budget b
+            INNER JOIN project p ON p.id = b.project_id AND p.deleted = 0
+            WHERE b.deleted = 0 AND b.approval_status = 'APPROVED'
+              <if test="customerId != null">AND p.customer_id = #{customerId}</if>
+        ) rev,
+        (
+            SELECT COALESCE(SUM(c.amount), 0) AS total
+            FROM finance_cost c
+            INNER JOIN project p ON p.id = c.project_id AND p.deleted = 0
+            WHERE c.deleted = 0
+              <if test="customerId != null">AND p.customer_id = #{customerId}</if>
+        ) cost
+    </select>
+
+    <!-- 财务报表 - 按客户维度利润 -->
+    <select id="financeReportByCustomer" resultType="com.vibe.report.vo.FinanceReportVO$CustomerProfit">
+        SELECT
+            c.id AS customerId,
+            c.customer_name AS customerName,
+            COALESCE(rev.amount, 0) AS revenue,
+            COALESCE(cost.amount, 0) AS cost,
+            COALESCE(rev.amount, 0) - COALESCE(cost.amount, 0) AS profit
+        FROM customer c
+        INNER JOIN project p ON p.customer_id = c.id AND p.deleted = 0
+        LEFT JOIN (
+            SELECT p2.customer_id, SUM(b.total_amount) AS amount
+            FROM finance_budget b
+            INNER JOIN project p2 ON p2.id = b.project_id AND p2.deleted = 0
+            WHERE b.deleted = 0 AND b.approval_status = 'APPROVED'
+            GROUP BY p2.customer_id
+        ) rev ON rev.customer_id = c.id
+        LEFT JOIN (
+            SELECT p3.customer_id, SUM(c2.amount) AS amount
+            FROM finance_cost c2
+            INNER JOIN project p3 ON p3.id = c2.project_id AND p3.deleted = 0
+            WHERE c2.deleted = 0
+            GROUP BY p3.customer_id
+        ) cost ON cost.customer_id = c.id
+        WHERE c.deleted = 0
+          <if test="customerId != null">AND c.id = #{customerId}</if>
+        GROUP BY c.id, c.customer_name, rev.amount, cost.amount
+        HAVING revenue > 0 OR cost > 0
+        ORDER BY profit DESC
+    </select>
+
+    <!-- 财务报表 - 按区域维度利润 -->
+    <select id="financeReportByRegion" resultType="com.vibe.report.vo.FinanceReportVO$RegionProfit">
+        SELECT
+            COALESCE(p.region, '未分类') AS region,
+            COALESCE(SUM(b.total_amount), 0) AS revenue,
+            COALESCE(cost.cnt, 0) AS cost,
+            COALESCE(SUM(b.total_amount), 0) - COALESCE(cost.cnt, 0) AS profit
+        FROM project p
+        LEFT JOIN finance_budget b ON b.project_id = p.id AND b.deleted = 0 AND b.approval_status = 'APPROVED'
+        LEFT JOIN (
+            SELECT project_id, SUM(amount) AS cnt
+            FROM finance_cost
+            WHERE deleted = 0
+            GROUP BY project_id
+        ) cost ON cost.project_id = p.id
+        WHERE p.deleted = 0
+        GROUP BY p.region, cost.cnt
+        ORDER BY profit DESC
+    </select>
+
+    <!-- 财务报表 - 按产品线维度利润 -->
+    <select id="financeReportByProductLine" resultType="com.vibe.report.vo.FinanceReportVO$ProductLineProfit">
+        SELECT
+            COALESCE(p.product_line, '未分类') AS productLine,
+            COALESCE(SUM(b.total_amount), 0) AS revenue,
+            COALESCE(cost.cnt, 0) AS cost,
+            COALESCE(SUM(b.total_amount), 0) - COALESCE(cost.cnt, 0) AS profit
+        FROM project p
+        LEFT JOIN finance_budget b ON b.project_id = p.id AND b.deleted = 0 AND b.approval_status = 'APPROVED'
+        LEFT JOIN (
+            SELECT project_id, SUM(amount) AS cnt
+            FROM finance_cost
+            WHERE deleted = 0
+            GROUP BY project_id
+        ) cost ON cost.project_id = p.id
+        WHERE p.deleted = 0
+        GROUP BY p.product_line, cost.cnt
+        ORDER BY profit DESC
+    </select>
+
+    <!-- 财务报表 - 代理商结算汇总（来自 finance_workload_confirmation） -->
+    <select id="financeReportAgentSettlement" resultType="com.vibe.report.vo.FinanceReportVO$AgentSettlement">
+        SELECT
+            w.agent_company_id AS agentCompanyId,
+            ac.company_name AS agentCompanyName,
+            COALESCE(SUM(w.total_amount), 0) AS totalAmount,
+            COALESCE(SUM(CASE WHEN w.payment_status = 'PAID' THEN w.total_amount ELSE 0 END), 0) AS paidAmount,
+            COALESCE(SUM(CASE WHEN w.payment_status IN ('UNPAID','PAYING') THEN w.total_amount ELSE 0 END), 0) AS pendingAmount
+        FROM finance_workload_confirmation w
+        LEFT JOIN agent_company ac ON ac.id = w.agent_company_id AND ac.deleted = 0
+        WHERE w.deleted = 0
+        GROUP BY w.agent_company_id, ac.company_name
+        ORDER BY totalAmount DESC
+    </select>
+
+</mapper>

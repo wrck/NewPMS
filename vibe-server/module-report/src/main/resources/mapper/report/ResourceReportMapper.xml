@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.report.mapper.ResourceReportMapper">
+
+    <!-- ==================== 工程师统计聚合 ==================== -->
+
+    <select id="countEngineers" resultType="com.vibe.report.vo.ChartDataVO">
+        SELECT 'TOTAL' AS name, COUNT(*) AS value FROM engineer WHERE deleted = 0
+        UNION ALL
+        SELECT 'ACTIVE' AS name, COUNT(*) AS value FROM engineer WHERE deleted = 0 AND status = 'ACTIVE'
+    </select>
+
+    <!-- ==================== 工程师维度查询 ==================== -->
+
+    <resultMap id="taskItemMap" type="com.vibe.report.vo.TaskItemVO">
+        <result property="taskId" column="task_id"/>
+        <result property="taskName" column="task_name"/>
+        <result property="taskType" column="task_type"/>
+        <result property="status" column="status"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="projectCode" column="project_code"/>
+        <result property="executeMode" column="execute_mode"/>
+        <result property="priority" column="priority"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="overdue" column="overdue"/>
+    </resultMap>
+
+    <!-- 查询工程师任务（通过 engineer.user_id 关联 project_task.assignee_id） -->
+    <select id="selectMyTasks" resultMap="taskItemMap">
+        SELECT
+            t.id AS task_id, t.task_name, t.task_type, t.status,
+            t.project_id, p.project_name, p.project_code,
+            t.execute_mode, t.priority, t.planned_start, t.planned_end,
+            CASE WHEN t.planned_end IS NOT NULL
+                 AND t.planned_end &lt; CURDATE()
+                 AND t.status NOT IN ('COMPLETED', 'CONFIRMED')
+                 THEN 1 ELSE 0 END AS overdue
+        FROM project_task t
+        INNER JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        INNER JOIN engineer e ON e.id = t.assignee_id AND e.deleted = 0
+        WHERE t.deleted = 0
+          AND e.user_id = #{userId}
+          <if test="status != null and status != ''">
+              AND t.status = #{status}
+          </if>
+        ORDER BY overdue DESC, t.planned_end ASC
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 查询工程师超期任务 -->
+    <select id="selectOverdueTasks" resultMap="taskItemMap">
+        SELECT
+            t.id AS task_id, t.task_name, t.task_type, t.status,
+            t.project_id, p.project_name, p.project_code,
+            t.execute_mode, t.priority, t.planned_start, t.planned_end,
+            1 AS overdue
+        FROM project_task t
+        INNER JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        INNER JOIN engineer e ON e.id = t.assignee_id AND e.deleted = 0
+        WHERE t.deleted = 0
+          AND e.user_id = #{userId}
+          AND t.planned_end IS NOT NULL
+          AND t.planned_end &lt; #{today}
+          AND t.status NOT IN ('COMPLETED', 'CONFIRMED')
+        ORDER BY t.planned_end ASC
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ==================== 工程师维度计数 ==================== -->
+
+    <select id="countTodayTasksByEngineer" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project_task t
+        INNER JOIN engineer e ON e.id = t.assignee_id AND e.deleted = 0
+        WHERE t.deleted = 0 AND e.user_id = #{userId}
+          AND t.status NOT IN ('COMPLETED', 'CONFIRMED')
+          AND (
+              (t.planned_start IS NULL AND t.planned_end IS NULL)
+              OR (t.planned_start IS NULL AND t.planned_end &gt;= #{today})
+              OR (t.planned_start &lt;= #{today} AND t.planned_end IS NULL)
+              OR (t.planned_start &lt;= #{today} AND t.planned_end &gt;= #{today})
+          )
+    </select>
+
+    <select id="countPendingTasksByEngineer" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project_task t
+        INNER JOIN engineer e ON e.id = t.assignee_id AND e.deleted = 0
+        WHERE t.deleted = 0 AND e.user_id = #{userId}
+          AND t.status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS')
+    </select>
+
+    <select id="countOverdueTasksByEngineer" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project_task t
+        INNER JOIN engineer e ON e.id = t.assignee_id AND e.deleted = 0
+        WHERE t.deleted = 0 AND e.user_id = #{userId}
+          AND t.planned_end IS NOT NULL
+          AND t.planned_end &lt; #{today}
+          AND t.status NOT IN ('COMPLETED', 'CONFIRMED')
+    </select>
+
+    <!-- 统计工程师工时（timesheet.hours 合计） -->
+    <select id="sumWorkHours" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(ts.hours), 0)
+        FROM timesheet ts
+        INNER JOIN engineer e ON e.id = ts.engineer_id AND e.deleted = 0
+        WHERE ts.deleted = 0
+          AND e.user_id = #{userId}
+          AND ts.work_date &gt;= #{startDay}
+          AND ts.work_date &lt;= #{endDay}
+    </select>
+
+    <!-- ==================== 环比/活跃/总数 ==================== -->
+
+    <select id="countEngineersBefore" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM engineer WHERE deleted = 0 AND create_time &lt; #{beforeDate}
+    </select>
+
+    <select id="countActiveEngineers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM engineer WHERE deleted = 0 AND status = 'ACTIVE'
+    </select>
+
+    <select id="countAllEngineers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM engineer WHERE deleted = 0
+    </select>
+
+    <!-- =============================================================== -->
+    <!-- ==================== 业务报表（资源） ========================== -->
+    <!-- =============================================================== -->
+
+    <!-- 资源报表 - 汇总指标（按工程师筛选；总工时来自 timesheet，平均利用率=totalHours/(engineers*176)*100） -->
+    <select id="resourceReportSummary" resultType="com.vibe.report.vo.ResourceReportVO$Summary">
+        SELECT
+            COUNT(DISTINCT e.id) AS totalEngineers,
+            COALESCE(SUM(ts.hours), 0) AS totalHours,
+            COALESCE(SUM(ts.overtime_hours), 0) AS overtimeHours,
+            CASE WHEN COUNT(DISTINCT e.id) > 0
+                 THEN ROUND(COALESCE(SUM(ts.hours), 0) / COUNT(DISTINCT e.id) / 176 * 100, 2)
+                 ELSE 0
+            END AS avgUtilization
+        FROM engineer e
+        LEFT JOIN timesheet ts ON ts.engineer_id = e.id AND ts.deleted = 0
+        WHERE e.deleted = 0
+          <if test="engineerId != null">AND e.id = #{engineerId}</if>
+    </select>
+
+    <!-- 资源报表 - 工程师维度统计 -->
+    <select id="resourceReportByEngineer" resultType="com.vibe.report.vo.ResourceReportVO$EngineerStat">
+        SELECT
+            e.id AS engineerId,
+            e.name AS engineerName,
+            (SELECT COUNT(*) FROM project_task t
+              WHERE t.deleted = 0 AND t.assignee_id = e.id) AS taskCount,
+            COALESCE(ts.hours, 0) AS hours,
+            COALESCE(ts.overtime_hours, 0) AS overtimeHours,
+            CASE WHEN COALESCE(ts.hours, 0) > 0
+                 THEN LEAST(100, ROUND(COALESCE(ts.hours, 0) / 176 * 100, 2))
+                 ELSE 0
+            END AS utilization,
+            CASE WHEN COALESCE(done.completed, 0) > 0
+                 THEN ROUND(COALESCE(done.ontime, 0) / done.completed * 100, 2)
+                 ELSE 0
+            END AS onTimeRate
+        FROM engineer e
+        LEFT JOIN (
+            SELECT engineer_id,
+                   SUM(hours) AS hours,
+                   SUM(overtime_hours) AS overtime_hours
+            FROM timesheet
+            WHERE deleted = 0
+            GROUP BY engineer_id
+        ) ts ON ts.engineer_id = e.id
+        LEFT JOIN (
+            SELECT t.assignee_id,
+                   SUM(CASE WHEN t.status IN ('COMPLETED','CONFIRMED') THEN 1 ELSE 0 END) AS completed,
+                   SUM(CASE WHEN t.status IN ('COMPLETED','CONFIRMED')
+                             AND t.planned_end IS NOT NULL
+                             AND t.actual_end IS NOT NULL
+                             AND t.actual_end &lt;= t.planned_end
+                            THEN 1 ELSE 0 END) AS ontime
+            FROM project_task t
+            WHERE t.deleted = 0 AND t.assignee_id IS NOT NULL
+            GROUP BY t.assignee_id
+        ) done ON done.assignee_id = e.id
+        WHERE e.deleted = 0
+          <if test="engineerId != null">AND e.id = #{engineerId}</if>
+        ORDER BY hours DESC
+    </select>
+
+    <!-- 资源报表 - 项目维度统计 -->
+    <select id="resourceReportByProject" resultType="com.vibe.report.vo.ResourceReportVO$ProjectStat">
+        SELECT
+            p.id AS projectId,
+            p.project_name AS projectName,
+            COALESCE(SUM(ts.hours), 0) AS hours,
+            COUNT(DISTINCT ts.engineer_id) AS engineerCount
+        FROM project p
+        LEFT JOIN timesheet ts ON ts.project_id = p.id AND ts.deleted = 0
+        WHERE p.deleted = 0
+        GROUP BY p.id, p.project_name
+        HAVING hours > 0 OR engineerCount > 0
+        ORDER BY hours DESC
+    </select>
+
+</mapper>

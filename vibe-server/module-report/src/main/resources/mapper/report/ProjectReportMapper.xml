@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.report.mapper.ProjectReportMapper">
+
+    <!-- ==================== 项目统计聚合 ==================== -->
+
+    <!-- 按状态统计项目数 -->
+    <select id="countProjectsByStatus" resultType="com.vibe.report.vo.ChartDataVO">
+        SELECT p.status AS name, COUNT(*) AS value
+        FROM project p
+        WHERE p.deleted = 0
+        GROUP BY p.status
+        ORDER BY value DESC
+    </select>
+
+    <!-- 按当前阶段统计项目数 -->
+    <select id="countProjectsByPhase" resultType="com.vibe.report.vo.ChartDataVO">
+        SELECT COALESCE(p.current_phase, 'UNKNOWN') AS name, COUNT(*) AS value
+        FROM project p
+        WHERE p.deleted = 0
+        GROUP BY p.current_phase
+        ORDER BY value DESC
+    </select>
+
+    <!-- 按月统计指定年份新增/完成项目数 -->
+    <select id="countMonthlyProjects" resultType="com.vibe.report.vo.ChartDataVO">
+        SELECT
+            t.month AS month,
+            COALESCE(new_cnt.cnt, 0) AS newCount,
+            COALESCE(done_cnt.cnt, 0) AS completedCount
+        FROM (
+            SELECT DATE_FORMAT(STR_TO_DATE(CONCAT(#{year}, '-', LPAD(m.idx, 2, '0'), '-01'), '%Y-%m-%d'), '%Y-%m') AS month
+            FROM (
+                SELECT 1 AS idx UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+                UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8
+                UNION SELECT 9 UNION SELECT 10 UNION SELECT 11 UNION SELECT 12
+            ) m
+        ) t
+        LEFT JOIN (
+            SELECT DATE_FORMAT(create_time, '%Y-%m') AS ym, COUNT(*) AS cnt
+            FROM project
+            WHERE deleted = 0 AND YEAR(create_time) = #{year}
+            GROUP BY DATE_FORMAT(create_time, '%Y-%m')
+        ) new_cnt ON new_cnt.ym = t.month
+        LEFT JOIN (
+            SELECT DATE_FORMAT(actual_end, '%Y-%m') AS ym, COUNT(*) AS cnt
+            FROM project
+            WHERE deleted = 0
+              AND actual_end IS NOT NULL
+              AND YEAR(actual_end) = #{year}
+              AND status IN ('CLOSE', 'ARCHIVED')
+            GROUP BY DATE_FORMAT(actual_end, '%Y-%m')
+        ) done_cnt ON done_cnt.ym = t.month
+        ORDER BY t.month
+    </select>
+
+    <!-- ==================== 风险项目 ==================== -->
+
+    <resultMap id="riskProjectMap" type="com.vibe.report.vo.RiskProjectVO">
+        <result property="projectId" column="project_id"/>
+        <result property="projectCode" column="project_code"/>
+        <result property="projectName" column="project_name"/>
+        <result property="riskType" column="risk_type"/>
+        <result property="riskTypeName" column="risk_type_name"/>
+        <result property="description" column="description"/>
+        <result property="progressPct" column="progress_pct"/>
+        <result property="pmName" column="pm_name"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <!--
+        风险项目查询：4 类风险 UNION ALL
+        1. PROJECT_OVERDUE：当前日期超过计划结束日期但未结项
+        2. OVERDUE_TASK：存在超期未完成任务
+        3. UNRESOLVED_ISSUE：存在未关闭问题
+        4. PROGRESS_DELAY：执行中项目进度明显滞后（进度低于 30%）
+    -->
+    <select id="selectRiskProjects" resultMap="riskProjectMap">
+        (SELECT
+            p.id AS project_id, p.project_code, p.project_name,
+            'PROJECT_OVERDUE' AS risk_type, '项目超期' AS risk_type_name,
+            CONCAT('计划结束日期 ', DATE_FORMAT(p.planned_end, '%Y-%m-%d'), ' 已超期，当前状态：', p.status) AS description,
+            p.progress_pct, e.name AS pm_name, p.planned_end, p.status
+        FROM project p
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0
+          AND p.planned_end IS NOT NULL
+          AND p.planned_end &lt; CURDATE()
+          AND p.status NOT IN ('CLOSE', 'ARCHIVED', 'CANCELLED'))
+
+        UNION ALL
+
+        (SELECT
+            p.id AS project_id, p.project_code, p.project_name,
+            'OVERDUE_TASK' AS risk_type, '超期任务' AS risk_type_name,
+            CONCAT('存在 ', cnt.overdue_cnt, ' 个超期未完成任务') AS description,
+            p.progress_pct, e.name AS pm_name, p.planned_end, p.status
+        FROM project p
+        INNER JOIN (
+            SELECT t.project_id, COUNT(*) AS overdue_cnt
+            FROM project_task t
+            WHERE t.deleted = 0
+              AND t.planned_end IS NOT NULL
+              AND t.planned_end &lt; CURDATE()
+              AND t.status NOT IN ('COMPLETED', 'CONFIRMED')
+            GROUP BY t.project_id
+        ) cnt ON cnt.project_id = p.id
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0
+          AND p.status NOT IN ('CLOSE', 'ARCHIVED', 'CANCELLED'))
+
+        UNION ALL
+
+        (SELECT
+            p.id AS project_id, p.project_code, p.project_name,
+            'UNRESOLVED_ISSUE' AS risk_type, '未解决问题' AS risk_type_name,
+            CONCAT('存在 ', cnt.issue_cnt, ' 个未关闭问题') AS description,
+            p.progress_pct, e.name AS pm_name, p.planned_end, p.status
+        FROM project p
+        INNER JOIN (
+            SELECT i.project_id, COUNT(*) AS issue_cnt
+            FROM project_issue i
+            WHERE i.deleted = 0
+              AND i.status IN ('OPEN', 'PROCESSING')
+            GROUP BY i.project_id
+        ) cnt ON cnt.project_id = p.id
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0
+          AND p.status NOT IN ('CLOSE', 'ARCHIVED', 'CANCELLED'))
+
+        UNION ALL
+
+        (SELECT
+            p.id AS project_id, p.project_code, p.project_name,
+            'PROGRESS_DELAY' AS risk_type, '进度滞后' AS risk_type_name,
+            CONCAT('项目处于 ', p.status, ' 阶段，进度仅 ', p.progress_pct, '%') AS description,
+            p.progress_pct, e.name AS pm_name, p.planned_end, p.status
+        FROM project p
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0
+          AND p.status IN ('EXECUTE', 'ACCEPT')
+          AND p.progress_pct &lt; 30)
+
+        ORDER BY risk_type
+        LIMIT #{limit}
+    </select>
+
+    <!-- ==================== PM 维度查询 ==================== -->
+
+    <resultMap id="projectItemMap" type="com.vibe.report.vo.ProjectItemVO">
+        <result property="projectId" column="project_id"/>
+        <result property="projectCode" column="project_code"/>
+        <result property="projectName" column="project_name"/>
+        <result property="status" column="status"/>
+        <result property="currentPhase" column="current_phase"/>
+        <result property="projectType" column="project_type"/>
+        <result property="priority" column="priority"/>
+        <result property="progressPct" column="progress_pct"/>
+        <result property="region" column="region"/>
+        <result property="plannedStart" column="planned_start"/>
+        <result property="plannedEnd" column="planned_end"/>
+        <result property="pmName" column="pm_name"/>
+        <result property="customerName" column="customer_name"/>
+    </resultMap>
+
+    <!-- 查询 PM 项目（PM 负责的项目） -->
+    <select id="selectMyProjects" resultMap="projectItemMap">
+        SELECT
+            p.id AS project_id, p.project_code, p.project_name, p.status,
+            p.current_phase, p.project_type, p.priority, p.progress_pct,
+            p.region, p.planned_start, p.planned_end,
+            e.name AS pm_name, c.customer_name
+        FROM project p
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        LEFT JOIN customer c ON c.id = p.customer_id AND c.deleted = 0
+        WHERE p.deleted = 0
+          AND p.pm_id = #{userId}
+        ORDER BY p.status, p.update_time DESC
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <resultMap id="deliverableItemMap" type="com.vibe.report.vo.DeliverableItemVO">
+        <result property="deliverableId" column="deliverable_id"/>
+        <result property="outsourceTaskId" column="outsource_task_id"/>
+        <result property="projectTaskId" column="project_task_id"/>
+        <result property="deliverableType" column="deliverable_type"/>
+        <result property="fileName" column="file_name"/>
+        <result property="fileUrl" column="file_url"/>
+        <result property="remark" column="remark"/>
+        <result property="submitTime" column="submit_time"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="taskName" column="task_name"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="agentCompanyName" column="agent_company_name"/>
+        <result property="outsourceStatus" column="outsource_status"/>
+        <result property="deadline" column="deadline"/>
+    </resultMap>
+
+    <!-- 查询 PM 待审核交付物（PM 负责项目下，转包任务状态为 SUBMITTED 的最新交付物） -->
+    <select id="selectMyDeliverables" resultMap="deliverableItemMap">
+        SELECT
+            d.id AS deliverable_id, d.outsource_task_id, ot.task_id AS project_task_id,
+            d.deliverable_type, d.file_name, d.file_url, d.remark,
+            d.create_time AS submit_time,
+            p.id AS project_id, p.project_name,
+            t.task_name,
+            ac.id AS agent_company_id, ac.company_name AS agent_company_name,
+            ot.status AS outsource_status, ot.deadline
+        FROM outsource_deliverable d
+        INNER JOIN outsource_task ot ON ot.id = d.outsource_task_id AND ot.deleted = 0
+        INNER JOIN project_task t ON t.id = ot.task_id AND t.deleted = 0
+        INNER JOIN project p ON p.id = ot.project_id AND p.deleted = 0
+        LEFT JOIN agent_company ac ON ac.id = ot.agent_company_id AND ac.deleted = 0
+        WHERE d.deleted = 0
+          AND p.pm_id = #{userId}
+          <if test="status != null and status != ''">
+              AND ot.status = #{status}
+          </if>
+        ORDER BY d.create_time DESC
+        <if test="limit != null and limit > 0">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- ==================== PM 维度计数 ==================== -->
+
+    <select id="countProjectsByPm" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project WHERE deleted = 0 AND pm_id = #{userId}
+    </select>
+
+    <select id="countActiveProjectsByPm" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project
+        WHERE deleted = 0 AND pm_id = #{userId}
+          AND status NOT IN ('CLOSE', 'ARCHIVED', 'CANCELLED')
+    </select>
+
+    <select id="countPendingDispatchByPm" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project_task t
+        INNER JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        WHERE t.deleted = 0 AND p.pm_id = #{userId} AND t.status = 'PENDING'
+    </select>
+
+    <select id="countPendingReviewByPm" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM outsource_task ot
+        INNER JOIN project p ON p.id = ot.project_id AND p.deleted = 0
+        WHERE ot.deleted = 0 AND p.pm_id = #{userId} AND ot.status = 'SUBMITTED'
+    </select>
+
+    <!-- ==================== 总监审批待办计数 ==================== -->
+
+    <select id="countPendingChangeLogs" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project_change_log WHERE deleted = 0 AND status = 'PENDING'
+    </select>
+
+    <!-- ==================== 环比/活跃/总数 ==================== -->
+
+    <select id="countProjectsBefore" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project WHERE deleted = 0 AND create_time &lt; #{beforeDate}
+    </select>
+
+    <select id="countActiveProjects" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project
+        WHERE deleted = 0 AND status NOT IN ('CLOSE', 'ARCHIVED', 'CANCELLED')
+    </select>
+
+    <select id="countAllProjects" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM project WHERE deleted = 0
+    </select>
+
+    <!-- =============================================================== -->
+    <!-- ==================== 业务报表（项目） ========================== -->
+    <!-- =============================================================== -->
+
+    <!-- 项目报表 - 汇总指标（单行返回） -->
+    <select id="projectReportSummary" resultType="com.vibe.report.vo.ProjectReportVO$Summary">
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status IN ('CLOSE','ARCHIVED') THEN 1 ELSE 0 END) AS completed,
+            SUM(CASE WHEN status NOT IN ('CLOSE','ARCHIVED','CANCELLED') THEN 1 ELSE 0 END) AS ongoing,
+            SUM(CASE WHEN planned_end IS NOT NULL AND planned_end &lt; CURDATE()
+                      AND status NOT IN ('CLOSE','ARCHIVED','CANCELLED') THEN 1 ELSE 0 END) AS overdue,
+            COALESCE(ROUND(AVG(progress_pct), 2), 0) AS avgProgress
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+    </select>
+
+    <!-- 项目报表 - 按状态分组 -->
+    <select id="projectReportByStatus" resultType="com.vibe.report.vo.ProjectReportVO$StatusStat">
+        SELECT
+            status,
+            CASE status
+                WHEN 'INIT' THEN '立项'
+                WHEN 'PLAN' THEN '规划'
+                WHEN 'EXECUTE' THEN '执行'
+                WHEN 'ACCEPT' THEN '验收'
+                WHEN 'CLOSE' THEN '结项'
+                WHEN 'ARCHIVED' THEN '归档'
+                WHEN 'ON_HOLD' THEN '挂起'
+                WHEN 'CANCELLED' THEN '取消'
+                ELSE status
+            END AS statusName,
+            COUNT(*) AS count
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+        GROUP BY status
+        ORDER BY count DESC
+    </select>
+
+    <!-- 项目报表 - 按产品线分组 -->
+    <select id="projectReportByProductLine" resultType="com.vibe.report.vo.ProjectReportVO$ProductLineStat">
+        SELECT COALESCE(product_line, '未分类') AS productLine, COUNT(*) AS count
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+        GROUP BY product_line
+        ORDER BY count DESC
+    </select>
+
+    <!-- 项目报表 - 按区域分组 -->
+    <select id="projectReportByRegion" resultType="com.vibe.report.vo.ProjectReportVO$RegionStat">
+        SELECT COALESCE(region, '未分类') AS region, COUNT(*) AS count
+        FROM project
+        WHERE deleted = 0
+          <if test="status != null and status != ''">AND status = #{status}</if>
+          <if test="pmId != null">AND pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND region = #{region}</if>
+        GROUP BY region
+        ORDER BY count DESC
+    </select>
+
+    <!-- 项目报表 - PM 业绩统计 -->
+    <select id="projectReportByPm" resultType="com.vibe.report.vo.ProjectReportVO$PmStat">
+        SELECT
+            p.pm_id AS pmId,
+            e.name AS pmName,
+            COUNT(*) AS total,
+            SUM(CASE WHEN p.status IN ('CLOSE','ARCHIVED') THEN 1 ELSE 0 END) AS completed,
+            SUM(CASE WHEN p.planned_end IS NOT NULL AND p.planned_end &lt; CURDATE()
+                      AND p.status NOT IN ('CLOSE','ARCHIVED','CANCELLED') THEN 1 ELSE 0 END) AS overdue
+        FROM project p
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0 AND p.pm_id IS NOT NULL
+          <if test="status != null and status != ''">AND p.status = #{status}</if>
+          <if test="pmId != null">AND p.pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND p.product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND p.region = #{region}</if>
+        GROUP BY p.pm_id, e.name
+        ORDER BY total DESC
+    </select>
+
+    <!-- 项目报表 - 明细列表 -->
+    <select id="projectReportDetail" resultType="com.vibe.report.vo.ProjectReportVO$ProjectDetail">
+        SELECT
+            p.id, p.project_code AS projectCode, p.project_name AS projectName,
+            p.status, p.progress_pct AS progressPct,
+            e.name AS pmName,
+            p.planned_start AS plannedStart, p.planned_end AS plannedEnd, p.actual_end AS actualEnd,
+            CASE WHEN p.planned_end IS NOT NULL AND p.planned_end &lt; CURDATE()
+                  AND p.status NOT IN ('CLOSE','ARCHIVED','CANCELLED')
+                 THEN 1 ELSE 0 END AS overdue
+        FROM project p
+        LEFT JOIN engineer e ON e.user_id = p.pm_id AND e.deleted = 0
+        WHERE p.deleted = 0
+          <if test="status != null and status != ''">AND p.status = #{status}</if>
+          <if test="pmId != null">AND p.pm_id = #{pmId}</if>
+          <if test="productLine != null and productLine != ''">AND p.product_line = #{productLine}</if>
+          <if test="region != null and region != ''">AND p.region = #{region}</if>
+        ORDER BY overdue DESC, p.planned_end ASC
+    </select>
+
+</mapper>

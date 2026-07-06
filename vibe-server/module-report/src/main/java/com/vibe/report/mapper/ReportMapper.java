@@ -18,12 +18,25 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 报表分析 Mapper
+ * 报表分析 Mapper（已废弃，按业务域拆分为 4 个 Mapper）
  *
- * <p>聚合统计查询（GROUP BY / COUNT / JOIN），SQL 统一在 XML 中维护。</p>
+ * <p><b>@Deprecated</b>：本接口已按业务域拆分为 4 个独立 Mapper，新代码请直接使用对应业务域的 Mapper：</p>
+ * <ul>
+ *   <li>{@link ProjectReportMapper} - 项目相关聚合查询（项目趋势、状态分布、风险项目、PM 业绩）</li>
+ *   <li>{@link DeviceReportMapper} - 设备相关聚合查询（设备状态分布、型号分布、BOM 完成率）</li>
+ *   <li>{@link ResourceReportMapper} - 资源相关聚合查询（工时统计、工程师负荷、出差分布）</li>
+ *   <li>{@link FinanceReportMapper} - 财务相关聚合查询（利润趋势、收入成本对比、客户占比）</li>
+ * </ul>
+ *
+ * <p>本接口与对应 XML（{@code mapper/report/ReportMapper.xml}）保留仅为兼容已有调用方，
+ * 内部 SQL 与拆分后的 4 个 Mapper 完全等价；后续版本将随调用方迁移完成后移除。</p>
+ *
+ * <p>迁移指南：将 {@code ReportMapper reportMapper} 字段替换为对应业务域 Mapper 即可，
+ * 方法签名与 SQL 行为保持一致，无需调整调用代码。</p>
  *
  * @author vibe
  */
+@Deprecated
 @Mapper
 public interface ReportMapper {
 

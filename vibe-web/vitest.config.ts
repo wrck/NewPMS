@@ -28,7 +28,10 @@ export default defineConfig({
     globals: false,
     setupFiles: [
       'src/components/CrudTable/__tests__/setup.ts',
-      'src/components/FormModal/__tests__/setup.ts'
+      'src/components/FormModal/__tests__/setup.ts',
+      'src/components/ImportExport/__tests__/setup.ts',
+      'src/components/OrgTree/__tests__/setup.ts',
+      'src/components/RichEditor/__tests__/setup.ts'
     ],
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.spec.ts'],
     coverage: {
@@ -36,7 +39,12 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       include: [
         'src/components/CrudTable/index.vue',
-        'src/components/FormModal/index.vue'
+        'src/components/FormModal/index.vue',
+        'src/components/ImportExport/index.vue',
+        'src/components/OrgTree/index.vue',
+        'src/components/OrgTree/OrgTreeSelect.vue',
+        'src/components/OrgTree/useOrgTree.ts',
+        'src/components/RichEditor/index.vue'
       ],
       exclude: [
         'src/**/*.d.ts',
@@ -44,7 +52,15 @@ export default defineConfig({
         'src/components/CrudTable/types.ts',
         'src/components/CrudTable/__tests__/**',
         'src/components/FormModal/types.ts',
-        'src/components/FormModal/__tests__/**'
+        'src/components/FormModal/__tests__/**',
+        'src/components/ImportExport/types.ts',
+        'src/components/ImportExport/__tests__/**',
+        'src/components/OrgTree/types.ts',
+        'src/components/OrgTree/index.ts',
+        'src/components/OrgTree/__tests__/**',
+        'src/components/RichEditor/types.ts',
+        'src/components/RichEditor/index.ts',
+        'src/components/RichEditor/__tests__/**'
       ]
     }
   }

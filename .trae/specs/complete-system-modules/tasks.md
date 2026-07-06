@@ -261,20 +261,20 @@
 
 ## 阶段六：低代码模块实现
 
-- [ ] Task 30: 后端 module-lowcode 模块搭建
-  - [ ] SubTask 30.1: 创建 `vibe-server/module-lowcode/` 模块目录与 pom.xml
-  - [ ] SubTask 30.2: 在父 POM 添加 module-lowcode 到 `<modules>`
-  - [ ] SubTask 30.3: 创建 Entity：
-    - [ ] `LowcodeFormConfigEntity`（id/configCode/configName/schema/templateId/version/status/creatorId/createdAt）
-    - [ ] `LowcodeListConfigEntity`（同上结构）
-    - [ ] `LowcodeTabConfigEntity`
-    - [ ] `LowcodeRelationConfigEntity`
-    - [ ] `LowcodeTemplateEntity`（id/templateCode/templateName/templateType/schema/description/usageCount）
-  - [ ] SubTask 30.4: 创建 Mapper（5 个）+ Service（5 个）+ ServiceImpl（5 个）
-  - [ ] SubTask 30.5: 创建 Controller（5 个）：FormConfigController / ListConfigController / TabConfigController / RelationConfigController / TemplateController
-  - [ ] SubTask 30.6: 每个 Controller 提供：分页查询/详情/创建/更新/删除/复制/导出 JSON/导入 JSON/基于模板实例化 端点
-  - [ ] SubTask 30.7: 引入 `com.networknt:json-schema-validator` 实现 JSON Schema Draft 7 校验
-  - [ ] SubTask 30.8: 权限控制：`@PreAuthorize("@ss.hasPermi('lowcode:config:*')")`
+- [x] Task 30: 后端 module-lowcode 模块搭建
+  - [x] SubTask 30.1: 创建 `vibe-server/module-lowcode/` 模块目录与 pom.xml
+  - [x] SubTask 30.2: 在父 POM 添加 module-lowcode 到 `<modules>`
+  - [x] SubTask 30.3: 创建 Entity：
+    - [x] `LowcodeFormConfigEntity`（id/configCode/configName/schema/templateId/version/status/creatorId/createdAt）
+    - [x] `LowcodeListConfigEntity`（同上结构）
+    - [x] `LowcodeTabConfigEntity`
+    - [x] `LowcodeRelationConfigEntity`
+    - [x] `LowcodeTemplateEntity`（id/templateCode/templateName/templateType/schema/description/usageCount）
+  - [x] SubTask 30.4: 创建 Mapper（5 个）+ Service（5 个）+ ServiceImpl（5 个）
+  - [x] SubTask 30.5: 创建 Controller（5 个）：FormConfigController / ListConfigController / TabConfigController / RelationConfigController / TemplateController
+  - [x] SubTask 30.6: 每个 Controller 提供：分页查询/详情/创建/更新/删除/复制/导出 JSON/导入 JSON/基于模板实例化 端点
+  - [x] SubTask 30.7: 引入 `com.networknt:json-schema-validator` 实现 JSON Schema Draft 7 校验
+  - [x] SubTask 30.8: 权限控制：`@PreAuthorize("@ss.hasPermi('lowcode:config:*')")`
 
 - [ ] Task 31: 前端低代码表单配置器
   - [ ] SubTask 31.1: 创建 `src/views/lowcode/form-config/index.vue` 列表页（CRUD + 导入导出）

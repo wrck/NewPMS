@@ -10,7 +10,8 @@ import {
   MoneyCollectOutlined,
   BarChartOutlined,
   SettingOutlined,
-  ApiOutlined
+  ApiOutlined,
+  FormOutlined
 } from '@ant-design/icons-vue'
 
 /** 菜单项 */
@@ -176,6 +177,20 @@ export const menuConfig: MenuItem[] = [
       { key: 'system-login-log', label: '登录日志', path: '/system/login-log' },
       { key: 'integration-config', label: '集成配置', path: '/integration/config' },
       { key: 'integration-call-log', label: '集成调用日志', path: '/integration/call-log' }
+    ]
+  },
+  {
+    key: 'lowcode',
+    label: '低代码配置',
+    path: '/lowcode',
+    icon: FormOutlined,
+    permission: 'lowcode:config:view',
+    children: [
+      { key: 'lowcode-form', label: '表单配置', path: '/lowcode/form' },
+      { key: 'lowcode-list', label: '列表配置', path: '/lowcode/list' },
+      { key: 'lowcode-tab', label: '标签页配置', path: '/lowcode/tab' },
+      { key: 'lowcode-relation', label: '关联页配置', path: '/lowcode/relation' },
+      { key: 'lowcode-template', label: '模板库', path: '/lowcode/template' }
     ]
   }
 ]

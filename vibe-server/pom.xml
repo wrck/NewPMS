@@ -78,7 +78,19 @@
     </properties>
 
     <dependencyManagement>
-        <dependencies>
+            <dependencies>
+            <!-- Byte Buddy 版本覆盖：Mockito 内联 mock 需要 Byte Buddy 支持当前 JDK。
+                 Spring Boot 3.2.5 管理的 1.14.x 仅支持到 Java 22，显式升级到 1.15.10 以支持 Java 25。 -->
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>1.15.10</version>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>1.15.10</version>
+            </dependency>
             <!-- 模块间依赖 -->
             <dependency>
                 <groupId>com.vibe</groupId>
@@ -348,6 +360,16 @@
                                 <version>${lombok-mapstruct-binding.version}</version>
                             </path>
                         </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <!-- Surefire 测试插件：启用 Byte Buddy 实验模式以支持 Java 25。
+                     Mockito 内联 mock 依赖 Byte Buddy 进行字节码增强，
+                     当前 Byte Buddy 官方仅支持到 Java 22，需启用实验模式。 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <argLine>-Dnet.bytebuddy.experimental=true --enable-native-access=ALL-UNNAMED</argLine>
                     </configuration>
                 </plugin>
             </plugins>

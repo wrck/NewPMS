@@ -84,7 +84,7 @@ public class WorkOrderStepServiceImpl implements WorkOrderStepService {
             throw BusinessException.stateNotAllowed("当前步骤状态不允许此操作");
         }
 
-        boolean skipped = dto != null && Boolean.TRUE.equals(dto.getSkipped());
+        boolean skipped = dto != null && DeliveryConstant.STEP_STATUS_SKIPPED.equals(dto.getStatus());
         LocalDateTime now = LocalDateTime.now();
         step.setStatus(skipped ? DeliveryConstant.STEP_STATUS_SKIPPED : DeliveryConstant.STEP_STATUS_COMPLETED);
         step.setCompletedTime(now);

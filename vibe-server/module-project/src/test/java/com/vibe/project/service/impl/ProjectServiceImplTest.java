@@ -16,6 +16,7 @@ import com.vibe.project.mapper.ProjectTaskMapper;
 import com.vibe.project.mapper.ProjectTemplateMapper;
 import com.vibe.project.mapper.ProjectTemplatePhaseMapper;
 import com.vibe.project.mapper.ProjectTemplateTaskMapper;
+import com.vibe.event.DomainEventPublisher;
 import com.vibe.utils.RedisUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -78,6 +79,8 @@ class ProjectServiceImplTest {
     private ProjectTemplateTaskMapper projectTemplateTaskMapper;
     @Mock
     private RedisUtils redisUtils;
+    @Mock
+    private DomainEventPublisher domainEventPublisher;
 
     @InjectMocks
     private ProjectServiceImpl projectService;

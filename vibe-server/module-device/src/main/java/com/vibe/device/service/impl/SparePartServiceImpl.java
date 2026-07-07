@@ -62,8 +62,11 @@ public class SparePartServiceImpl implements SparePartService {
         checkCodeUnique(dto.getPartCode(), null);
         SparePartEntity entity = new SparePartEntity();
         copyDtoToEntity(dto, entity);
-        entity.setStatus(dto.getStatus() == null ? DeviceConstant.SPARE_PART_ENABLED : dto.getStatus());
-        entity.setQuantity(dto.getQuantity() == null ? 0 : dto.getQuantity());
+        // DTO.status 为 String 库存状态枚举（IN_STOCK/OUT/REPAIR/SCRAPPED），
+        // Entity.status 为 Integer 启用/禁用标志（1/0），语义不同。
+        // create 默认置为启用；如需禁用请走独立接口。
+        entity.setStatus(DeviceConstant.SPARE_PART_ENABLED);
+        entity.setQuantity(dto.getStockQty() == null ? 0 : dto.getStockQty());
         sparePartMapper.insert(entity);
         return entity.getId();
     }
@@ -82,11 +85,9 @@ public class SparePartServiceImpl implements SparePartService {
             checkCodeUnique(dto.getPartCode(), dto.getId());
         }
         copyDtoToEntity(dto, exist);
-        if (dto.getStatus() != null) {
-            exist.setStatus(dto.getStatus());
-        }
-        if (dto.getQuantity() != null) {
-            exist.setQuantity(dto.getQuantity());
+        // update 不改 status（DTO.status 与 Entity.status 语义不同，见 create 注释）
+        if (dto.getStockQty() != null) {
+            exist.setQuantity(dto.getStockQty());
         }
         sparePartMapper.updateById(exist);
     }

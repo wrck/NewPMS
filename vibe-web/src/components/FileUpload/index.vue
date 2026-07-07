@@ -629,8 +629,14 @@ const disabledAttr = computed(() => props.disabled || uploading.value)
 // a-upload 需要的 file-list 格式：uid/name/status/url/thumbUrl/percent
 const antFileList = computed(() => fileList.value)
 
-const beforeUpload = (file: File) => {
-  return handleBeforeUpload(file)
+const beforeUpload = async (file: File): Promise<boolean> => {
+  // 拍平嵌套 Promise<boolean | Promise<boolean>>，对齐 a-upload 期望的 Promise<boolean | void>
+  try {
+    const result = await handleBeforeUpload(file)
+    return result === true
+  } catch {
+    return false
+  }
 }
 
 const customRequest = (options: any) => {

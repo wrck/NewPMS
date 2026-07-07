@@ -103,7 +103,7 @@ public class EngineerServiceImpl implements EngineerService {
         }
         EngineerEntity entity = new EngineerEntity();
         entity.setUserId(dto.getUserId());
-        entity.setEmployeeNo(dto.getEmployeeNo());
+        entity.setEmployeeNo(dto.getEngineerNo());
         entity.setName(dto.getName());
         entity.setPhone(dto.getPhone());
         entity.setRegion(dto.getRegion());
@@ -139,7 +139,7 @@ public class EngineerServiceImpl implements EngineerService {
             }
             exist.setUserId(dto.getUserId());
         }
-        exist.setEmployeeNo(dto.getEmployeeNo());
+        exist.setEmployeeNo(dto.getEngineerNo());
         exist.setName(dto.getName());
         exist.setPhone(dto.getPhone());
         exist.setRegion(dto.getRegion());
@@ -244,8 +244,8 @@ public class EngineerServiceImpl implements EngineerService {
                     .map(this::toSkillVO)
                     .collect(Collectors.toList());
             vo.setSkillList(skillVos);
-            // currentWorkload 由调度服务在推荐场景填充，这里默认 0
-            vo.setCurrentWorkload(0);
+            // ongoingTaskCount 由调度服务在推荐场景填充，这里默认 0
+            vo.setOngoingTaskCount(0);
         }
         return engineers;
     }

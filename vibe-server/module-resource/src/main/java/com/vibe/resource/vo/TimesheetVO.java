@@ -51,13 +51,13 @@ public class TimesheetVO implements Serializable {
     @Schema(description = "加班时长（小时）")
     private BigDecimal overtimeHours;
 
-    @Schema(description = "出差天数")
-    private Integer travelDays;
+    @Schema(description = "工作类型 NORMAL/OVERTIME/BUSINESS_TRIP/WEEKEND")
+    private String workType;
 
     @Schema(description = "工作内容说明")
     private String description;
 
-    @Schema(description = "状态 SUBMITTED/APPROVED/REJECTED")
+    @Schema(description = "状态 DRAFT/SUBMITTED/APPROVED/REJECTED")
     private String status;
 
     @Schema(description = "审批人ID")
@@ -68,6 +68,9 @@ public class TimesheetVO implements Serializable {
 
     @Schema(description = "审批时间")
     private LocalDateTime approveTime;
+
+    @Schema(description = "驳回原因")
+    private String rejectReason;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

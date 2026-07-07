@@ -18,6 +18,7 @@ import com.vibe.collaboration.vo.CustomerSubscriptionVO;
 import com.vibe.collaboration.vo.CustomerTodoVO;
 import com.vibe.collaboration.vo.DocumentVO;
 import com.vibe.collaboration.vo.ProjectProgressVO;
+import com.vibe.annotation.OperationLog;
 import com.vibe.common.base.PageQuery;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
@@ -90,6 +91,7 @@ public class CustomerPortalController {
     }
 
     @Operation(summary = "客户提交割接审批结果", description = "客户在 H5 端提交审批结果（APPROVED/REJECTED），需要登录态")
+    @OperationLog(module = "客户门户", type = "APPROVE", description = "客户提交割接审批结果", saveResponse = true)
     @PostMapping("/cutover/approval")
     @PreAuthorize("hasRole('CUSTOMER')")
     public Result<Void> submitCutoverApproval(@RequestBody CustomerCutoverApprovalDTO dto) {
@@ -108,6 +110,7 @@ public class CustomerPortalController {
     }
 
     @Operation(summary = "客户提交验收签核结果", description = "客户在 H5 端提交签核结果（PASS/CONDITIONAL_PASS/REJECT），需要登录态")
+    @OperationLog(module = "客户门户", type = "APPROVE", description = "客户提交验收签核结果", saveResponse = true)
     @PostMapping("/acceptance/sign")
     @PreAuthorize("hasRole('CUSTOMER')")
     public Result<Void> submitAcceptanceSign(@RequestBody CustomerAcceptanceSignDTO dto) {
@@ -170,6 +173,7 @@ public class CustomerPortalController {
     }
 
     @Operation(summary = "批量更新客户偏好", description = "upsert 指定客户的偏好（存在则更新，不存在则新增）")
+    @OperationLog(module = "客户门户", type = "UPDATE", description = "批量更新客户偏好")
     @PutMapping("/customers/{customerId}/preferences")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public Result<Void> updatePreferences(
@@ -192,6 +196,7 @@ public class CustomerPortalController {
     }
 
     @Operation(summary = "批量更新客户订阅", description = "upsert 指定客户的事件订阅（存在则更新，不存在则新增）")
+    @OperationLog(module = "客户门户", type = "UPDATE", description = "批量更新客户订阅")
     @PutMapping("/customers/{customerId}/subscriptions")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public Result<Void> updateSubscriptions(
@@ -215,6 +220,7 @@ public class CustomerPortalController {
     }
 
     @Operation(summary = "强制下线", description = "删除指定会话使其 token 立即失效（状态置为 REVOKED 并逻辑删除）")
+    @OperationLog(module = "客户门户", type = "DELETE", description = "强制下线客户会话")
     @DeleteMapping("/sessions/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public Result<Void> deleteSession(

@@ -113,9 +113,10 @@ function Find-JavaHome {
         return $env:VIBE_JAVA_HOME
     }
     $candidates = @(
-        'D:\ja-netfilter\jdk-21.0.9+10',
-        'D:\ja-netfilter\jdk-17.0.9',
-        'C:\Program Files\Java'
+        'D:\ja-netfilter',
+        'C:\Program Files\Java',
+        'C:\Program Files\Eclipse Adoptium',
+        'C:\Program Files\Microsoft'
     )
     foreach ($root in $candidates) {
         if (-not (Test-Path $root)) { continue }

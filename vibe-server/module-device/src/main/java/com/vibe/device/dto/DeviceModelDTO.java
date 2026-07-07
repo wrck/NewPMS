@@ -58,4 +58,8 @@ public class DeviceModelDTO implements Serializable {
     @Schema(description = "产品图片")
     @Size(max = 255, message = "产品图片链接长度不能超过255")
     private String imageUrl;
+
+    @Schema(description = "描述")
+    @Size(max = 512, message = "描述长度不能超过512")
+    private String description;
 }

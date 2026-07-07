@@ -1,5 +1,6 @@
 package com.vibe.integration.controller;
 
+import com.vibe.annotation.OperationLog;
 import com.vibe.integration.adapter.erp.ErpCustomerSyncService;
 import com.vibe.integration.adapter.erp.dto.ErpCustomerDTO;
 import com.vibe.integration.adapter.logistics.LogisticsStatusService;
@@ -44,6 +45,7 @@ public class IntegrationSyncController {
     /* ============ ERP 同步 ============ */
 
     @Operation(summary = "手动触发 ERP 全量/增量客户同步")
+    @OperationLog(module = "集成同步", type = "OTHER", description = "手动触发 ERP 客户同步", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/erp/sync")
     public Result<List<ErpCustomerDTO>> syncErpCustomers(
@@ -58,6 +60,7 @@ public class IntegrationSyncController {
     }
 
     @Operation(summary = "同步单个 ERP 客户")
+    @OperationLog(module = "集成同步", type = "OTHER", description = "同步单个 ERP 客户", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/erp/sync/customer")
     public Result<ErpCustomerDTO> syncErpCustomer(
@@ -69,6 +72,7 @@ public class IntegrationSyncController {
     /* ============ 物流状态同步 ============ */
 
     @Operation(summary = "手动触发物流状态拉取（按运单号）")
+    @OperationLog(module = "集成同步", type = "OTHER", description = "拉取物流状态", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/logistics/sync")
     public Result<LogisticsStatusDTO> pullLogisticsStatus(
@@ -78,6 +82,7 @@ public class IntegrationSyncController {
     }
 
     @Operation(summary = "批量拉取物流状态")
+    @OperationLog(module = "集成同步", type = "OTHER", description = "批量拉取物流状态", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/logistics/sync/batch")
     public Result<List<LogisticsStatusDTO>> batchPullLogisticsStatus(

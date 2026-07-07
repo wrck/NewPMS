@@ -74,7 +74,10 @@ service.interceptors.request.use(
 let isRedirecting = false
 
 service.interceptors.response.use(
-  (response) => {
+  // 注：拦截器返回 res.data（业务数据）或 response（原始响应），类型为 unknown；
+  // 调用方通过 service.get<T>() 的泛型在运行时拿到具体类型，编译期以 unknown 兼容。
+  // 这里用显式 unknown 返回类型对齐 AxiosInterceptorFulfilled 签名。
+  (response): unknown => {
     // Token 续签：后端在距离过期 < 2h 时自动续签并通过响应头返回新 token
     const newToken = response.headers?.[REFRESH_TOKEN_HEADER.toLowerCase()]
     if (newToken) {

@@ -32,7 +32,7 @@ public class EngineerDTO implements Serializable {
 
     @Schema(description = "工号")
     @Size(max = 64, message = "工号长度不能超过64")
-    private String employeeNo;
+    private String engineerNo;
 
     @Schema(description = "姓名", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "姓名不能为空")
@@ -43,11 +43,18 @@ public class EngineerDTO implements Serializable {
     @Size(max = 32, message = "手机号长度不能超过32")
     private String phone;
 
+    @Schema(description = "邮箱")
+    @Size(max = 128, message = "邮箱长度不能超过128")
+    private String email;
+
+    @Schema(description = "所属组织ID")
+    private Long orgId;
+
     @Schema(description = "所属区域")
     @Size(max = 32, message = "区域长度不能超过32")
     private String region;
 
-    @Schema(description = "状态 ACTIVE/RESIGNED")
+    @Schema(description = "状态 ACTIVE/ON_LEAVE/RESIGNED")
     private String status;
 
     @Schema(description = "入职日期")

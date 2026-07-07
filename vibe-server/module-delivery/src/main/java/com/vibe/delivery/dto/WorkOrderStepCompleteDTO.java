@@ -18,9 +18,12 @@ public class WorkOrderStepCompleteDTO implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    @Schema(description = "步骤状态 PENDING/IN_PROGRESS/COMPLETED/SKIPPED")
+    private String status;
+
+    @Schema(description = "实际耗时（分钟）")
+    private Integer actualMinutes;
+
     @Schema(description = "备注")
     private String remark;
-
-    @Schema(description = "是否跳过（true 时状态置为 SKIPPED）")
-    private Boolean skipped;
 }

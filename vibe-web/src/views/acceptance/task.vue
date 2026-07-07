@@ -32,7 +32,7 @@ const query = reactive<AcceptanceTaskQuery>({ projectId: undefined, name: '', st
 const statusOptions: { label: string; value: AcceptanceTaskStatus; color: string }[] = [
   { label: '草稿', value: 'DRAFT', color: 'default' },
   { label: '已申请', value: 'APPLIED', color: 'processing' },
-  { label: '内部审核通过', value: 'INTERNAL_AUDITED', color: 'blue' },
+  { label: '内部审核通过', value: 'INTERNAL_AUDITED', color: 'processing' },
   { label: '客户签核中', value: 'CUSTOMER_SIGNING', color: 'warning' },
   { label: '已完成', value: 'COMPLETED', color: 'success' },
   { label: '已驳回', value: 'REJECTED', color: 'error' }

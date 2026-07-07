@@ -30,32 +30,32 @@ public class AgentScoreDTO implements Serializable {
     private Long agentCompanyId;
 
     @Schema(description = "关联转包任务ID")
-    private Long outsourceTaskId;
+    private Long taskId;
 
     @Schema(description = "交付及时性评分（0-100）", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "及时性评分不能为空")
     @DecimalMin(value = "0", message = "评分不能小于0")
     @DecimalMax(value = "100", message = "评分不能大于100")
-    private BigDecimal scoreTimeliness;
+    private BigDecimal timeliness;
 
     @Schema(description = "交付质量评分（0-100）", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "质量评分不能为空")
     @DecimalMin(value = "0", message = "评分不能小于0")
     @DecimalMax(value = "100", message = "评分不能大于100")
-    private BigDecimal scoreQuality;
+    private BigDecimal quality;
 
     @Schema(description = "沟通协作评分（0-100）", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "沟通评分不能为空")
     @DecimalMin(value = "0", message = "评分不能小于0")
     @DecimalMax(value = "100", message = "评分不能大于100")
-    private BigDecimal scoreCommunication;
+    private BigDecimal communication;
 
     @Schema(description = "问题处理评分（0-100）", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "问题处理评分不能为空")
     @DecimalMin(value = "0", message = "评分不能小于0")
     @DecimalMax(value = "100", message = "评分不能大于100")
-    private BigDecimal scoreIssue;
+    private BigDecimal issueRate;
 
     @Schema(description = "评语")
-    private String remark;
+    private String comment;
 }

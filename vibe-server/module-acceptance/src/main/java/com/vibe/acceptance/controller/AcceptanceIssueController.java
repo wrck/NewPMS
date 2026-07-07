@@ -4,6 +4,7 @@ import com.vibe.acceptance.dto.AcceptanceIssueQueryDTO;
 import com.vibe.acceptance.dto.AcceptanceIssueSaveDTO;
 import com.vibe.acceptance.service.AcceptanceIssueService;
 import com.vibe.acceptance.vo.AcceptanceIssueVO;
+import com.vibe.annotation.OperationLog;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,6 +53,7 @@ public class AcceptanceIssueController {
     }
 
     @Operation(summary = "创建遗留问题")
+    @OperationLog(module = "验收遗留问题", type = "INSERT", description = "创建遗留问题")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody AcceptanceIssueSaveDTO dto) {
@@ -59,6 +61,7 @@ public class AcceptanceIssueController {
     }
 
     @Operation(summary = "更新遗留问题")
+    @OperationLog(module = "验收遗留问题", type = "UPDATE", description = "更新遗留问题")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody AcceptanceIssueSaveDTO dto) {
@@ -67,6 +70,7 @@ public class AcceptanceIssueController {
     }
 
     @Operation(summary = "删除遗留问题")
+    @OperationLog(module = "验收遗留问题", type = "DELETE", description = "删除遗留问题")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -75,6 +79,7 @@ public class AcceptanceIssueController {
     }
 
     @Operation(summary = "指派整改责任人")
+    @OperationLog(module = "验收遗留问题", type = "UPDATE", description = "指派整改责任人")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/assign")
     public Result<Void> assign(@PathVariable Long id, @RequestParam Long assigneeId) {
@@ -83,6 +88,7 @@ public class AcceptanceIssueController {
     }
 
     @Operation(summary = "标记整改完成")
+    @OperationLog(module = "验收遗留问题", type = "UPDATE", description = "标记整改完成")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','ENGINEER')")
     @PostMapping("/{id}/resolve")
     public Result<Void> resolve(@PathVariable Long id) {
@@ -91,6 +97,7 @@ public class AcceptanceIssueController {
     }
 
     @Operation(summary = "闭环确认")
+    @OperationLog(module = "验收遗留问题", type = "UPDATE", description = "遗留问题闭环确认", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping("/{id}/close")
     public Result<Void> close(@PathVariable Long id) {

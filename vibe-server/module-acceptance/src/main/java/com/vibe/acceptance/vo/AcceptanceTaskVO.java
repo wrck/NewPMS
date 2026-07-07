@@ -47,6 +47,9 @@ public class AcceptanceTaskVO implements Serializable {
     @Schema(description = "内部审核结果 PASS/REJECT")
     private String internalAuditResult;
 
+    @Schema(description = "客户签核链接")
+    private String customerSignLink;
+
     @Schema(description = "客户签核人姓名")
     private String customerSignUser;
 

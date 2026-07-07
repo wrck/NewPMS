@@ -44,13 +44,13 @@ public class AgentScoreServiceImpl implements AgentScoreService {
 
         AgentScoreLogEntity entity = new AgentScoreLogEntity();
         entity.setAgentCompanyId(dto.getAgentCompanyId());
-        entity.setOutsourceTaskId(dto.getOutsourceTaskId());
-        entity.setScoreTimeliness(dto.getScoreTimeliness());
-        entity.setScoreQuality(dto.getScoreQuality());
-        entity.setScoreCommunication(dto.getScoreCommunication());
-        entity.setScoreIssue(dto.getScoreIssue());
+        entity.setOutsourceTaskId(dto.getTaskId());
+        entity.setScoreTimeliness(dto.getTimeliness());
+        entity.setScoreQuality(dto.getQuality());
+        entity.setScoreCommunication(dto.getCommunication());
+        entity.setScoreIssue(dto.getIssueRate());
         entity.setScorerId(UserContextHolder.getUserId());
-        entity.setRemark(dto.getRemark());
+        entity.setRemark(dto.getComment());
         scoreLogMapper.insert(entity);
 
         // 重新计算并更新代理商综合评分（加权平均）

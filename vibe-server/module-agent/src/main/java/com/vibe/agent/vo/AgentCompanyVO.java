@@ -44,6 +44,12 @@ public class AgentCompanyVO implements Serializable {
     @Schema(description = "联系电话")
     private String contactPhone;
 
+    @Schema(description = "联系邮箱")
+    private String contactEmail;
+
+    @Schema(description = "公司地址")
+    private String address;
+
     /** 服务区域列表（JSON 数组原始字符串，序列化时直接输出为 JSON 数组） */
     @JsonRawValue
     @Schema(description = "服务区域列表 JSON")
@@ -62,6 +68,18 @@ public class AgentCompanyVO implements Serializable {
 
     @Schema(description = "合作开始日期")
     private java.time.LocalDate cooperationStart;
+
+    @Schema(description = "合作结束日期")
+    private java.time.LocalDate cooperationEnd;
+
+    @Schema(description = "项目数（统计）")
+    private Integer projectCount;
+
+    @Schema(description = "总金额（统计）")
+    private java.math.BigDecimal totalAmount;
+
+    @Schema(description = "备注")
+    private String remark;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

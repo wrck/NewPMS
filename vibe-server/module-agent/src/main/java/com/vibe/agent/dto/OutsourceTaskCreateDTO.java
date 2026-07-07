@@ -9,6 +9,7 @@ import lombok.Data;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 转包任务创建 DTO
@@ -29,8 +30,7 @@ public class OutsourceTaskCreateDTO implements Serializable {
     @NotNull(message = "项目ID不能为空")
     private Long projectId;
 
-    @Schema(description = "关联项目任务ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "关联项目任务ID不能为空")
+    @Schema(description = "关联项目任务ID（可选，自由外协任务可不传）")
     private Long taskId;
 
     @Schema(description = "代理商公司ID", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -45,4 +45,24 @@ public class OutsourceTaskCreateDTO implements Serializable {
     @NotNull(message = "截止日期不能为空")
     @Future(message = "截止日期必须晚于今天")
     private LocalDate deadline;
+
+    @Schema(description = "附件列表（name+url）")
+    private List<Attachment> attachments;
+
+    /**
+     * 附件项。
+     */
+    @Data
+    @Schema(description = "附件项")
+    public static class Attachment implements Serializable {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        @Schema(description = "文件名")
+        private String name;
+
+        @Schema(description = "文件地址")
+        private String url;
+    }
 }

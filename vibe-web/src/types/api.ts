@@ -26,6 +26,9 @@ export interface PageParams {
   sortOrder?: 'asc' | 'desc'
 }
 
+/** 趋势方向（统计卡片 StatisticCard 使用） */
+export type TrendDirection = 'up' | 'down' | 'flat'
+
 /** 业务错误码（按设计文档 1.4 错误码规范） */
 export const ErrorCode = {
   SUCCESS: 200,

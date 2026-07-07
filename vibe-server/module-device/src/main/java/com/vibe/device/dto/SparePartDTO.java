@@ -37,13 +37,29 @@ public class SparePartDTO implements Serializable {
     @Schema(description = "关联设备型号ID")
     private Long modelId;
 
+    @Schema(description = "设备类别 ROUTER/SWITCH/AP/FIREWALL/WLC/LB/OTHER")
+    @Size(max = 32, message = "设备类别长度不能超过32")
+    private String category;
+
+    @Schema(description = "单位")
+    @Size(max = 32, message = "单位长度不能超过32")
+    private String unit;
+
     @Schema(description = "所属仓库ID")
     private Long warehouseId;
 
-    @Schema(description = "状态 1-启用 0-禁用")
-    private Integer status;
+    @Schema(description = "状态 IN_STOCK/OUT/REPAIR/SCRAPPED")
+    private String status;
 
     @Schema(description = "库存数量")
     @Min(value = 0, message = "库存数量不能为负")
-    private Integer quantity;
+    private Integer stockQty;
+
+    @Schema(description = "安全库存数量")
+    @Min(value = 0, message = "安全库存数量不能为负")
+    private Integer safetyStockQty;
+
+    @Schema(description = "备注")
+    @Size(max = 255, message = "备注长度不能超过255")
+    private String remark;
 }

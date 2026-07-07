@@ -41,6 +41,9 @@ public class AgentEngineerVO implements Serializable {
     @Schema(description = "手机号")
     private String phone;
 
+    @Schema(description = "邮箱")
+    private String email;
+
     /** 技能标签（JSON 数组原始字符串，序列化时直接输出为 JSON 数组） */
     @JsonRawValue
     @Schema(description = "技能标签 JSON")
@@ -56,6 +59,12 @@ public class AgentEngineerVO implements Serializable {
 
     @Schema(description = "质量评分")
     private BigDecimal qualityScore;
+
+    @Schema(description = "任务数（统计）")
+    private Integer taskCount;
+
+    @Schema(description = "加入时间")
+    private LocalDateTime joinedAt;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

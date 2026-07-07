@@ -309,6 +309,13 @@ const V10_LOWCODE_MENU_SEED = [
   [58, 37, '模板实例化', 'BUTTON', null, null, 'lowcode:config:instantiate', null, 35, 0]
 ];
 
+// V14: 演示数据完整性补全（Task 7：SubTask 7.1 - 7.5）
+// 内容：10 个角色测试账号 + 6 种业务实体各状态演示数据 + 实体关系全链路
+// 与 V14__demo_data.sql 保持一致，用于本地 MySQL 5.7 环境（Flyway 已禁用）。
+// 幂等：INSERT IGNORE 依赖主键或唯一索引冲突忽略，重复执行安全。
+// 执行方式：读取 V14__demo_data.sql 文件并整体执行（multipleStatements 已启用）。
+const V14_DEMO_DATA_FILE = path.join(MIGRATION_DIR, 'V14__demo_data.sql');
+
 // V11: 关键业务表追加 version 列（乐观锁字段，幂等 ALTER ADD COLUMN）
 // 对应 Task C2：project / device_instance / outsource_task / work_order / acceptance_task / finance_budget
 const V11_COLUMNS = [
@@ -483,6 +490,39 @@ async function main() {
       }
     }
 
+    // --- V14: 演示数据完整性补全（Task 7） ---
+    header('V14: 演示数据完整性补全（10 角色 + 6 业务实体全状态）');
+    // 检查 V14 SQL 文件是否存在
+    if (!fs.existsSync(V14_DEMO_DATA_FILE)) {
+      skip(`V14 SQL 文件不存在: ${V14_DEMO_DATA_FILE}`);
+    } else {
+      // 检查关键业务表是否已存在（project 表是 V14 数据的核心依赖）
+      const [v14TblRows] = await conn.execute(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema=? AND table_name='project'`,
+        [DB_NAME]
+      );
+      if (v14TblRows.length === 0) {
+        skip('project 表不存在，请先执行 schema.sql，跳过 V14');
+      } else {
+        // 读取 V14 SQL 文件并整体执行
+        // 幂等保证：V14__demo_data.sql 内所有 INSERT 均使用 INSERT IGNORE，
+        //          依赖主键或唯一索引冲突忽略，重复执行安全。
+        const v14Sql = fs.readFileSync(V14_DEMO_DATA_FILE, 'utf8');
+        try {
+          await conn.query(v14Sql);
+          ok('V14 演示数据已应用（10 角色账号 + 业务全状态数据）');
+          log(`    - 角色: 新增 WAREHOUSE / QUALITY 2 个角色`, c.gray);
+          log(`    - 用户: 10 个测试账号（密码 admin123）`, c.gray);
+          log(`    - 业务数据: 项目 10 / 任务 12 / 设备 8 / 验收 6 / 财务 11 / 转包 2`, c.gray);
+        } catch (v14Err) {
+          fail(`V14 演示数据执行失败: ${v14Err.message}`);
+          log(`    文件: ${V14_DEMO_DATA_FILE}`, c.gray);
+          log(`    建议: 检查 schema.sql 是否已执行（业务表必须先创建）`, c.gray);
+          // 不抛出错误，允许其他迁移继续
+        }
+      }
+    }
+
     // --- Summary ---
     header('完成');
     log(`  V2 表: 8 张`);
@@ -490,6 +530,7 @@ async function main() {
     log(`  V10 低代码种子: 10 条 list_config + 22 条 sys_menu + 22 条 sys_role_menu`);
     log(`  V11 列: 6 个（关键业务表乐观锁）`);
     log(`  V12 表: 1 张（sys_feedback 反馈与工单）`);
+    log(`  V14 演示数据: 10 角色账号 + 6 业务实体全状态 + 全链路关联`, c.green);
     log(`  所有迁移已应用（幂等，可重复执行）`, c.green);
     log(`\n  提示: 后端 application-dev.yml 已禁用 Flyway (spring.flyway.enabled=false)`, c.gray);
     log(`  生产环境用 MySQL 8.0+ 时可恢复 Flyway${c.reset}`, c.gray);

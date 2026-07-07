@@ -553,10 +553,43 @@ export const routes: RouteRecordRaw[] = [
             meta: { title: '模板库', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
           },
           {
+            path: 'examples',
+            name: 'LowcodeExamples',
+            component: () => import('@/views/lowcode/examples/index.vue'),
+            meta: { title: '业务接入示例', requireAuth: true, keepAlive: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: 'examples/device-inspection',
+            name: 'LowcodeExampleDeviceInspection',
+            component: () => import('@/views/lowcode/examples/device-inspection.vue'),
+            meta: { title: '设备巡检表单(示例)', requireAuth: true, hideInMenu: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: 'examples/customer-followup',
+            name: 'LowcodeExampleCustomerFollowup',
+            component: () => import('@/views/lowcode/examples/customer-followup.vue'),
+            meta: { title: '客户回访列表(示例)', requireAuth: true, hideInMenu: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            path: 'examples/project-phase-delivery',
+            name: 'LowcodeExampleProjectPhaseDelivery',
+            component: () => import('@/views/lowcode/examples/project-phase-delivery.vue'),
+            meta: { title: '项目阶段交付(示例)', requireAuth: true, hideInMenu: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
             path: 'runtime/:bizType/:bizId',
             name: 'LowcodeRuntime',
             component: () => import('@/views/lowcode/runtime-renderer.vue'),
             meta: { title: '运行时渲染', requireAuth: true, hideInMenu: true, roles: ['SUPER_ADMIN'] }
+          },
+          {
+            // Task 18.9：动态路由 /lowcode/render/:configCode
+            // 通过 redirect 复用 /lowcode/runtime/:bizType/:bizId 视图，避免重复实现 schema 加载逻辑。
+            // configCode 等价于 bizType，bizId 默认 0（新增态）。
+            path: 'render/:configCode',
+            name: 'LowcodeRenderByCode',
+            redirect: (to) => ({ path: `/lowcode/runtime/${to.params.configCode}/0` }),
+            meta: { title: '低代码渲染', requireAuth: true, hideInMenu: true, roles: ['SUPER_ADMIN'] }
           }
         ]
       }

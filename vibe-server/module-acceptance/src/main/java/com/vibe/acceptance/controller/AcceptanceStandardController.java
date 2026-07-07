@@ -4,6 +4,7 @@ import com.vibe.acceptance.dto.AcceptanceStandardQueryDTO;
 import com.vibe.acceptance.dto.AcceptanceStandardSaveDTO;
 import com.vibe.acceptance.service.AcceptanceStandardService;
 import com.vibe.acceptance.vo.AcceptanceStandardVO;
+import com.vibe.annotation.OperationLog;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -60,6 +61,7 @@ public class AcceptanceStandardController {
     }
 
     @Operation(summary = "创建验收标准")
+    @OperationLog(module = "验收标准", type = "INSERT", description = "创建验收标准")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody AcceptanceStandardSaveDTO dto) {
@@ -67,6 +69,7 @@ public class AcceptanceStandardController {
     }
 
     @Operation(summary = "更新验收标准（含检查项全量替换）")
+    @OperationLog(module = "验收标准", type = "UPDATE", description = "更新验收标准")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody AcceptanceStandardSaveDTO dto) {
@@ -75,6 +78,7 @@ public class AcceptanceStandardController {
     }
 
     @Operation(summary = "删除验收标准")
+    @OperationLog(module = "验收标准", type = "DELETE", description = "删除验收标准")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {

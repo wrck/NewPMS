@@ -1,5 +1,6 @@
 package com.vibe.integration.controller;
 
+import com.vibe.annotation.OperationLog;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import com.vibe.integration.dto.IntegrationConfigQueryDTO;
@@ -68,6 +69,7 @@ public class IntegrationConfigController {
     }
 
     @Operation(summary = "新增集成配置")
+    @OperationLog(module = "集成配置", type = "INSERT", description = "新增集成配置")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody IntegrationConfigSaveDTO dto) {
@@ -75,6 +77,7 @@ public class IntegrationConfigController {
     }
 
     @Operation(summary = "更新集成配置")
+    @OperationLog(module = "集成配置", type = "UPDATE", description = "更新集成配置")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody IntegrationConfigSaveDTO dto) {
@@ -83,6 +86,7 @@ public class IntegrationConfigController {
     }
 
     @Operation(summary = "删除集成配置")
+    @OperationLog(module = "集成配置", type = "DELETE", description = "删除集成配置")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -91,6 +95,7 @@ public class IntegrationConfigController {
     }
 
     @Operation(summary = "启用/禁用集成配置")
+    @OperationLog(module = "集成配置", type = "UPDATE", description = "启用/禁用集成配置")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PutMapping("/{id}/enabled")
     public Result<Void> toggleEnabled(@PathVariable Long id,
@@ -100,6 +105,7 @@ public class IntegrationConfigController {
     }
 
     @Operation(summary = "测试连接")
+    @OperationLog(module = "集成配置", type = "OTHER", description = "测试集成连接", saveResponse = true)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR')")
     @PostMapping("/{id}/test")
     public Result<Boolean> testConnection(@PathVariable Long id) {

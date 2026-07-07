@@ -31,7 +31,7 @@ public class EngineerVO implements Serializable {
     private String username;
 
     @Schema(description = "工号")
-    private String employeeNo;
+    private String engineerNo;
 
     @Schema(description = "姓名")
     private String name;
@@ -39,14 +39,23 @@ public class EngineerVO implements Serializable {
     @Schema(description = "手机号")
     private String phone;
 
+    @Schema(description = "邮箱")
+    private String email;
+
+    @Schema(description = "所属组织ID")
+    private Long orgId;
+
+    @Schema(description = "所属组织名称")
+    private String orgName;
+
     @Schema(description = "所属区域")
     private String region;
 
-    @Schema(description = "状态 ACTIVE/RESIGNED")
+    @Schema(description = "状态 ACTIVE/ON_LEAVE/RESIGNED")
     private String status;
 
     @Schema(description = "入职日期")
-    private LocalDate hireDate;
+    private LocalDate joinedAt;
 
     @Schema(description = "技能标签（JSON 字符串）")
     private String skills;
@@ -57,8 +66,14 @@ public class EngineerVO implements Serializable {
     @Schema(description = "技能列表")
     private List<EngineerSkillVO> skillList;
 
-    @Schema(description = "当前负荷（时段内任务数，由调度服务填充）")
-    private Integer currentWorkload;
+    @Schema(description = "利用率（百分比）")
+    private Integer utilization;
+
+    @Schema(description = "进行中任务数")
+    private Integer ongoingTaskCount;
+
+    @Schema(description = "头像")
+    private String avatar;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

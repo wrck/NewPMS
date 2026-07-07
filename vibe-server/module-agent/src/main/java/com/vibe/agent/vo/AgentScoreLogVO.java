@@ -29,19 +29,19 @@ public class AgentScoreLogVO implements Serializable {
     private Long agentCompanyId;
 
     @Schema(description = "关联转包任务ID")
-    private Long outsourceTaskId;
+    private Long taskId;
 
     @Schema(description = "交付及时性评分")
-    private BigDecimal scoreTimeliness;
+    private BigDecimal timeliness;
 
     @Schema(description = "交付质量评分")
-    private BigDecimal scoreQuality;
+    private BigDecimal quality;
 
     @Schema(description = "沟通协作评分")
-    private BigDecimal scoreCommunication;
+    private BigDecimal communication;
 
     @Schema(description = "问题处理评分")
-    private BigDecimal scoreIssue;
+    private BigDecimal issueRate;
 
     @Schema(description = "综合评分（加权平均）")
     private BigDecimal overallScore;
@@ -53,7 +53,10 @@ public class AgentScoreLogVO implements Serializable {
     private String scorerName;
 
     @Schema(description = "评语")
-    private String remark;
+    private String comment;
+
+    @Schema(description = "评分时间")
+    private LocalDateTime scoredAt;
 
     @Schema(description = "代理商公司名称")
     private String agentCompanyName;

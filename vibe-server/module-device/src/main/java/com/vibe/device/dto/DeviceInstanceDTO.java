@@ -54,13 +54,16 @@ public class DeviceInstanceDTO implements Serializable {
 
     @Schema(description = "安装位置（机房-机柜-层位）")
     @Size(max = 255, message = "安装位置长度不能超过255")
-    private String installLocation;
+    private String location;
 
     @Schema(description = "所属仓库ID")
     private Long warehouseId;
 
     @Schema(description = "当前保管代理商ID")
     private Long agentCompanyId;
+
+    @Schema(description = "设备状态")
+    private String status;
 
     @Schema(description = "安装日期")
     private LocalDate installDate;

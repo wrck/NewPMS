@@ -26,19 +26,31 @@ public class WorkOrderStepVO implements Serializable {
     private Long workOrderId;
 
     @Schema(description = "步骤序号")
-    private Integer stepNo;
+    private Integer stepOrder;
 
     @Schema(description = "步骤名称")
     private String stepName;
 
-    @Schema(description = "状态 WAITING/COMPLETED/SKIPPED")
+    @Schema(description = "步骤描述")
+    private String description;
+
+    @Schema(description = "预计耗时（分钟）")
+    private Integer estimatedMinutes;
+
+    @Schema(description = "实际耗时（分钟）")
+    private Integer actualMinutes;
+
+    @Schema(description = "状态 PENDING/IN_PROGRESS/COMPLETED/SKIPPED")
     private String status;
 
     @Schema(description = "完成时间")
-    private LocalDateTime completedTime;
+    private LocalDateTime completedAt;
 
-    @Schema(description = "耗时（秒）")
-    private Integer duration;
+    @Schema(description = "操作人ID")
+    private Long operatorId;
+
+    @Schema(description = "操作人姓名")
+    private String operatorName;
 
     @Schema(description = "备注")
     private String remark;

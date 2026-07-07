@@ -335,7 +335,7 @@ onMounted(() => {
 .designer-wrapper {
   height: calc(100vh - 280px);
   min-height: 500px;
-  border: 1px solid @border-split;
+  border: 1px solid @border-color-split;
   border-radius: 6px;
   overflow: hidden;
 }

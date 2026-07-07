@@ -160,7 +160,7 @@ onMounted(() => {
       <div class="vibe-card filter-card">
         <a-radio-group v-model:value="statusFilter" button-style="solid">
           <a-radio-button :value="undefined">全部</a-radio-button>
-          <a-radio-button v-for="s in [TaskStatus.TODO, TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS, TaskStatus.SUBMITTED, TaskStatus.CONFIRMED]" :key="s" :value="s">{{ TaskStatusLabel[s] }}</a-radio-button>
+          <a-radio-button v-for="s in [TaskStatus.PENDING, TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED, TaskStatus.CONFIRMED]" :key="s" :value="s">{{ TaskStatusLabel[s] }}</a-radio-button>
         </a-radio-group>
       </div>
 

@@ -374,7 +374,7 @@ public class DeviceInstanceServiceImpl implements DeviceInstanceService {
         entity.setProjectId(dto.getProjectId());
         entity.setPhaseId(dto.getPhaseId());
         entity.setSiteName(dto.getSiteName());
-        entity.setInstallLocation(dto.getInstallLocation());
+        entity.setInstallLocation(dto.getLocation());
         entity.setWarehouseId(dto.getWarehouseId());
         entity.setAgentCompanyId(dto.getAgentCompanyId());
         entity.setInstallDate(dto.getInstallDate());

@@ -35,6 +35,15 @@ public class OutsourceWorkloadDTO implements Serializable {
     @Schema(description = "设备台数")
     private Integer deviceCount;
 
+    @Schema(description = "差旅天数")
+    private Integer travelDays;
+
+    @Schema(description = "其他费用")
+    private BigDecimal otherCost;
+
+    @Schema(description = "结算总额")
+    private BigDecimal totalAmount;
+
     @Schema(description = "备注")
     private String remark;
 }

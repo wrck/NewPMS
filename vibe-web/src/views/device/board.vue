@@ -67,7 +67,7 @@ const productLineLabel: Record<string, string> = {
 }
 
 const totalAbnormal = computed(
-  () => dashboard.value?.statusDistribution?.find((d) => d.status === DeviceStatus.ABNORMAL)?.count || 0
+  () => dashboard.value?.statusDistribution?.find((d) => d.status === DeviceStatus.DAMAGED)?.count || 0
 )
 const totalWarning = computed(() =>
   (dashboard.value?.warehouseStockStats || []).reduce((sum, w) => sum + (w.warningQty || 0), 0)
@@ -176,7 +176,7 @@ onMounted(() => {
           </div>
         </a-col>
         <a-col :xs="12" :md="6">
-          <div class="clickable" @click="gotoLedger(DeviceStatus.ABNORMAL)">
+          <div class="clickable" @click="gotoLedger(DeviceStatus.DAMAGED)">
             <StatisticCard
               title="异常设备"
               :value="totalAbnormal"
@@ -324,9 +324,9 @@ onMounted(() => {
       <a-form layout="vertical">
         <a-form-item label="目标状态" required>
           <a-select v-model:value="transitionForm.targetStatus" placeholder="请选择目标状态">
-            <a-select-option :value="DeviceStatus.ONLINE">在网（已恢复）</a-select-option>
-            <a-select-option :value="DeviceStatus.OFFLINE">离线</a-select-option>
-            <a-select-option :value="DeviceStatus.SCRAPPED">报废</a-select-option>
+            <a-select-option :value="DeviceStatus.ONLINE">在网运行（已恢复）</a-select-option>
+            <a-select-option :value="DeviceStatus.REPAIR">返修中</a-select-option>
+            <a-select-option :value="DeviceStatus.EOL">退网/报废</a-select-option>
           </a-select>
         </a-form-item>
         <a-form-item label="处理说明">

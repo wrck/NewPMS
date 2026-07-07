@@ -46,7 +46,10 @@ const contentStyle = computed(() => ({
       <div class="page-header-left">
         <span v-if="showBack" class="back-btn" @click="emit('back')">←</span>
         <div class="page-header-title-wrap">
-          <h2 v-if="title" class="vibe-page-title">{{ title }}</h2>
+          <h2 v-if="title" class="vibe-page-title">
+            {{ title }}
+            <slot name="title-suffix" />
+          </h2>
           <p v-if="description" class="page-description">{{ description }}</p>
           <slot name="header" />
         </div>

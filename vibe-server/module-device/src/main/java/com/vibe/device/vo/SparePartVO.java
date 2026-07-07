@@ -34,17 +34,29 @@ public class SparePartVO implements Serializable {
     @Schema(description = "型号名称")
     private String modelName;
 
+    @Schema(description = "设备类别")
+    private String category;
+
+    @Schema(description = "单位")
+    private String unit;
+
     @Schema(description = "所属仓库ID")
     private Long warehouseId;
 
     @Schema(description = "仓库名称")
     private String warehouseName;
 
-    @Schema(description = "状态 1-启用 0-禁用")
-    private Integer status;
+    @Schema(description = "状态 IN_STOCK/OUT/REPAIR/SCRAPPED")
+    private String status;
 
     @Schema(description = "库存数量")
-    private Integer quantity;
+    private Integer stockQty;
+
+    @Schema(description = "安全库存数量")
+    private Integer safetyStockQty;
+
+    @Schema(description = "备注")
+    private String remark;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

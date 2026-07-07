@@ -51,11 +51,14 @@ function handleSearch() {
 }
 
 const statusMap: Record<string, { tone: any; label: string }> = {
-  PENDING: { tone: 'default', label: '待确认' },
-  CONFIRMED: { tone: 'warning', label: '已确认' },
-  APPROVED: { tone: 'processing', label: '已审批' },
-  INVOICED: { tone: 'processing', label: '已开票' },
-  PAID: { tone: 'success', label: '已付款' }
+  DRAFT: { tone: 'default', label: '草稿' },
+  PM_CONFIRMED: { tone: 'processing', label: 'PM 已确认' },
+  AGENT_CONFIRMED: { tone: 'processing', label: '代理商已确认' },
+  PENDING: { tone: 'warning', label: '待审批' },
+  DIRECTOR_APPROVED: { tone: 'processing', label: '总监已审批' },
+  FINANCE_APPROVED: { tone: 'success', label: '财务已审批' },
+  REJECTED: { tone: 'error', label: '已驳回' },
+  CLOSED: { tone: 'archived', label: '已关闭' }
 }
 
 const columns = [
@@ -216,9 +219,9 @@ onMounted(() => {
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space size="small">
-              <a v-if="record.status === 'PENDING'" @click="openConfirm(record)"><EditOutlined /> 确认</a>
-              <a v-if="record.status === 'CONFIRMED'" @click="openApprove(record, true)"><CheckOutlined /> 通过</a>
-              <a v-if="record.status === 'CONFIRMED'" class="danger-link" @click="openApprove(record, false)"><CloseOutlined /> 驳回</a>
+              <a v-if="record.status === 'DRAFT'" @click="openConfirm(record)"><EditOutlined /> 确认</a>
+              <a v-if="record.status === 'PENDING'" @click="openApprove(record, true)"><CheckOutlined /> 通过</a>
+              <a v-if="record.status === 'PENDING'" class="danger-link" @click="openApprove(record, false)"><CloseOutlined /> 驳回</a>
             </a-space>
           </template>
         </template>

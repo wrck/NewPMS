@@ -25,16 +25,28 @@ public class OutsourceDeliverableVO implements Serializable {
     private Long id;
 
     @Schema(description = "转包任务ID")
-    private Long outsourceTaskId;
+    private Long taskId;
 
-    @Schema(description = "交付物类型 PHOTO/TEST_RECORD/RECEIPT/CONFIG/OTHER")
+    @Schema(description = "交付物类型 PHOTO/TEST_RECORD/SIGN_OFF/CONFIG/OTHER")
     private String deliverableType;
 
-    @Schema(description = "文件地址")
-    private String fileUrl;
-
     @Schema(description = "文件名")
-    private String fileName;
+    private String name;
+
+    @Schema(description = "文件地址")
+    private String url;
+
+    @Schema(description = "缩略图地址")
+    private String thumbnailUrl;
+
+    @Schema(description = "上传人ID")
+    private Long uploadedBy;
+
+    @Schema(description = "上传人姓名")
+    private String uploadedByName;
+
+    @Schema(description = "上传时间")
+    private LocalDateTime uploadedAt;
 
     @Schema(description = "备注")
     private String remark;

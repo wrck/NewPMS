@@ -6,6 +6,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { message, Modal, Upload } from 'ant-design-vue'
 import { PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
+import HelpHint from '@/components/HelpHint.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import {
@@ -72,6 +73,21 @@ const formData = reactive<DeviceInstanceDTO>({
   remark: ''
 })
 
+// 设备表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
+const deviceFormRules = {
+  serialNumber: [
+    { required: true, message: '请输入设备序列号 SN', trigger: 'blur' },
+    { max: 64, message: 'SN 长度不能超过 64', trigger: 'blur' }
+  ],
+  macAddress: [
+    { pattern: /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^$/, message: 'MAC 地址格式不正确（如 00:1A:2B:3C:4D:5E）', trigger: 'blur' }
+  ],
+  modelId: [
+    { required: true, message: '请选择设备型号', trigger: 'change' }
+  ]
+}
+const deviceFormRef = ref()
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
@@ -96,6 +112,12 @@ function openEdit(row: DeviceInstance) {
 }
 
 async function handleSubmit() {
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await deviceFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (!formData.serialNumber || !formData.modelId) {
     message.warning('请填写序列号和型号')
     return
@@ -200,6 +222,12 @@ onMounted(() => {
 
 <template>
   <PageContainer title="设备台账" description="设备实例全量管理，支持 Excel 批量导入">
+    <template #title-suffix>
+      <HelpHint
+        title="设备台账"
+        content="设备实例全量管理：\n1. 「新增设备」单条录入（必填：SN、型号 ID）；\n2. 「批量导入」通过 Excel 模板一次性导入多台设备，可先「下载导入模板」填写；\n3. 支持 SN / 状态 / 型号 / 项目多维筛选；\n4. 设备状态遵循状态机：在厂 → 出库 → 在途 → 安装 → 在网 → 故障 → 退运。"
+      />
+    </template>
     <template #extra>
       <a-button @click="loadData"><template #icon><ReloadOutlined /></template>刷新</a-button>
       <a-button @click="handleDownloadTemplate"><template #icon><DownloadOutlined /></template>下载导入模板</a-button>
@@ -251,20 +279,20 @@ onMounted(() => {
     </div>
 
     <a-modal v-model:open="formVisible" :title="isEdit ? '编辑设备' : '新增设备'" width="600px" :confirm-loading="formLoading" @ok="handleSubmit">
-      <a-form layout="vertical">
+      <a-form ref="deviceFormRef" layout="vertical" :model="formData" :rules="deviceFormRules">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="序列号 SN" required>
+            <a-form-item label="序列号 SN" name="serialNumber" required>
               <a-input v-model:value="formData.serialNumber" :disabled="isEdit" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="MAC 地址">
+            <a-form-item label="MAC 地址" name="macAddress">
               <a-input v-model:value="formData.macAddress" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="型号 ID" required>
+            <a-form-item label="型号 ID" name="modelId" required>
               <a-input-number v-model:value="formData.modelId" style="width: 100%" />
             </a-form-item>
           </a-col>

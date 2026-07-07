@@ -10,6 +10,8 @@
 @brand-hover: #4096ff;
 @brand-active: #0958d9;
 @brand-bg-light: #e6f4ff;
+/* 别名：低代码组件中使用的 @brand-bg 等价于 @brand-bg-light */
+@brand-bg: @brand-bg-light;
 
 /* ============ 状态色（全局核心视觉语言） ============ */
 @status-success: #52c41a; // 成功 / 完成 / 在线
@@ -39,9 +41,14 @@
 @bg-selected: #f0f5ff; // 选中行 / 信息提示背景
 /* 边框色 */
 @border-color-split: #f0f0f0; // 分割线 / 卡片头部下边框
+@border-color: #d9d9d9; // 实体边框色（输入框/卡片实体边框，比 split 深）
+/* 别名：低代码组件中使用的 @border-split 等价于 @border-color-split */
+@border-split: @border-color-split;
 /* 背景色别名（语义化命名，兼容组件中的 @bg-container / @bg-sub 写法） */
 @bg-container: @bg-card; // 容器背景（等价 @bg-card）
 @bg-sub: @bg-stripe; // 次级背景 / 悬浮态（等价 @bg-stripe）
+@bg-layout: @bg-page; // 布局背景（等价 @bg-page，低代码 SchemaDesigner 使用）
+@bg-elevated: @bg-card; // 悬浮态背景（等价 @bg-card，低代码 FieldPalette 使用）
 
 /* ============ 文字色 ============ */
 @text-primary: #1f1f1f; // 主文字色（标题/核心数据）

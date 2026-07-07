@@ -95,7 +95,8 @@ public class TimesheetServiceImpl implements TimesheetService {
         entity.setHours(dto.getHours());
         entity.setOvertimeHours(dto.getOvertimeHours() == null
                 ? BigDecimal.ZERO : dto.getOvertimeHours());
-        entity.setTravelDays(dto.getTravelDays() == null ? 0 : dto.getTravelDays());
+        // DTO 无 travelDays 字段（差旅天数由 BusinessTrip 模块独立管理），默认 0
+        entity.setTravelDays(0);
         entity.setDescription(dto.getDescription());
         entity.setStatus(ResourceConstant.TIMESHEET_SUBMITTED);
         timesheetMapper.insert(entity);
@@ -126,7 +127,8 @@ public class TimesheetServiceImpl implements TimesheetService {
         exist.setHours(dto.getHours());
         exist.setOvertimeHours(dto.getOvertimeHours() == null
                 ? BigDecimal.ZERO : dto.getOvertimeHours());
-        exist.setTravelDays(dto.getTravelDays() == null ? 0 : dto.getTravelDays());
+        // DTO 无 travelDays 字段（差旅天数由 BusinessTrip 模块独立管理），默认 0
+        exist.setTravelDays(0);
         exist.setDescription(dto.getDescription());
         // 编辑后回到待审批
         exist.setStatus(ResourceConstant.TIMESHEET_SUBMITTED);

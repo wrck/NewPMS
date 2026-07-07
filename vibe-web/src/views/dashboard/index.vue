@@ -30,6 +30,7 @@ import {
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
 import PageContainer from '@/components/PageContainer.vue'
+import HelpHint from '@/components/HelpHint.vue'
 import StatisticCard from '@/components/StatisticCard.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -328,6 +329,10 @@ onMounted(() => {
         <div>
           <h2 class="vibe-page-title">
             {{ greeting }}，{{ dashboard?.realName || userStore.realName || userStore.username || '管理员' }}
+            <HelpHint
+              title="工作台"
+              content="工作台首页按角色展示核心指标、待办事项、我负责的项目与最近动态。\n点击右上角「?」可重新打开新手教程；点击「刷新」可重新加载数据。"
+            />
           </h2>
           <p class="dashboard-date">
             <a-tag color="blue">{{ roleLabel }}</a-tag>

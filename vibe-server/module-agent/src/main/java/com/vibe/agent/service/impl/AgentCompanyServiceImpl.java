@@ -8,7 +8,11 @@ import com.vibe.agent.constant.AgentConstant;
 import com.vibe.agent.dto.AgentCompanyDTO;
 import com.vibe.agent.dto.AgentCompanyQueryDTO;
 import com.vibe.agent.entity.AgentCompanyEntity;
+import com.vibe.agent.entity.AgentEngineerEntity;
+import com.vibe.agent.entity.OutsourceTaskEntity;
 import com.vibe.agent.mapper.AgentCompanyMapper;
+import com.vibe.agent.mapper.AgentEngineerMapper;
+import com.vibe.agent.mapper.OutsourceTaskMapper;
 import com.vibe.agent.service.AgentCompanyService;
 import com.vibe.agent.vo.AgentCompanyVO;
 import com.vibe.agent.vo.AgentRankingVO;
@@ -25,6 +29,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -39,6 +44,15 @@ import java.util.List;
 public class AgentCompanyServiceImpl implements AgentCompanyService {
 
     private final AgentCompanyMapper agentCompanyMapper;
+    /** 用于删除前校验：是否存在关联工程师 / 进行中的转包任务（异常处理三层闭环 SubTask 8.4） */
+    private final AgentEngineerMapper agentEngineerMapper;
+    private final OutsourceTaskMapper outsourceTaskMapper;
+
+    /** 转包任务非终态状态（删除前需检查这些状态下是否存在引用） */
+    private static final List<String> OUTSOURCE_TASK_ACTIVE_STATUSES = Arrays.asList(
+            AgentConstant.TASK_PENDING, AgentConstant.TASK_ACCEPTED,
+            AgentConstant.TASK_IN_PROGRESS, AgentConstant.TASK_SUBMITTED,
+            AgentConstant.TASK_RETURNED, AgentConstant.TASK_OVERDUE);
 
     @Override
     public PageResult<AgentCompanyVO> page(AgentCompanyQueryDTO query) {
@@ -126,8 +140,28 @@ public class AgentCompanyServiceImpl implements AgentCompanyService {
         if (id == null) {
             throw BusinessException.of(ResultCode.PARAM_MISSING, "公司ID不能为空");
         }
-        if (agentCompanyMapper.selectById(id) == null) {
+        AgentCompanyEntity exist = agentCompanyMapper.selectById(id);
+        if (exist == null) {
             throw BusinessException.of(ResultCode.AGENT_NOT_FOUND);
+        }
+        // 异常处理三层闭环 SubTask 8.4：删除前校验是否存在关联工程师 / 进行中的转包任务
+        long engineerCount = agentEngineerMapper.selectCount(new LambdaQueryWrapper<AgentEngineerEntity>()
+                .eq(AgentEngineerEntity::getAgentCompanyId, id));
+        if (engineerCount > 0) {
+            throw BusinessException.conflict(
+                    "该公司下存在 " + engineerCount + " 名工程师，请先迁移或删除工程师后再删除公司");
+        }
+        long activeTaskCount = outsourceTaskMapper.selectCount(new LambdaQueryWrapper<OutsourceTaskEntity>()
+                .eq(OutsourceTaskEntity::getAgentCompanyId, id)
+                .in(OutsourceTaskEntity::getStatus, OUTSOURCE_TASK_ACTIVE_STATUSES));
+        if (activeTaskCount > 0) {
+            throw BusinessException.conflict(
+                    "该公司存在 " + activeTaskCount + " 个未完成的转包任务，请先完成或退回任务后再删除公司");
+        }
+        // 合作中的公司不允许直接删除，需先终止合作
+        if (AgentConstant.COMPANY_STATUS_ACTIVE.equals(exist.getStatus())) {
+            throw BusinessException.stateNotAllowed(
+                    "合作中的代理商不允许删除，请先变更为「终止合作」状态后再操作");
         }
         agentCompanyMapper.deleteById(id);
     }

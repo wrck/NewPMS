@@ -1,8 +1,10 @@
 package com.vibe.agent.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -37,7 +39,13 @@ public class AgentEngineerDTO implements Serializable {
     @Schema(description = "手机号", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "手机号不能为空")
     @Size(max = 32, message = "手机号长度不能超过32")
+    @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确（需为 11 位手机号）")
     private String phone;
+
+    @Schema(description = "邮箱")
+    @Size(max = 128, message = "邮箱长度不能超过128")
+    @Email(message = "邮箱格式不正确")
+    private String email;
 
     @Schema(description = "技能标签列表")
     private List<String> skills;

@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.time.Instant;
@@ -207,6 +209,36 @@ public class GlobalExceptionHandler {
     public Result<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
         String msg = "请求方法不支持: " + ex.getMethod();
         log.warn("[方法不支持] {} {} -> {}", request.getMethod(), request.getRequestURI(), msg);
+        return buildFailResult(ResultCode.PARAM_INVALID, msg);
+    }
+
+    /* ============ 上传文件大小超限 ============
+     * 上传文件超过 spring.servlet.multipart.max-file-size / max-request-size 时
+     * 抛出 MaxUploadSizeExceededException。统一返回 40006 + 「文件大小超过限制（最大 XX MB）」。
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public Result<Void> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        long maxBytes = ex.getMaxUploadSize();
+        String readable;
+        if (maxBytes >= 1024 * 1024) {
+            readable = (maxBytes / (1024 * 1024)) + " MB";
+        } else if (maxBytes >= 1024) {
+            readable = (maxBytes / 1024) + " KB";
+        } else {
+            readable = maxBytes + " B";
+        }
+        String msg = "文件大小超过限制（最大 " + readable + "），请压缩或拆分后重试";
+        log.warn("[文件超限] {} {} -> maxBytes={}", request.getMethod(), request.getRequestURI(), maxBytes);
+        return buildFailResult(ResultCode.PARAM_INVALID, msg);
+    }
+
+    /* ============ Content-Type 不支持 ============ */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public Result<Void> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+        String msg = "不支持的请求内容类型: " + ex.getContentType();
+        log.warn("[Content-Type 不支持] {} {} -> {}", request.getMethod(), request.getRequestURI(), msg);
         return buildFailResult(ResultCode.PARAM_INVALID, msg);
     }
 

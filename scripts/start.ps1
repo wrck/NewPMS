@@ -474,7 +474,9 @@ function Start-Frontend {
     # Install dependencies if node_modules missing
     if (-not (Test-Path (Join-Path $Dir "node_modules"))) {
         Write-Status "  node_modules 不存在，执行 npm install..." -Status Info
-        & npm install --prefix $Dir --no-audit --no-fund
+        # On Windows npm is a .cmd batch script; must invoke npm.cmd explicitly
+        $npmInstallCmd = if ($env:OS -eq "Windows_NT") { "npm.cmd" } else { "npm" }
+        & $npmInstallCmd install --prefix $Dir --no-audit --no-fund
         if ($LASTEXITCODE -ne 0) {
             Write-Status "[错误] npm install 失败: $Dir" -Status Error
             return $false

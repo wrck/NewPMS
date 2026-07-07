@@ -44,6 +44,15 @@ public class ProjectTaskDTO implements Serializable {
     @Schema(description = "执行模式 SELF/AGENT")
     private String executeMode;
 
+    @Schema(description = "执行人ID")
+    private Long assigneeId;
+
+    @Schema(description = "代理商公司ID")
+    private Long agentCompanyId;
+
+    @Schema(description = "代理商工程师ID")
+    private Long agentEngineerId;
+
     @Schema(description = "优先级 HIGH/MEDIUM/LOW")
     private String priority;
 

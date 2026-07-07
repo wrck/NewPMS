@@ -8,7 +8,9 @@ import com.vibe.agent.constant.AgentConstant;
 import com.vibe.agent.dto.AgentEngineerDTO;
 import com.vibe.agent.dto.AgentEngineerQueryDTO;
 import com.vibe.agent.entity.AgentEngineerEntity;
+import com.vibe.agent.entity.OutsourceTaskEntity;
 import com.vibe.agent.mapper.AgentEngineerMapper;
+import com.vibe.agent.mapper.OutsourceTaskMapper;
 import com.vibe.agent.service.AgentEngineerService;
 import com.vibe.agent.vo.AgentEngineerVO;
 import com.vibe.agent.vo.OutsourceTaskVO;
@@ -23,6 +25,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -37,6 +40,14 @@ import java.util.List;
 public class AgentEngineerServiceImpl implements AgentEngineerService {
 
     private final AgentEngineerMapper agentEngineerMapper;
+    /** 用于删除前校验：是否存在进行中的转包任务（异常处理三层闭环 SubTask 8.4） */
+    private final OutsourceTaskMapper outsourceTaskMapper;
+
+    /** 转包任务非终态状态（删除前需检查这些状态下是否存在引用） */
+    private static final List<String> OUTSOURCE_TASK_ACTIVE_STATUSES = Arrays.asList(
+            AgentConstant.TASK_PENDING, AgentConstant.TASK_ACCEPTED,
+            AgentConstant.TASK_IN_PROGRESS, AgentConstant.TASK_SUBMITTED,
+            AgentConstant.TASK_RETURNED, AgentConstant.TASK_OVERDUE);
 
     @Override
     public PageResult<AgentEngineerVO> page(AgentEngineerQueryDTO query) {
@@ -119,8 +130,22 @@ public class AgentEngineerServiceImpl implements AgentEngineerService {
         if (id == null) {
             throw BusinessException.of(ResultCode.PARAM_MISSING, "工程师ID不能为空");
         }
-        if (agentEngineerMapper.selectById(id) == null) {
+        AgentEngineerEntity exist = agentEngineerMapper.selectById(id);
+        if (exist == null) {
             throw BusinessException.of(ResultCode.NOT_FOUND, "工程师不存在");
+        }
+        // 异常处理三层闭环 SubTask 8.4：删除前校验是否存在进行中的转包任务
+        long activeTaskCount = outsourceTaskMapper.selectCount(new LambdaQueryWrapper<OutsourceTaskEntity>()
+                .eq(OutsourceTaskEntity::getAgentEngineerId, id)
+                .in(OutsourceTaskEntity::getStatus, OUTSOURCE_TASK_ACTIVE_STATUSES));
+        if (activeTaskCount > 0) {
+            throw BusinessException.conflict(
+                    "该工程师存在 " + activeTaskCount + " 个未完成的转包任务，请先完成任务或转派其他工程师后再删除");
+        }
+        // 启用状态的工程师需先停用再删除
+        if (AgentConstant.ENGINEER_STATUS_ACTIVE.equals(exist.getStatus())) {
+            throw BusinessException.stateNotAllowed(
+                    "启用状态的工程师不允许删除，请先停用后再操作");
         }
         agentEngineerMapper.deleteById(id);
     }

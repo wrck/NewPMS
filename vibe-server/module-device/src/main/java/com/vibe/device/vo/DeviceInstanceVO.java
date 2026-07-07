@@ -57,7 +57,13 @@ public class DeviceInstanceVO implements Serializable {
     private String siteName;
 
     @Schema(description = "安装位置")
-    private String installLocation;
+    private String location;
+
+    @Schema(description = "产品线")
+    private String productLine;
+
+    @Schema(description = "设备类别")
+    private String category;
 
     @Schema(description = "设备状态")
     private String status;
@@ -78,10 +84,10 @@ public class DeviceInstanceVO implements Serializable {
     private Integer configVersion;
 
     @Schema(description = "安装日期")
-    private LocalDate installDate;
+    private LocalDate installedAt;
 
     @Schema(description = "入网日期")
-    private LocalDate onlineDate;
+    private LocalDate onlineAt;
 
     @Schema(description = "安装人员ID")
     private Long installerId;

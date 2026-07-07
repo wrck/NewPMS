@@ -4,6 +4,7 @@ import com.vibe.acceptance.dto.AcceptanceDocQueryDTO;
 import com.vibe.acceptance.dto.AcceptanceDocSaveDTO;
 import com.vibe.acceptance.service.AcceptanceDocService;
 import com.vibe.acceptance.vo.AcceptanceDocVO;
+import com.vibe.annotation.OperationLog;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,6 +52,7 @@ public class AcceptanceDocController {
     }
 
     @Operation(summary = "上传/创建竣工文档")
+    @OperationLog(module = "竣工文档", type = "INSERT", description = "上传/创建竣工文档")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','ENGINEER')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody AcceptanceDocSaveDTO dto) {
@@ -58,6 +60,7 @@ public class AcceptanceDocController {
     }
 
     @Operation(summary = "更新竣工文档")
+    @OperationLog(module = "竣工文档", type = "UPDATE", description = "更新竣工文档")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','ENGINEER')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody AcceptanceDocSaveDTO dto) {
@@ -66,6 +69,7 @@ public class AcceptanceDocController {
     }
 
     @Operation(summary = "删除竣工文档")
+    @OperationLog(module = "竣工文档", type = "DELETE", description = "删除竣工文档")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {

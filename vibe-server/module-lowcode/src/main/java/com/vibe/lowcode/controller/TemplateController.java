@@ -1,5 +1,6 @@
 package com.vibe.lowcode.controller;
 
+import com.vibe.annotation.OperationLog;
 import com.vibe.common.base.PageQuery;
 import com.vibe.common.result.PageResult;
 import com.vibe.common.result.Result;
@@ -61,6 +62,7 @@ public class TemplateController {
     }
 
     @Operation(summary = "创建模板")
+    @OperationLog(module = "低代码模板", type = "INSERT", description = "创建低代码模板")
     @PreAuthorize("@ss.hasPermi('lowcode:template:add') or hasRole('SUPER_ADMIN')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody LowcodeTemplateDTO dto) {
@@ -68,6 +70,7 @@ public class TemplateController {
     }
 
     @Operation(summary = "更新模板")
+    @OperationLog(module = "低代码模板", type = "UPDATE", description = "更新低代码模板")
     @PreAuthorize("@ss.hasPermi('lowcode:template:add') or hasRole('SUPER_ADMIN')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody LowcodeTemplateDTO dto) {
@@ -76,6 +79,7 @@ public class TemplateController {
     }
 
     @Operation(summary = "删除模板")
+    @OperationLog(module = "低代码模板", type = "DELETE", description = "删除低代码模板")
     @PreAuthorize("@ss.hasPermi('lowcode:template:remove') or hasRole('SUPER_ADMIN')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -84,6 +88,7 @@ public class TemplateController {
     }
 
     @Operation(summary = "复制模板")
+    @OperationLog(module = "低代码模板", type = "INSERT", description = "复制低代码模板")
     @PreAuthorize("@ss.hasPermi('lowcode:template:add') or hasRole('SUPER_ADMIN')")
     @PostMapping("/{id}/copy")
     public Result<Long> copy(@PathVariable Long id) {
@@ -91,6 +96,7 @@ public class TemplateController {
     }
 
     @Operation(summary = "导出模板 JSON Schema（下载文件）")
+    @OperationLog(module = "低代码模板", type = "EXPORT", description = "导出低代码模板 JSON")
     @PreAuthorize("@ss.hasPermi('lowcode:template:list') or hasRole('SUPER_ADMIN')")
     @GetMapping("/{id}/export")
     public void exportJson(@PathVariable Long id, HttpServletResponse response) throws IOException {
@@ -102,6 +108,7 @@ public class TemplateController {
     }
 
     @Operation(summary = "导入模板 JSON Schema")
+    @OperationLog(module = "低代码模板", type = "IMPORT", description = "导入低代码模板 JSON")
     @PreAuthorize("@ss.hasPermi('lowcode:template:add') or hasRole('SUPER_ADMIN')")
     @PostMapping("/import")
     public Result<Long> importJson(@Valid @RequestBody LowcodeTemplateDTO dto) {
@@ -109,6 +116,7 @@ public class TemplateController {
     }
 
     @Operation(summary = "校验模板可实例化（返回模板 ID）")
+    @OperationLog(module = "低代码模板", type = "INSERT", description = "实例化低代码模板", saveResponse = true)
     @PreAuthorize("@ss.hasPermi('lowcode:template:list') or hasRole('SUPER_ADMIN')")
     @PostMapping("/{templateId}/instantiate")
     public Result<Long> instantiateFromTemplate(@PathVariable Long templateId,

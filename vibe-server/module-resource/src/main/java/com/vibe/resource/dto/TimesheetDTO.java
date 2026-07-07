@@ -48,8 +48,8 @@ public class TimesheetDTO implements Serializable {
     @DecimalMin(value = "0", message = "加班时长不能为负")
     private BigDecimal overtimeHours;
 
-    @Schema(description = "出差天数")
-    private Integer travelDays;
+    @Schema(description = "工作类型 NORMAL/OVERTIME/BUSINESS_TRIP/WEEKEND")
+    private String workType;
 
     @Size(max = 512, message = "工作内容说明长度不能超过512")
     @Schema(description = "工作内容说明")

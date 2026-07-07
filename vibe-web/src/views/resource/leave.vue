@@ -114,6 +114,23 @@ const formData = reactive<EngineerLeaveDTO>({
   reason: ''
 })
 
+// 请假表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
+const leaveFormRules = {
+  engineerId: [
+    { required: true, message: '请选择工程师', trigger: 'change', type: 'number' }
+  ],
+  startDate: [
+    { required: true, message: '请选择开始日期', trigger: 'change' }
+  ],
+  endDate: [
+    { required: true, message: '请选择结束日期', trigger: 'change' }
+  ],
+  reason: [
+    { max: 255, message: '请假原因长度不能超过 255', trigger: 'blur' }
+  ]
+}
+const leaveFormRef = ref()
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
@@ -141,6 +158,12 @@ function openEdit(row: EngineerLeave) {
 }
 
 async function handleSubmit() {
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await leaveFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (!formData.engineerId) {
     message.warning('请选择工程师')
     return
@@ -324,10 +347,10 @@ onMounted(() => {
       :mask-closable="false"
       @ok="handleSubmit"
     >
-      <a-form layout="vertical">
+      <a-form ref="leaveFormRef" layout="vertical" :model="formData" :rules="leaveFormRules">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="工程师 ID" required>
+            <a-form-item label="工程师 ID" name="engineerId" required>
               <a-input-number v-model:value="formData.engineerId" style="width: 100%" placeholder="工程师 ID" />
             </a-form-item>
           </a-col>
@@ -337,17 +360,17 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="开始日期" required>
+            <a-form-item label="开始日期" name="startDate" required>
               <a-date-picker v-model:value="formData.startDate" value-format="YYYY-MM-DD" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="结束日期" required>
+            <a-form-item label="结束日期" name="endDate" required>
               <a-date-picker v-model:value="formData.endDate" value-format="YYYY-MM-DD" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :span="24">
-            <a-form-item label="请假原因">
+            <a-form-item label="请假原因" name="reason">
               <a-textarea v-model:value="formData.reason" :rows="3" placeholder="请假原因/说明" />
             </a-form-item>
           </a-col>

@@ -16,6 +16,7 @@ import {
   ExportOutlined
 } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
+import HelpHint from '@/components/HelpHint.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -260,6 +261,12 @@ onMounted(() => {
 
 <template>
   <PageContainer title="项目列表" description="管理所有交付项目的全生命周期">
+    <template #title-suffix>
+      <HelpHint
+        title="项目列表"
+        content="管理项目全生命周期：\n1. 点击「新建项目」创建项目（必填：项目名、客户、PM）；\n2. 可选项目模板自动生成阶段与任务；\n3. 支持按状态/优先级/产品线/执行模式筛选；\n4. 点击项目名进入详情页规划阶段与任务。"
+      />
+    </template>
     <template #extra>
       <a-button @click="handleReset">
         <template #icon><ReloadOutlined /></template>

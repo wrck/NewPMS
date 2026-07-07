@@ -1,9 +1,10 @@
 # 架构设计
 
-> 文档版本：V1.0
+> 文档版本：V1.1（架构对齐与低代码 / 异常处理 / 用户引导补充版）
 > 更新日期：2026-07-06
 > 基线文档：`系统设计文档.md` V1.0（第一部分系统架构设计）
 > 配套文档：[需求总览](./requirement-overview.md) | [状态机转换矩阵](./state-machine.md) | [开发规范](./development-guide.md) | [部署指南](./deployment-guide.md)
+> 版本变更：V1.1 在 V1.0 基础上新增第十五章「本轮迭代架构补充（Task 1-21）」，补充低代码架构、异常处理三层闭环架构、新增前端组件清单、用户引导架构
 
 ---
 
@@ -23,6 +24,7 @@
 - [十二、文件存储](#十二文件存储)
 - [十三、部署架构](#十三部署架构)
 - [十四、CI/CD 流程](#十四cicd-流程)
+- [十五、本轮迭代架构补充（Task 1-21）](#十五本轮迭代架构补充task-1-21)
 
 ---
 
@@ -824,3 +826,291 @@ vibe-server-bootstrap/src/main/resources/
   - 接口 P95 响应时间 > 3s 持续 5 分钟 → 告警
   - JVM 堆内存使用率 > 85% → 告警
   - 数据库连接池活跃连接 > 80% → 告警
+
+---
+
+## 十五、本轮迭代架构补充（Task 1-21）
+
+> 章节来源：enterprise-completion Spec 执行 Agent 于 2026-07-06 补充
+> 章节目的：在 V1.0 已有架构说明基础上，补充本轮 Task 1-21 完成后新增的架构元素与对齐情况
+> 范围：低代码架构完整说明、异常处理三层闭环架构、新增前端组件清单、用户引导架构、模块清单与技术栈对齐结果
+
+### 15.1 模块清单与最终实现对齐
+
+V1.0 第五章「后端模块清单与依赖」已列出 14 个业务模块 + bootstrap，本轮迭代未新增模块，但完成以下对齐：
+
+| 对齐项 | V1.0 描述 | 实际状态 | 对齐结果 |
+| ------ | --------- | -------- | -------- |
+| `module-lowcode` | 已在模块清单（5 Controller / 5 Entity） | 后端完整 + 前端 6 组件 6 视图 + 3 业务示例 + 100% 测试覆盖 | 前后端完整落地 |
+| `module-common` | 公共基类 + Result + 异常 + 工具 | 新增 `@OperationLog` 注解 + `OperationLogAspect`（位于 module-system）+ `MaxUploadSizeExceededException` / `HttpMediaTypeNotSupportedException` 异常处理 | 异常处理能力增强 |
+| `module-system` | 12 Controller / 13 Entity | 新增 `FeedbackController` + `SysFeedbackEntity` + 反馈管理（已在 V1.0 §5.1 列出 12 Controller，实际为 16 个含 Feedback） | 反馈系统新增 |
+| Controller 总数 | ~62 个 | 实际 68 个（V1.0 估算偏少） | 已在 [开发规范 - 第九章 操作日志审计报告](./development-guide.md#九操作日志审计报告) 校正 |
+| 业务实体总数 | ~80 个 | 实际 ~80 个（含 `SysFeedbackEntity`） | 一致 |
+
+### 15.2 低代码架构详细说明
+
+> V1.0 第十章「集成架构」未涵盖低代码架构，本节补充。
+
+#### 15.2.1 低代码整体架构
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 展现层                                                              │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ 低代码设计器（仅 SUPER_ADMIN）                                  │ │
+│ │ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐            │ │
+│ │ │ Schema       │ │ FieldPalette │ │ PropertyPanel│            │ │
+│ │ │ Designer     │ │ 字段库       │ │ 属性面板     │            │ │
+│ │ │ 设计画布     │ │              │ │              │            │ │
+│ │ └──────────────┘ └──────────────┘ └──────────────┘            │ │
+│ │ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐            │ │
+│ │ │ Schema       │ │ Schema       │ │ Schema       │            │ │
+│ │ │ Preview      │ │ Importer     │ │ Exporter     │            │ │
+│ │ │ 预览渲染     │ │ JSON 导入    │ │ JSON 导出    │            │ │
+│ │ └──────────────┘ └──────────────┘ └──────────────┘            │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ 运行时渲染器（业务用户）                                        │ │
+│ │ RuntimeRenderer：根据 Schema 动态渲染表单/列表/标签页/关联页    │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────┬──────────────────────────────────┘
+                                   │ /api/v1/lowcode/*
+┌──────────────────────────────────▼──────────────────────────────────┐
+│ 业务服务层（module-lowcode）                                        │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐│
+│ │ FormConfig   │ │ ListConfig   │ │ TabConfig    │ │ RelationConf ││
+│ │ Controller   │ │ Controller   │ │ Controller    │ │ Controller   ││
+│ │ 表单配置      │ │ 列表配置     │ │ 标签页配置    │ │ 关联页配置   ││
+│ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘│
+│ ┌──────────────┐                                                    │
+│ │ Template     │                                                    │
+│ │ Controller   │                                                    │
+│ │ 模板库        │                                                    │
+│ └──────────────┘                                                    │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ Service / Mapper / Entity 五套                                   │ │
+│ │ lowcode_form_config / list_config / tab_config / relation_config │ │
+│ │ / template                                                      │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────┬──────────────────────────────────┘
+                                   │
+                                   ▼
+                          数据层（MySQL lowcode_* 五表）
+```
+
+#### 15.2.2 五类配置器职责
+
+| 配置器 | 后端 Controller | 前端视图 | 数据表 | 用途 |
+| ------ | --------------- | -------- | ------ | ---- |
+| 表单配置 | FormConfigController | form-config.vue | lowcode_form_config | 定义表单字段、布局、校验规则 |
+| 列表配置 | ListConfigController | list-config.vue | lowcode_list_config | 定义列表列、筛选器、操作按钮、数据源 API |
+| 标签页配置 | TabConfigController | tab-config.vue | lowcode_tab_config | 定义详情页标签页布局与内容 |
+| 关联页配置 | RelationConfigController | relation-config.vue | lowcode_relation_config | 定义 master-detail 关联关系页 |
+| 模板库 | TemplateController | template-library.vue | lowcode_template | 模板 CRUD + 复制 + 导入导出 + 实例化 |
+
+#### 15.2.3 Schema 数据结构
+
+低代码配置以 JSON Schema 形式持久化，结构示例：
+
+```json
+{
+  "type": "FORM",
+  "bizType": "customer",
+  "version": 1,
+  "fields": [
+    {
+      "name": "customerName",
+      "label": "客户名称",
+      "type": "INPUT",
+      "required": true,
+      "rules": { "max": 128 },
+      "width": "100%"
+    },
+    {
+      "name": "phone",
+      "label": "联系电话",
+      "type": "INPUT",
+      "required": true,
+      "rules": { "pattern": "^1[3-9]\\d{9}$" }
+    }
+  ]
+}
+```
+
+#### 15.2.4 业务示例
+
+本轮迭代实现 3 个业务示例验证低代码能力：
+
+| 示例 | 类型 | bizType | 说明 |
+| ---- | ---- | ------- | ---- |
+| 客户档案表单 | FORM | customer | 客户 CRUD 表单的 Schema 化定义 |
+| 项目列表 | LIST | project | 项目列表的列定义与筛选器 Schema 化 |
+| 设备台账标签页 | TAB | device | 设备详情页的标签页布局 Schema 化 |
+
+### 15.3 异常处理三层闭环架构
+
+> V1.0 第六章「统一响应与异常处理」描述了 GlobalExceptionHandler，但未涵盖前端表单校验与后端 DTO 校验的闭环关系。本节补充完整的三层闭环架构。
+
+#### 15.3.1 三层闭环架构图
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 第一层：前端表单校验拦截                                             │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ Ant Design Vue a-form :rules + ref.validate()                  │ │
+│ │ 在用户提交前拦截无效输入，减少无效请求                           │ │
+│ │ 本轮修复：7 个关键表单页面的 :rules 配置                        │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────┬──────────────────────────────────┘
+                                   │ 仅校验通过才提交
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 第二层：后端业务校验                                                 │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ 第二层 A：Bean Validation（@Valid + @NotBlank / @NotNull / ...） │ │
+│ │ 本轮修复：6 个 DTO 新增校验注解；2 个 Controller 新增 @Valid     │ │
+│ │ 触发：MethodArgumentNotValidException → 40001 + errors[]        │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ 第二层 B：Service 业务规则校验                                  │ │
+│ │ 状态机校验：BusinessException.stateNotAllowed() → 40901         │ │
+│ │ 引用关系校验：BusinessException.conflict() → 40902              │ │
+│ │ 唯一性校验：BusinessException.duplicate() → 40902                │ │
+│ │ 本轮修复：2 个 ServiceImpl.delete 新增引用校验                  │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────┬──────────────────────────────────┘
+                                   │ 校验失败抛 BusinessException
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ 第三层：展示层错误提示友好化                                         │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ 后端 GlobalExceptionHandler（17 类异常处理）                     │ │
+│ │ 本轮新增：MaxUploadSizeExceededException（413）                  │ │
+│ │          HttpMediaTypeNotSupportedException（415）               │ │
+│ │ 统一封装为 Result<T> 响应体                                     │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ 前端 request.ts 响应拦截器（9 个错误码区间处理）                 │ │
+│ │ 400xx：提取 errors[] 高亮表单字段                               │ │
+│ │ 401xx：跳转登录                                                  │ │
+│ │ 403xx：提示权限不足                                              │ │
+│ │ 404xx：提示资源不存在                                            │ │
+│ │ 409xx：直接展示后端 message                                      │ │
+│ │ 413/415：HTTP 错误分支处理                                       │ │
+│ │ 500xx：提示系统异常                                              │ │
+│ │ 502xx：提示操作失败                                              │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 15.3.2 三层闭环覆盖的异常类型
+
+| 异常类型 | 第一层（前端） | 第二层 A（DTO） | 第二层 B（Service） | 第三层（展示） |
+| -------- | -------------- | --------------- | ------------------- | -------------- |
+| 必填字段为空 | `:rules` required | `@NotBlank` / `@NotNull` | - | 40001 + errors[] |
+| 格式错误（手机/邮箱） | `:rules` pattern | `@Pattern` / `@Email` | - | 40001 + errors[] |
+| 长度超限 | `:rules` max | `@Size(max=)` | - | 40001 + errors[] |
+| 数值范围 | `:rules` min/max | `@Min` / `@Max` | - | 40001 + errors[] |
+| 唯一性冲突 | - | - | `BusinessException.duplicate()` | 40902 |
+| 状态机非法流转 | 按钮置灰 | - | `BusinessException.stateNotAllowed()` | 40901 |
+| 引用关系冲突 | - | - | `BusinessException.conflict()` | 40902 |
+| 乐观锁冲突 | - | - | `OptimisticLockingFailureException` | 40904 |
+| 文件超限 | - | - | - | 413（MaxUploadSize） |
+| Content-Type 错误 | - | - | - | 415（HttpMediaType） |
+| 权限不足 | - | - | `AccessDeniedException` | 40301 |
+| 资源不存在 | - | - | `BusinessException.notFound()` | 40401 |
+| 外部服务失败 | - | - | `ExternalException` | 50201 |
+| 系统异常 | - | - | `Exception` 兜底 | 50000 |
+
+### 15.4 新增前端组件清单
+
+> V1.0 第二章「技术选型」与第十章未涵盖本轮新增的前端组件，本节补充。
+
+| 组件 | 路径 | 类型 | 用途 | 实现来源 |
+| ---- | ---- | ---- | ---- | -------- |
+| SchemaDesigner | `vibe-web/src/components/Lowcode/SchemaDesigner.vue` | 业务组件 | 低代码 Schema 设计画布（三栏布局：字段库 + 画布 + 属性面板） | Task 13-19 |
+| FieldPalette | `vibe-web/src/components/Lowcode/FieldPalette.vue` | 业务组件 | 字段库（3 分组 / 10 字段类型 / dragstart） | Task 13-19 |
+| PropertyPanel | `vibe-web/src/components/Lowcode/PropertyPanel.vue` | 业务组件 | 字段属性编辑面板（label/required/rules/width） | Task 13-19 |
+| SchemaPreview | `vibe-web/src/components/Lowcode/SchemaPreview.vue` | 业务组件 | Schema 实时预览渲染（4 种 schema 类型） | Task 13-19 |
+| SchemaImporter | `vibe-web/src/components/Lowcode/SchemaImporter.vue` | 业务组件 | JSON Schema 导入对话框（4 类校验） | Task 13-19 |
+| RuntimeRenderer | `vibe-web/src/components/Lowcode/RuntimeRenderer.vue` | 业务组件 | 运行时渲染器（根据 Schema 动态渲染表单/列表/标签页/关联页） | Task 13-19 |
+| OnboardingTour | `vibe-web/src/components/Onboarding/OnboardingTour.vue` | 业务组件 | 5 步交互式新手教程（工作台/创建项目/派发任务/查看设备/提交验收） | Task 10 |
+| HelpHint | `vibe-web/src/components/Onboarding/HelpHint.vue` | 业务组件 | 上下文帮助气泡（悬浮 `?` 图标显示） | Task 10 |
+| FeedbackButton | `vibe-web/src/components/Feedback/FeedbackButton.vue` | 业务组件 | 右下角悬浮反馈按钮（功能建议/Bug/咨询） | enterprise-completion |
+
+### 15.5 用户引导架构
+
+> V1.0 未涵盖用户引导架构，本节补充。
+
+#### 15.5.1 引导能力分层
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 系统级引导                                                          │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ OnboardingTour：首次登录自动触发的 5 步交互式教程               │ │
+│ │ 存储：localStorage onboarding_tour_done / onboarding_done       │ │
+│ │ 触发：first_login=1 或 localStorage 标记不存在                   │ │
+│ │ 跳过：教程气泡右下角「跳过教程」按钮                              │ │
+│ │ 重启：右上角 ? 图标 → 「重新查看教程」                            │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────┤
+│ 页面级帮助                                                          │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ HelpHint：页面标题右侧 ? 图标，悬浮显示该页面操作要点            │ │
+│ │ 集成页面：dashboard / project/list / device/ledger /            │ │
+│ │           delivery/board / agent/profile / system/user（6 个）   │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────┤
+│ 反馈通道                                                            │
+│ ┌─────────────────────────────────────────────────────────────────┐ │
+│ │ FeedbackButton：右下角悬浮按钮，全端用户可提交反馈               │ │
+│ │ 类型：SUGGESTION / BUG / CONSULT                                │ │
+│ │ 处理：SUPER_ADMIN 在「系统管理 > 反馈管理」处理                  │ │
+│ └─────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 15.5.2 引导状态管理
+
+| 状态 | 存储位置 | 说明 |
+| ---- | -------- | ---- |
+| 教程完成标记 | `localStorage.onboarding_tour_done` | 完成或跳过后写入，不再自动弹出 |
+| 教程跳过标记 | `localStorage.onboarding_done` | 同上，双重标记 |
+| 重启触发 | 右上角 ? 图标点击 | 清除标记后重新触发，或调用 `appStore.triggerTutorial()` |
+
+### 15.6 技术栈对齐结果
+
+| 层次 | V1.0 描述 | 实际使用 | 对齐结果 |
+| ---- | --------- | -------- | -------- |
+| 后端 ORM | MyBatis-Plus 3.5.x | 实际使用 MyBatis-Plus 3.5.x | ✅ 一致 |
+| 对象转换 | MapStruct | 实际使用 BeanUtils.copyProperties | ⚠️ 偏差（见 [需求总览 D3](./requirement-overview.md#103-实现偏差)） |
+| 集成安全 | Sentinel / Resilience4j 熔断降级 | 未显式实现 | 🟡 待补 |
+| 前端甘特图 | dhtmlx-gantt 8.x | 组件已开发未在业务页面使用 | 🟡 待接入（见 [需求总览 L1](./requirement-overview.md#102-逻辑缺陷)） |
+| 前端地图 | 高德地图 JS API 2.0 | AMap 组件已开发未在项目列表使用 | 🟡 待接入 |
+| 测试框架（后端） | JUnit 5 + Mockito | 实际使用，累计 17 个测试类 | ✅ 一致 |
+| 测试框架（前端） | Vitest + @vue/test-utils | 实际使用，49 文件 1052 用例 | ✅ 一致 |
+| E2E 框架 | Playwright | 实际使用 Vitest 运行 e2e-smoke.spec.ts | ✅ 一致（用 Vitest 替代 Playwright 运行 e2e） |
+| 操作日志 | -（V1.0 未描述） | `@OperationLog` 注解 + `OperationLogAspect` AOP 切面 | ✅ 本轮新增 |
+| 异常处理 | GlobalExceptionHandler | 实际 17 类异常处理（含本轮新增 2 类） | ✅ 增强 |
+
+### 15.7 架构与最终实现对齐总结
+
+| 架构维度 | V1.0 描述 | 最终实现 | 对齐状态 |
+| -------- | --------- | -------- | -------- |
+| 系统架构分层 | 6 层（展现/接入/网关/业务/平台/数据） | 与 V1.0 一致（网关层为预留） | ✅ |
+| 后端模块清单 | 14 业务模块 + bootstrap | 与 V1.0 一致 | ✅ |
+| 模块依赖关系 | module-common 基础 + module-project 核心 | 与 V1.0 一致 | ✅ |
+| 统一响应体 | Result<T> + PageResult<T> | 与 V1.0 一致 | ✅ |
+| 错误码规范 | 200/400xx/401xx/403xx/404xx/409xx/500xx/502xx | 与 V1.0 一致 + 413/415 新增 | ✅ 增强 |
+| 认证与权限 | JWT + RBAC + 数据权限 | 与 V1.0 一致 | ✅ |
+| 数据库规范 | BaseEntity + 逻辑删除 + 乐观锁 + Flyway | 与 V1.0 一致（dev 用 init-db.js 替代 Flyway） | ✅ |
+| 缓存设计 | Caffeine L1 + Redis L2 | 与 V1.0 一致 | ✅ |
+| 集成架构 | ExternalSystemAdapter 统一接口 | 偏差：各系统独立 Service | ⚠️ 偏差 |
+| 消息通知 | 14 类领域事件 + RabbitMQ | 与 V1.0 一致 | ✅ |
+| 文件存储 | MinIO + 5 Bucket | 偏差：单一 bucket | ⚠️ 偏差 |
+| 部署架构 | Docker Compose + 4 环境配置 | 与 V1.0 一致 | ✅ |
+| CI/CD | GitLab CI | 与 V1.0 一致 | ✅ |
+| 低代码架构 | V1.0 未描述 | 本轮补充（§15.2） | ✅ 新增 |
+| 异常处理三层闭环 | V1.0 仅描述第三层 | 本轮补充完整三层（§15.3） | ✅ 新增 |
+| 用户引导架构 | V1.0 未描述 | 本轮补充（§15.5） | ✅ 新增 |

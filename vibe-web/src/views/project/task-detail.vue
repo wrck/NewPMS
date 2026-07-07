@@ -210,7 +210,7 @@ onMounted(() => {
         <template #icon><ReloadOutlined /></template>
         刷新
       </a-button>
-      <a-button v-if="detail?.status === TaskStatus.TODO" type="primary" @click="openDispatch">派发</a-button>
+      <a-button v-if="detail?.status === TaskStatus.PENDING" type="primary" @click="openDispatch">派发</a-button>
       <a-button v-if="detail && [TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS].includes(detail.status as TaskStatus)" @click="openTransfer">转派</a-button>
       <a-button v-if="detail && [TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS].includes(detail.status as TaskStatus)" @click="openReturn">退回</a-button>
       <a-button v-if="detail && [TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS].includes(detail.status as TaskStatus)" type="primary" @click="openProgress">更新进度</a-button>

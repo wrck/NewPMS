@@ -100,6 +100,31 @@ const formData = reactive<SysUserDTO>({
   roleCodes: [],
   password: ''
 })
+
+// 用户表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
+const userFormRules = {
+  userName: [
+    { required: true, message: '请输入登录账号', trigger: 'blur' },
+    { max: 64, message: '登录账号长度不能超过 64', trigger: 'blur' },
+    { pattern: /^[a-zA-Z][a-zA-Z0-9_]{2,63}$/, message: '账号须以字母开头，仅含字母/数字/下划线，3-64 位', trigger: 'blur' }
+  ],
+  realName: [
+    { required: true, message: '请输入真实姓名', trigger: 'blur' },
+    { max: 64, message: '真实姓名长度不能超过 64', trigger: 'blur' }
+  ],
+  phone: [
+    { pattern: /^1[3-9]\d{9}$|^$/, message: '请输入有效的手机号（11 位）', trigger: 'blur' }
+  ],
+  email: [
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' },
+    { max: 128, message: '邮箱长度不能超过 128', trigger: 'blur' }
+  ],
+  password: [
+    { min: 6, max: 64, message: '密码长度需在 6-64 之间', trigger: 'blur' }
+  ]
+}
+const userFormRef = ref()
+
 const roleOptions = ref<SysRole[]>([])
 
 async function loadRoles() {
@@ -143,6 +168,12 @@ function openEdit(row: SysUser) {
 }
 
 async function handleSubmit() {
+  // 异常处理三层闭环：先校验表单，再调用后端
+  try {
+    await userFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (!formData.userName || !formData.realName) {
     message.warning('请填写用户名和姓名')
     return
@@ -326,25 +357,25 @@ onMounted(() => {
 
     <!-- 新增/编辑用户 -->
     <a-modal v-model:open="formVisible" :title="isEdit ? '编辑用户' : '新增用户'" width="640px" :confirm-loading="formLoading" @ok="handleSubmit">
-      <a-form layout="vertical">
+      <a-form ref="userFormRef" layout="vertical" :model="formData" :rules="userFormRules">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="用户名" required>
+            <a-form-item label="用户名" name="userName" required>
               <a-input v-model:value="formData.userName" :disabled="isEdit" placeholder="登录用户名" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="姓名" required>
+            <a-form-item label="姓名" name="realName" required>
               <a-input v-model:value="formData.realName" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="手机">
+            <a-form-item label="手机" name="phone">
               <a-input v-model:value="formData.phone" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="邮箱">
+            <a-form-item label="邮箱" name="email">
               <a-input v-model:value="formData.email" />
             </a-form-item>
           </a-col>
@@ -369,7 +400,7 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="24" v-if="!isEdit">
-            <a-form-item label="初始密码" required>
+            <a-form-item label="初始密码" name="password" required>
               <a-input-password v-model:value="formData.password" placeholder="至少 6 位" />
             </a-form-item>
           </a-col>

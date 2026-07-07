@@ -1,5 +1,6 @@
 package com.vibe.auth.controller;
 
+import com.vibe.annotation.OperationLog;
 import com.vibe.auth.dto.AgentLoginDTO;
 import com.vibe.auth.dto.ChangePasswordDTO;
 import com.vibe.auth.dto.CustomerLoginDTO;
@@ -51,24 +52,28 @@ public class AuthController {
     private final SysUserService sysUserService;
 
     @Operation(summary = "内部用户账号密码登录", description = "PC/MOBILE 端账号密码登录，返回 JWT Token（userType=INTERNAL，8h）")
+    @OperationLog(module = "认证授权", type = "LOGIN", description = "内部用户登录", saveRequest = false)
     @PostMapping("/login")
     public Result<LoginVO> login(@RequestBody @Valid LoginDTO dto) {
         return Result.success(authService.login(dto));
     }
 
     @Operation(summary = "代理商工程师登录", description = "代理商 H5 端手机号 + 短信验证码登录，签发 AGENT 类型 Token（7d）")
+    @OperationLog(module = "认证授权", type = "LOGIN", description = "代理商工程师登录", saveRequest = false)
     @PostMapping("/agent/login")
     public Result<LoginVO> agentLogin(@RequestBody @Valid AgentLoginDTO dto) {
         return Result.success(authService.agentLogin(dto));
     }
 
     @Operation(summary = "客户手机号验证码登录", description = "客户 H5 入口，发送验证码后用手机号 + 验证码登录，签发 CUSTOMER 类型 Token（2h）")
+    @OperationLog(module = "认证授权", type = "LOGIN", description = "客户登录", saveRequest = false)
     @PostMapping("/customer/login")
     public Result<LoginVO> customerLogin(@RequestBody @Valid CustomerLoginDTO dto) {
         return Result.success(authService.customerLogin(dto));
     }
 
     @Operation(summary = "登出", description = "将当前 Token 加入黑名单，强制下线")
+    @OperationLog(module = "认证授权", type = "LOGOUT", description = "用户登出", saveRequest = false, saveResponse = false)
     @PostMapping("/logout")
     public Result<Void> logout(HttpServletRequest request) {
         String authHeader = request.getHeader(CommonConstant.HEADER_AUTHORIZATION);
@@ -103,6 +108,7 @@ public class AuthController {
     }
 
     @Operation(summary = "修改密码", description = "当前登录用户修改密码，需提供旧密码")
+    @OperationLog(module = "认证授权", type = "UPDATE", description = "修改密码", saveRequest = false)
     @PostMapping("/change-password")
     public Result<Void> changePassword(@RequestBody @Valid ChangePasswordDTO dto) {
         UserContext ctx = UserContextHolder.get();

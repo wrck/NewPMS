@@ -35,6 +35,9 @@ public class OutsourceTaskVO implements Serializable {
     @Schema(description = "任务ID")
     private Long id;
 
+    @Schema(description = "任务编号")
+    private String taskCode;
+
     @Schema(description = "项目ID")
     private Long projectId;
 
@@ -62,11 +65,17 @@ public class OutsourceTaskVO implements Serializable {
     @Schema(description = "确认人ID")
     private Long confirmedBy;
 
+    @Schema(description = "确认人姓名")
+    private String confirmedByName;
+
     @Schema(description = "确认时间")
     private LocalDateTime confirmedTime;
 
     @Schema(description = "退回原因")
     private String rejectReason;
+
+    @Schema(description = "附件列表（JSON 字符串）")
+    private String attachments;
 
     @Schema(description = "乐观锁版本号")
     private Integer version;

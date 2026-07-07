@@ -100,8 +100,14 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         workOrderMapper.insert(entity);
 
         // 初始化施工步骤
-        List<String> steps = (dto.getSteps() != null && !dto.getSteps().isEmpty())
-                ? dto.getSteps() : DEFAULT_STEPS;
+        List<String> steps;
+        if (dto.getStandardSteps() != null && !dto.getStandardSteps().isEmpty()) {
+            steps = dto.getStandardSteps().stream()
+                    .map(WorkOrderCreateDTO.StandardStep::getStepName)
+                    .toList();
+        } else {
+            steps = DEFAULT_STEPS;
+        }
         workOrderStepService.initSteps(entity.getId(), steps);
 
         // 推进任务状态 PENDING/ASSIGNED → IN_PROGRESS
@@ -176,7 +182,11 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         // GPS 定位校验（Haversine 距离）
         ProjectTaskLookup task = projectTaskLookupMapper.selectById(workOrder.getTaskId());
         String siteInfo = task != null ? task.getSiteInfo() : null;
-        SiteInfoUtils.CheckinCheckResult check = SiteInfoUtils.checkLocation(dto.getLocation(), siteInfo);
+        GpsLocation location = new GpsLocation();
+        location.setLongitude(dto.getLongitude());
+        location.setLatitude(dto.getLatitude());
+        location.setAddress(dto.getAddress());
+        SiteInfoUtils.CheckinCheckResult check = SiteInfoUtils.checkLocation(location, siteInfo);
         if (!check.passed) {
             log.warn("[WorkOrder] 签到 GPS 校验失败: workOrderId={}, userId={}, message={}",
                     workOrderId, UserContextHolder.getUserId(), check.message);
@@ -205,7 +215,6 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         }
 
         // 记录签到时间与位置
-        GpsLocation location = dto.getLocation();
         if (location != null && check.distanceMeters != null) {
             location.setDistanceMeters(check.distanceMeters);
         }
@@ -243,7 +252,11 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         update.setId(workOrder.getId());
         update.setVersion(workOrder.getVersion());
         update.setCheckoutTime(LocalDateTime.now());
-        update.setCheckoutLocation(dto.getLocation());
+        GpsLocation checkoutLocation = new GpsLocation();
+        checkoutLocation.setLongitude(dto.getLongitude());
+        checkoutLocation.setLatitude(dto.getLatitude());
+        checkoutLocation.setAddress(dto.getAddress());
+        update.setCheckoutLocation(checkoutLocation);
         // 计算总工时（小时，保留 2 位小数）
         if (workOrder.getCheckinTime() != null) {
             long minutes = Duration.between(workOrder.getCheckinTime(), update.getCheckoutTime()).toMinutes();

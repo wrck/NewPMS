@@ -62,6 +62,7 @@ public class FinanceCostController {
     }
 
     @Operation(summary = "创建成本")
+    @com.vibe.annotation.OperationLog(module = "成本归集", type = "INSERT", description = "创建成本")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
     @PostMapping
     public Result<Long> create(@Valid @RequestBody FinanceCostSaveDTO dto) {
@@ -69,6 +70,7 @@ public class FinanceCostController {
     }
 
     @Operation(summary = "更新成本")
+    @com.vibe.annotation.OperationLog(module = "成本归集", type = "UPDATE", description = "更新成本")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','PM','FINANCE')")
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody FinanceCostSaveDTO dto) {
@@ -77,6 +79,7 @@ public class FinanceCostController {
     }
 
     @Operation(summary = "删除成本")
+    @com.vibe.annotation.OperationLog(module = "成本归集", type = "DELETE", description = "删除成本")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','DIRECTOR','FINANCE')")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {

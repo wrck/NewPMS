@@ -13,14 +13,16 @@ import com.vibe.delivery.service.WorkOrderIssueService;
 import com.vibe.delivery.service.WorkOrderPhotoService;
 import com.vibe.delivery.service.WorkOrderStepService;
 import com.vibe.delivery.vo.WorkOrderVO;
+import com.vibe.event.DomainEventPublisher;
 import com.vibe.utils.MinioUtils;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -63,8 +65,16 @@ class WorkOrderServiceImplTest {
     @Mock
     private MinioUtils minioUtils;
 
-    @InjectMocks
     private WorkOrderServiceImpl workOrderService;
+
+    @BeforeEach
+    void setUp() {
+        DomainEventPublisher domainEventPublisher = Mockito.mock(DomainEventPublisher.class);
+        workOrderService = new WorkOrderServiceImpl(
+                workOrderMapper, projectTaskLookupMapper, workOrderStepService,
+                workOrderPhotoService, workOrderIssueService, minioUtils,
+                domainEventPublisher);
+    }
 
     /** 天安门坐标（测试基准点） */
     private static final double TAM_LAT = 39.9042;
@@ -207,15 +217,18 @@ class WorkOrderServiceImplTest {
             ProjectTaskLookup task = buildTask(100L, 1L, DeliveryConstant.TASK_STATUS_CONFIRMED);
             when(projectTaskLookupMapper.selectById(100L)).thenReturn(task);
 
-            List<String> customSteps = Arrays.asList("步骤A", "步骤B");
+            WorkOrderCreateDTO.StandardStep step1 = new WorkOrderCreateDTO.StandardStep();
+            step1.setStepName("步骤A");
+            WorkOrderCreateDTO.StandardStep step2 = new WorkOrderCreateDTO.StandardStep();
+            step2.setStepName("步骤B");
             WorkOrderCreateDTO dto = new WorkOrderCreateDTO();
             dto.setTaskId(100L);
             dto.setEngineerId(1L);
-            dto.setSteps(customSteps);
+            dto.setStandardSteps(Arrays.asList(step1, step2));
 
             workOrderService.createWorkOrder(dto);
 
-            verify(workOrderStepService).initSteps(any(), eq(customSteps));
+            verify(workOrderStepService).initSteps(any(), eq(Arrays.asList("步骤A", "步骤B")));
         }
     }
 
@@ -229,7 +242,8 @@ class WorkOrderServiceImplTest {
             when(workOrderMapper.selectById(1L)).thenReturn(null);
 
             WorkOrderCheckinDTO dto = new WorkOrderCheckinDTO();
-            dto.setLocation(new GpsLocation(TAM_LON, TAM_LAT, null, null, null));
+            dto.setLongitude(TAM_LON);
+            dto.setLatitude(TAM_LAT);
 
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> workOrderService.checkin(1L, dto, null),
@@ -244,7 +258,8 @@ class WorkOrderServiceImplTest {
             when(workOrderMapper.selectById(1L)).thenReturn(wo);
 
             WorkOrderCheckinDTO dto = new WorkOrderCheckinDTO();
-            dto.setLocation(new GpsLocation(TAM_LON, TAM_LAT, null, null, null));
+            dto.setLongitude(TAM_LON);
+            dto.setLatitude(TAM_LAT);
 
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> workOrderService.checkin(1L, dto, null),
@@ -260,7 +275,7 @@ class WorkOrderServiceImplTest {
             when(workOrderMapper.selectById(1L)).thenReturn(wo);
 
             WorkOrderCheckinDTO dto = new WorkOrderCheckinDTO();
-            dto.setLocation(new GpsLocation(null, null, null, null, null));
+            // GPS 定位字段未设置（longitude/latitude 为 null）
 
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> workOrderService.checkin(1L, dto, null),
@@ -282,7 +297,8 @@ class WorkOrderServiceImplTest {
 
             // 纬度差 0.009° ≈ 1000m，超出 500m 半径
             WorkOrderCheckinDTO dto = new WorkOrderCheckinDTO();
-            dto.setLocation(new GpsLocation(TAM_LON, TAM_LAT + 0.009, null, null, null));
+            dto.setLongitude(TAM_LON);
+            dto.setLatitude(TAM_LAT + 0.009);
 
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> workOrderService.checkin(1L, dto, null),
@@ -308,7 +324,8 @@ class WorkOrderServiceImplTest {
             when(workOrderStepService.calculateProgress(1L)).thenReturn(new int[]{0, 8});
 
             WorkOrderCheckinDTO dto = new WorkOrderCheckinDTO();
-            dto.setLocation(new GpsLocation(TAM_LON, TAM_LAT, null, null, null));
+            dto.setLongitude(TAM_LON);
+            dto.setLatitude(TAM_LAT);
 
             workOrderService.checkin(1L, dto, null);
 
@@ -335,7 +352,8 @@ class WorkOrderServiceImplTest {
             when(workOrderStepService.calculateProgress(1L)).thenReturn(new int[]{0, 8});
 
             WorkOrderCheckinDTO dto = new WorkOrderCheckinDTO();
-            dto.setLocation(new GpsLocation(TAM_LON, TAM_LAT, null, null, null));
+            dto.setLongitude(TAM_LON);
+            dto.setLatitude(TAM_LAT);
 
             workOrderService.checkin(1L, dto, null);
 

@@ -4,7 +4,7 @@
  * Header(56px) + Sider(220px可折叠至80px) + Content
  *
  * 接入：
- *   - Tutorial 新手教程组件（首次登录自动触发 + appStore.tutorialTrigger 监听）
+ *   - OnboardingTour 新手引导教程（Task 10.2，首次登录自动触发 + appStore.tutorialTrigger 监听）
  *   - FeedbackButton 反馈悬浮按钮（所有登录用户可见）
  */
 import { ref, watch, onMounted } from 'vue'
@@ -17,7 +17,7 @@ import { themeConfig } from '@/styles/theme'
 import AppHeader from './components/AppHeader.vue'
 import AppSider from './components/AppSider.vue'
 import MessageDrawer from './components/MessageDrawer.vue'
-import Tutorial from '@/components/Onboarding/Tutorial.vue'
+import OnboardingTour from '@/components/OnboardingTour.vue'
 import FeedbackButton from '@/components/Feedback/FeedbackButton.vue'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
@@ -27,27 +27,28 @@ dayjs.locale('zh-cn')
 const appStore = useAppStore()
 const userStore = useUserStore()
 
-const tutorialRef = ref<InstanceType<typeof Tutorial> | null>(null)
+const tourRef = ref<InstanceType<typeof OnboardingTour> | null>(null)
 const showFeedbackButton = ref(false)
 
-/** 监听 tutorialTrigger 计数器变化，触发教程打开 */
+/** 监听 tutorialTrigger 计数器变化，触发教程打开（用户从右上角 ? 重新打开） */
 watch(
   () => appStore.tutorialTrigger,
   () => {
-    if (tutorialRef.value) {
-      tutorialRef.value.start()
+    if (tourRef.value) {
+      tourRef.value.start()
     }
   }
 )
 
-/** 检测首次登录：未完成 onboarding 且已登录则自动触发教程 */
+/** 检测首次登录：未完成 onboarding 引导且已登录则自动触发教程 */
 onMounted(() => {
   showFeedbackButton.value = userStore.isLogin
-  const onboardingDone = localStorage.getItem('onboarding_done')
-  if (userStore.isLogin && !onboardingDone && tutorialRef.value) {
+  const onboardingDone =
+    localStorage.getItem('onboarding_tour_done') || localStorage.getItem('onboarding_done')
+  if (userStore.isLogin && !onboardingDone && tourRef.value) {
     // 延迟 800ms 等待布局渲染完成后再打开教程
     setTimeout(() => {
-      tutorialRef.value?.start()
+      tourRef.value?.start()
     }, 800)
   }
 })
@@ -83,7 +84,7 @@ watch(
         </Layout>
       </Layout>
       <MessageDrawer />
-      <Tutorial ref="tutorialRef" />
+      <OnboardingTour ref="tourRef" />
       <FeedbackButton :visible="showFeedbackButton" />
     </Layout>
   </ConfigProvider>

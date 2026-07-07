@@ -55,7 +55,7 @@ public class WorkOrderIssueServiceImpl implements WorkOrderIssueService {
         entity.setIssueType(dto.getIssueType());
         entity.setSeverity(dto.getSeverity());
         entity.setDescription(dto.getDescription());
-        entity.setPhotos(dto.getPhotos());
+        entity.setPhotos(dto.getPhotoUrls());
         entity.setStatus(DeliveryConstant.ISSUE_STATUS_OPEN);
         entity.setRemark(dto.getRemark());
         workOrderIssueMapper.insert(entity);

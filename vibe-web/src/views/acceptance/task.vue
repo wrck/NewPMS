@@ -16,6 +16,7 @@ import {
   applyAcceptanceTask,
   listAcceptanceTestRecords
 } from '@/api/acceptance'
+import { pageProjects } from '@/api/project'
 import type { AcceptanceTask, AcceptanceTaskQuery, AcceptanceTaskStatus } from '@/types/acceptance'
 import type { PageResult } from '@/types/api'
 
@@ -43,6 +44,19 @@ function statusLabel(s: string) {
 }
 function statusColor(s: string) {
   return statusOptions.find((o) => o.value === s)?.color || 'default'
+}
+
+/* ============ 实体引用下拉选项 ============ */
+// 项目下拉选项（实体引用字段：projectId）
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadProjects() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[project] load failed:', e)
+  }
 }
 
 async function loadData() {
@@ -76,7 +90,7 @@ function handleReset() {
 
 const columns = [
   { title: '任务名称', dataIndex: 'name', key: 'name', ellipsis: true },
-  { title: '项目ID', dataIndex: 'projectId', key: 'projectId', width: 100 },
+  { title: '项目', dataIndex: 'projectName', key: 'projectName', width: 140 },
   { title: '状态', dataIndex: 'status', key: 'status', width: 140 },
   { title: '申请时间', dataIndex: 'applyTime', key: 'applyTime', width: 180 },
   { title: '客户签核结果', dataIndex: 'customerSignResult', key: 'customerSignResult', width: 140 },
@@ -89,13 +103,14 @@ const modalVisible = ref(false)
 const formRef = ref()
 const form = reactive({ projectId: undefined as number | undefined, standardId: undefined as number | undefined, name: '', remark: '' })
 const rules = {
-  projectId: [{ required: true, message: '请输入项目ID' }],
+  projectId: [{ required: true, message: '请选择项目' }],
   name: [{ required: true, message: '请输入验收任务名称' }]
 }
 
 function openCreate() {
   Object.assign(form, { projectId: undefined, standardId: undefined, name: '', remark: '' })
   modalVisible.value = true
+  loadProjects()
 }
 
 async function handleSubmit() {
@@ -168,6 +183,7 @@ async function viewDetail(record: AcceptanceTask) {
 
 onMounted(() => {
   loadData()
+  loadProjects()
 })
 </script>
 
@@ -188,8 +204,16 @@ onMounted(() => {
       <a-form-item label="任务名称">
         <a-input v-model:value="query.name" placeholder="任务名称" allow-clear @pressEnter="handleSearch" />
       </a-form-item>
-      <a-form-item label="项目ID">
-        <a-input-number v-model:value="query.projectId" placeholder="项目ID" :min="1" style="width: 140px" />
+      <a-form-item label="项目">
+        <a-select
+          v-model:value="query.projectId"
+          show-search
+          allow-clear
+          placeholder="选择项目"
+          style="width: 180px"
+          :options="projectOptions"
+          :filter-option="(input: string, option: any) => option.label.includes(input)"
+        />
       </a-form-item>
       <a-form-item label="状态">
         <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 160px">
@@ -213,7 +237,10 @@ onMounted(() => {
         <EmptyState description="暂无验收任务" />
       </template>
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'status'">
+        <template v-if="column.key === 'projectName'">
+          {{ record.projectName || record.projectId }}
+        </template>
+        <template v-else-if="column.key === 'status'">
           <a-tag :color="statusColor(record.status)">{{ statusLabel(record.status) }}</a-tag>
         </template>
         <template v-else-if="column.key === 'customerSignResult'">
@@ -245,10 +272,18 @@ onMounted(() => {
       @ok="handleSubmit"
     >
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
-        <a-form-item label="项目ID" name="projectId">
-          <a-input-number v-model:value="form.projectId" placeholder="请输入项目ID" style="width: 100%" />
+        <a-form-item label="项目" name="projectId">
+          <a-select
+            v-model:value="form.projectId"
+            show-search
+            placeholder="选择项目"
+            style="width: 100%"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
-        <a-form-item label="验收标准ID">
+        <!-- TODO: acceptance 模块暂无验收标准列表 API，待后续补标准列表 API 后改为 select 动态加载 -->
+        <a-form-item label="验收标准">
           <a-input-number v-model:value="form.standardId" placeholder="可选" style="width: 100%" />
         </a-form-item>
         <a-form-item label="任务名称" name="name">
@@ -272,8 +307,8 @@ onMounted(() => {
         <a-descriptions-item label="状态">
           <a-tag :color="statusColor(detailRecord.status)">{{ statusLabel(detailRecord.status) }}</a-tag>
         </a-descriptions-item>
-        <a-descriptions-item label="项目ID">{{ detailRecord.projectId }}</a-descriptions-item>
-        <a-descriptions-item label="验收标准ID">{{ detailRecord.standardId || '-' }}</a-descriptions-item>
+        <a-descriptions-item label="项目">{{ detailRecord.projectName || detailRecord.projectId }}</a-descriptions-item>
+        <a-descriptions-item label="验收标准">{{ detailRecord.standardName || detailRecord.standardId || '-' }}</a-descriptions-item>
         <a-descriptions-item label="申请时间">{{ detailRecord.applyTime || '-' }}</a-descriptions-item>
         <a-descriptions-item label="内部审核结果">{{ detailRecord.internalAuditResult || '-' }}</a-descriptions-item>
         <a-descriptions-item label="客户签核人">{{ detailRecord.customerSignUser || '-' }}</a-descriptions-item>

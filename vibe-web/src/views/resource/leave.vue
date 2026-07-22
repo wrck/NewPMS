@@ -19,7 +19,8 @@ import {
   updateEngineerLeave,
   deleteEngineerLeave,
   approveEngineerLeave,
-  createSchedule
+  createSchedule,
+  pageEngineers
 } from '@/api/resource'
 import type {
   EngineerLeave,
@@ -107,7 +108,7 @@ const formVisible = ref(false)
 const formLoading = ref(false)
 const isEdit = ref(false)
 const formData = reactive<EngineerLeaveDTO>({
-  engineerId: 0,
+  engineerId: undefined,
   startDate: '',
   endDate: '',
   leaveType: 'ANNUAL',
@@ -117,7 +118,7 @@ const formData = reactive<EngineerLeaveDTO>({
 // 请假表单校验规则（异常处理三层闭环 SubTask 8.4 补充）
 const leaveFormRules = {
   engineerId: [
-    { required: true, message: '请选择工程师', trigger: 'change', type: 'number' }
+    { required: true, message: '请选择工程师', trigger: 'change' }
   ],
   startDate: [
     { required: true, message: '请选择开始日期', trigger: 'change' }
@@ -131,11 +132,23 @@ const leaveFormRules = {
 }
 const leaveFormRef = ref()
 
+// ============ 下拉选项（实体引用字段） ============
+const engineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadEngineerOptions() {
+  try {
+    const res = (await pageEngineers({ page: 1, size: 200 } as any)) as any
+    engineerOptions.value = (res?.records || []).map((e: any) => ({ value: e.id, label: e.name }))
+  } catch (e) {
+    console.warn('[resource.leave] load engineers failed:', e)
+  }
+}
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
     id: undefined,
-    engineerId: 0,
+    engineerId: undefined,
     startDate: '',
     endDate: '',
     leaveType: 'ANNUAL',
@@ -268,6 +281,7 @@ function calcDays(start?: string, end?: string): number {
 
 onMounted(() => {
   loadData()
+  loadEngineerOptions()
 })
 </script>
 
@@ -280,8 +294,16 @@ onMounted(() => {
 
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
-        <a-form-item label="工程师 ID">
-          <a-input-number v-model:value="query.engineerId" placeholder="工程师 ID" style="width: 150px" />
+        <a-form-item label="工程师">
+          <a-select
+            v-model:value="query.engineerId"
+            placeholder="选择工程师"
+            allow-clear
+            show-search
+            style="width: 180px"
+            :options="engineerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="类型">
           <a-select v-model:value="query.leaveType" placeholder="全部" allow-clear style="width: 120px" :options="leaveTypeOptions" />
@@ -350,8 +372,15 @@ onMounted(() => {
       <a-form ref="leaveFormRef" layout="vertical" :model="formData" :rules="leaveFormRules">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="工程师 ID" name="engineerId" required>
-              <a-input-number v-model:value="formData.engineerId" style="width: 100%" placeholder="工程师 ID" />
+            <a-form-item label="工程师" name="engineerId" required>
+              <a-select
+                v-model:value="formData.engineerId"
+                show-search
+                placeholder="选择工程师"
+                style="width: 100%"
+                :options="engineerOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">

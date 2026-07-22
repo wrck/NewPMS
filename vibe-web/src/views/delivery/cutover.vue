@@ -57,6 +57,8 @@ import type {
   CutoverCompleteDTO
 } from '@/api/cutover'
 import type { PageResult } from '@/types/api'
+import { pageProjects } from '@/api/project'
+import { pageUsers } from '@/api/system'
 
 /* ============ 列表加载 ============ */
 const loading = ref(false)
@@ -71,6 +73,37 @@ const query = reactive<CutoverPlanQueryParams>({
   applyUserId: undefined
 })
 const dateRange = ref<[string, string] | undefined>()
+
+// 实体引用字段下拉选项
+// 项目（搜索表单 + 编辑弹窗共用）
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadProjects() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[project] load failed:', e)
+  }
+}
+
+// 步骤负责人（用户）
+const ownerOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadOwners() {
+  try {
+    const res = await pageUsers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    ownerOptions.value = list.map((u: any) => ({ value: u.id, label: u.realName || u.userName }))
+  } catch (e) {
+    console.warn('[owner] load failed:', e)
+  }
+}
+
+// 选中负责人时同步 ownerName（步骤列表展示用）
+function onOwnerChange(value: any) {
+  const opt = ownerOptions.value.find((o) => o.value === value)
+  stepInput.ownerName = opt ? opt.label : ''
+}
 
 async function loadData() {
   loading.value = true
@@ -151,7 +184,7 @@ const formVisible = ref(false)
 const formLoading = ref(false)
 const isEdit = ref(false)
 const formData = reactive<CutoverPlanDTO>({
-  projectId: 0,
+  projectId: undefined as unknown as number,
   planName: '',
   cutoverDate: '',
   startTime: '',
@@ -182,7 +215,7 @@ function resetStepInput() {
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
-    projectId: 0,
+    projectId: undefined,
     planName: '',
     cutoverDate: '',
     startTime: '',
@@ -193,12 +226,14 @@ function openCreate() {
     steps: []
   })
   resetStepInput()
+  loadOwners()
   formVisible.value = true
 }
 
 function openEdit(row: CutoverPlan) {
   // 仅 DRAFT / INTERNAL_REJECTED / CUSTOMER_REJECTED 允许编辑；这里仅做列表入口兜底
   isEdit.value = true
+  loadOwners()
   // 拉取详情后填充
   getCutoverPlanDetail(row.id)
     .then((detail) => {
@@ -564,6 +599,7 @@ async function handleSubmitInternalApproval(row: CutoverPlan) {
 }
 
 onMounted(() => {
+  loadProjects()
   loadData()
 })
 </script>
@@ -580,8 +616,16 @@ onMounted(() => {
         <a-form-item label="方案名称">
           <a-input v-model:value="query.planName" placeholder="方案名称" allow-clear style="width: 200px" @pressEnter="handleSearch" />
         </a-form-item>
-        <a-form-item label="项目ID">
-          <a-input-number v-model:value="query.projectId" placeholder="项目ID" style="width: 130px" />
+        <a-form-item label="项目">
+          <a-select
+            v-model:value="query.projectId"
+            placeholder="选择项目"
+            allow-clear
+            show-search
+            style="width: 200px"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 150px" :options="statusOptions" />
@@ -638,8 +682,15 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="所属项目 ID" required>
-              <a-input-number v-model:value="formData.projectId" placeholder="项目ID" style="width: 100%" />
+            <a-form-item label="所属项目" required>
+              <a-select
+                v-model:value="formData.projectId"
+                placeholder="选择项目"
+                show-search
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                style="width: 100%"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="8">
@@ -677,8 +728,16 @@ onMounted(() => {
         <a-divider orientation="left" plain>割接步骤</a-divider>
         <div class="step-input-row">
           <a-input v-model:value="stepInput.stepName" placeholder="步骤名称 *" style="width: 22%" />
-          <a-input v-model:value="stepInput.ownerName" placeholder="负责人" style="width: 14%" />
-          <a-input-number v-model:value="stepInput.ownerId" placeholder="负责人ID" style="width: 12%" />
+          <a-select
+            v-model:value="stepInput.ownerId"
+            placeholder="负责人"
+            show-search
+            allow-clear
+            style="width: 26%"
+            :options="ownerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            @change="onOwnerChange"
+          />
           <a-input-number v-model:value="stepInput.estimatedDuration" placeholder="预计分钟" :min="0" style="width: 12%" />
           <a-input v-model:value="stepInput.rollbackPlan" placeholder="回退方案" style="width: 28%" />
           <a-button type="primary" style="width: 12%" @click="addStep">添加</a-button>

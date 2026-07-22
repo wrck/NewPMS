@@ -106,7 +106,8 @@ const loading = ref(true)
 const progress = ref<ProjectProgress | null>(null)
 
 onMounted(async () => {
-  const projectId = Number(route.params.projectId)
+  // 直接透传字符串 id，避免雪花 Long 经 Number() 转换丢精度
+  const projectId = route.params.projectId as string
   if (!projectId) {
     message.error('项目ID缺失')
     router.back()

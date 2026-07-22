@@ -18,8 +18,10 @@ import {
   listWorkloads,
   getTaskWorkload,
   confirmWorkload,
-  approveWorkload
+  approveWorkload,
+  pageAgentCompanies
 } from '@/api/agent'
+import { pageProjects } from '@/api/project'
 import type {
   OutsourceWorkload,
   WorkloadQueryParams,
@@ -48,6 +50,30 @@ async function loadData() {
 function handleSearch() {
   pagination.current = 1
   loadData()
+}
+
+// ============ 实体引用下拉选项 ============
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+const agentCompanyOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[agent.settlement] load projects failed:', e)
+  }
+}
+
+async function loadAgentCompanyOptions() {
+  try {
+    const res = await pageAgentCompanies({ page: 1, size: 200 })
+    const list = (res as any)?.records || []
+    agentCompanyOptions.value = list.map((c: any) => ({ value: c.id, label: c.companyName }))
+  } catch (e) {
+    console.warn('[agent.settlement] load agent companies failed:', e)
+  }
 }
 
 const statusMap: Record<string, { tone: any; label: string }> = {
@@ -168,6 +194,8 @@ function formatMoney(v?: number) {
 
 onMounted(() => {
   loadData()
+  loadProjectOptions()
+  loadAgentCompanyOptions()
 })
 </script>
 
@@ -179,11 +207,27 @@ onMounted(() => {
 
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
-        <a-form-item label="代理商ID">
-          <a-input-number v-model:value="query.agentCompanyId" placeholder="代理商ID" style="width: 130px" />
+        <a-form-item label="代理商">
+          <a-select
+            v-model:value="query.agentCompanyId"
+            show-search
+            allow-clear
+            placeholder="选择代理商"
+            style="width: 180px"
+            :options="agentCompanyOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
-        <a-form-item label="项目ID">
-          <a-input-number v-model:value="query.projectId" placeholder="项目ID" style="width: 130px" />
+        <a-form-item label="项目">
+          <a-select
+            v-model:value="query.projectId"
+            show-search
+            allow-clear
+            placeholder="选择项目"
+            style="width: 180px"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 130px">

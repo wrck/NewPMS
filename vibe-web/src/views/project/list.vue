@@ -25,8 +25,10 @@ import {
   createProject,
   updateProject,
   deleteProject,
-  pageTemplates
+  pageTemplates,
+  pageCustomers
 } from '@/api/project'
+import { pageUsers } from '@/api/system'
 import type { Project, ProjectQueryParams, ProjectSaveDTO } from '@/types/project'
 import { ProjectStatus, ProjectStatusTone, ProjectStatusLabel, Priority, PriorityLabel } from '@/types/enum'
 import type { PageResult } from '@/types/api'
@@ -112,7 +114,8 @@ function handleTableChange(p: any) {
   loadData()
 }
 
-function goDetail(id: number) {
+function goDetail(id: string | number) {
+  // 字符串透传，避免雪花 Long 在 JS number 下丢精度
   router.push(`/project/detail/${id}`)
 }
 
@@ -137,7 +140,7 @@ const formData = reactive<ProjectSaveDTO>({
   templateId: undefined
 })
 
-const templateOptions = ref<Array<{ value: number; label: string }>>([])
+const templateOptions = ref<Array<{ value: string | number; label: string }>>([])
 
 async function loadTemplates() {
   try {
@@ -149,17 +152,41 @@ async function loadTemplates() {
   }
 }
 
+// 客户下拉选项（实体引用字段：customerId）
+const customerOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadCustomers() {
+  try {
+    const res = await pageCustomers({ page: 1, size: 200 })
+    const list = (res as any)?.records || []
+    customerOptions.value = list.map((c: any) => ({ value: c.id, label: c.customerName }))
+  } catch (e) {
+    console.warn('[customer] load failed:', e)
+  }
+}
+
+// 项目经理下拉选项（实体引用字段：pmId，按 PM 角色筛 sys_user）
+const pmOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadPms() {
+  try {
+    const res = await pageUsers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    pmOptions.value = list.map((u: any) => ({ value: u.id, label: u.realName || u.userName }))
+  } catch (e) {
+    console.warn('[pm] load failed:', e)
+  }
+}
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
     id: undefined,
     projectName: '',
-    customerId: 0,
+    customerId: undefined,
     projectType: 'NEW',
     productLine: 'ROUTER',
     executeMode: 'SELF',
     priority: 'MEDIUM',
-    pmId: 0,
+    pmId: undefined,
     region: '',
     contractNo: '',
     plannedStart: '',
@@ -169,6 +196,8 @@ function openCreate() {
   } as ProjectSaveDTO)
   formVisible.value = true
   loadTemplates()
+  loadCustomers()
+  loadPms()
 }
 
 function openEdit(row: Project) {
@@ -190,6 +219,8 @@ function openEdit(row: Project) {
     templateId: undefined
   } as ProjectSaveDTO)
   formVisible.value = true
+  loadCustomers()
+  loadPms()
 }
 
 async function handleSubmit() {
@@ -424,8 +455,15 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="10">
-            <a-form-item label="客户ID" name="customerId">
-              <a-input-number v-model:value="formData.customerId" style="width: 100%" placeholder="客户ID" />
+            <a-form-item label="客户" name="customerId">
+              <a-select
+                v-model:value="formData.customerId"
+                show-search
+                :options="customerOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                placeholder="选择客户"
+                style="width: 100%"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="8">
@@ -458,8 +496,15 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="8">
-            <a-form-item label="项目经理ID" name="pmId">
-              <a-input-number v-model:value="formData.pmId" style="width: 100%" />
+            <a-form-item label="项目经理" name="pmId">
+              <a-select
+                v-model:value="formData.pmId"
+                show-search
+                :options="pmOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                placeholder="选择项目经理"
+                style="width: 100%"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="8">

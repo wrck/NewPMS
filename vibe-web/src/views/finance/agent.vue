@@ -19,6 +19,8 @@ import {
   financeApproveSettlement,
   updateSettlementPaymentStatus
 } from '@/api/finance'
+import { pageProjects } from '@/api/project'
+import { pageAgentCompanies, pageOutsourceTasks } from '@/api/agent'
 import type { FinanceWorkloadConfirmation, FinanceWorkloadQuery, FinanceWorkloadDTO, SettlementApprovalStatus, PaymentStatus } from '@/types/finance'
 import type { PageResult } from '@/types/api'
 
@@ -80,8 +82,8 @@ function handleReset() {
 }
 
 const columns = [
-  { title: '项目ID', dataIndex: 'projectId', key: 'projectId', width: 100 },
-  { title: '代理商ID', dataIndex: 'agentCompanyId', key: 'agentCompanyId', width: 100 },
+  { title: '项目', dataIndex: 'projectName', key: 'projectName', width: 140, ellipsis: true },
+  { title: '代理商', dataIndex: 'agentCompanyName', key: 'agentCompanyName', width: 140, ellipsis: true },
   { title: '对账周期', dataIndex: 'period', key: 'period', width: 120 },
   { title: '工作量(人天)', dataIndex: 'workloadDays', key: 'workloadDays', width: 120 },
   { title: '结算总额', dataIndex: 'totalAmount', key: 'totalAmount', width: 140 },
@@ -106,11 +108,56 @@ const form = reactive<FinanceWorkloadDTO>({
   remark: ''
 })
 const rules = {
-  projectId: [{ required: true, message: '请输入项目ID' }],
-  agentCompanyId: [{ required: true, message: '请输入代理商ID' }],
+  projectId: [{ required: true, message: '请选择项目' }],
+  agentCompanyId: [{ required: true, message: '请选择代理商' }],
   period: [{ required: true, message: '请输入对账周期' }],
   workloadDays: [{ required: true, message: '请输入工作量' }],
   unitPrice: [{ required: true, message: '请输入人天单价' }]
+}
+
+/* ============ 实体引用下拉选项 ============ */
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+const agentCompanyOptions = ref<Array<{ value: string | number; label: string }>>([])
+const outsourceTaskOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[finance.settlement] load projects failed:', e)
+  }
+}
+
+async function loadAgentCompanyOptions() {
+  try {
+    const res = await pageAgentCompanies({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    agentCompanyOptions.value = list.map((c: any) => ({ value: c.id, label: c.companyName }))
+  } catch (e) {
+    console.warn('[finance.settlement] load agent companies failed:', e)
+  }
+}
+
+async function loadOutsourceTaskOptions(agentCompanyId?: string | number) {
+  if (!agentCompanyId) {
+    outsourceTaskOptions.value = []
+    return
+  }
+  try {
+    const res = await pageOutsourceTasks({ page: 1, size: 200, agentCompanyId } as any)
+    const list = (res as any)?.records || []
+    outsourceTaskOptions.value = list.map((t: any) => ({ value: t.id, label: t.taskName }))
+  } catch (e) {
+    console.warn('[finance.settlement] load outsource tasks failed:', e)
+  }
+}
+
+// 代理商变更时清空转包任务并重新加载
+function handleAgentCompanyChange(value: string | number) {
+  form.outsourceTaskId = undefined
+  loadOutsourceTaskOptions(value)
 }
 
 function openCreate() {
@@ -128,6 +175,7 @@ function openCreate() {
     otherAmount: 0,
     remark: ''
   })
+  outsourceTaskOptions.value = []
   modalVisible.value = true
 }
 
@@ -145,6 +193,8 @@ function openEdit(record: FinanceWorkloadConfirmation) {
     otherAmount: record.otherAmount,
     remark: record.remark
   })
+  // 编辑时按当前代理商加载转包任务选项
+  loadOutsourceTaskOptions(record.agentCompanyId)
   modalVisible.value = true
 }
 
@@ -206,6 +256,9 @@ async function handleAction(record: FinanceWorkloadConfirmation, action: string)
 
 onMounted(() => {
   loadData()
+  // 预加载搜索表单 / 弹窗下拉选项
+  loadProjectOptions()
+  loadAgentCompanyOptions()
 })
 </script>
 
@@ -223,11 +276,27 @@ onMounted(() => {
     </template>
 
     <a-form layout="inline" style="margin-bottom: 16px" @submit.prevent="handleSearch">
-      <a-form-item label="项目ID">
-        <a-input-number v-model:value="query.projectId" placeholder="项目ID" :min="1" style="width: 140px" />
+      <a-form-item label="项目">
+        <a-select
+          v-model:value="query.projectId"
+          show-search
+          allow-clear
+          placeholder="选择项目"
+          style="width: 180px"
+          :options="projectOptions"
+          :filter-option="(input: string, option: any) => option.label.includes(input)"
+        />
       </a-form-item>
-      <a-form-item label="代理商ID">
-        <a-input-number v-model:value="query.agentCompanyId" placeholder="代理商ID" :min="1" style="width: 140px" />
+      <a-form-item label="代理商">
+        <a-select
+          v-model:value="query.agentCompanyId"
+          show-search
+          allow-clear
+          placeholder="选择代理商"
+          style="width: 180px"
+          :options="agentCompanyOptions"
+          :filter-option="(input: string, option: any) => option.label.includes(input)"
+        />
       </a-form-item>
       <a-form-item label="对账周期">
         <a-input v-model:value="query.period" placeholder="YYYY-MM" allow-clear style="width: 120px" />
@@ -254,7 +323,13 @@ onMounted(() => {
         <EmptyState description="暂无结算单" />
       </template>
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'approvalStatus'">
+        <template v-if="column.key === 'projectName'">
+          {{ record.projectName || record.projectId }}
+        </template>
+        <template v-else-if="column.key === 'agentCompanyName'">
+          {{ record.agentCompanyName || record.agentCompanyId }}
+        </template>
+        <template v-else-if="column.key === 'approvalStatus'">
           <a-tag :color="approvalStatusMap[record.approvalStatus as SettlementApprovalStatus]?.color">
             {{ approvalStatusMap[record.approvalStatus as SettlementApprovalStatus]?.label }}
           </a-tag>
@@ -305,13 +380,28 @@ onMounted(() => {
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="项目ID" name="projectId">
-              <a-input-number v-model:value="form.projectId" placeholder="项目ID" style="width: 100%" />
+            <a-form-item label="项目" name="projectId">
+              <a-select
+                v-model:value="form.projectId"
+                show-search
+                placeholder="选择项目"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="代理商ID" name="agentCompanyId">
-              <a-input-number v-model:value="form.agentCompanyId" placeholder="代理商ID" style="width: 100%" />
+            <a-form-item label="代理商" name="agentCompanyId">
+              <a-select
+                v-model:value="form.agentCompanyId"
+                show-search
+                placeholder="选择代理商"
+                style="width: 100%"
+                :options="agentCompanyOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                @change="handleAgentCompanyChange"
+              />
             </a-form-item>
           </a-col>
         </a-row>
@@ -322,8 +412,16 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="转包任务ID">
-              <a-input-number v-model:value="form.outsourceTaskId" placeholder="可选" style="width: 100%" />
+            <a-form-item label="转包任务">
+              <a-select
+                v-model:value="form.outsourceTaskId"
+                show-search
+                allow-clear
+                placeholder="先选择代理商"
+                style="width: 100%"
+                :options="outsourceTaskOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
         </a-row>

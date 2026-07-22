@@ -10,6 +10,8 @@ import StatusTag from '@/components/StatusTag.vue'
 import ProgressBar from '@/components/ProgressBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { pageEngineers, createEngineer, updateEngineer, deleteEngineer } from '@/api/resource'
+import { listOrgTree } from '@/api/system'
+import type { SysOrg } from '@/api/system'
 import type { Engineer, EngineerDTO, EngineerQueryParams, SkillLevel } from '@/types/resource'
 import type { PageResult } from '@/types/api'
 
@@ -17,6 +19,18 @@ const loading = ref(false)
 const dataSource = ref<Engineer[]>([])
 const pagination = reactive({ current: 1, pageSize: 10, total: 0, showTotal: (t: number) => `共 ${t} 条` })
 const query = reactive<EngineerQueryParams>({ keyword: '', region: '', status: undefined })
+
+// 组织树（所属组织下拉用）
+const orgTree = ref<SysOrg[]>([])
+
+async function loadOrgTree() {
+  try {
+    const tree = (await listOrgTree()) as unknown as SysOrg[]
+    orgTree.value = tree || []
+  } catch (e) {
+    console.error('[resource.engineer] load org tree failed:', e)
+  }
+}
 
 async function loadData() {
   loading.value = true
@@ -130,6 +144,7 @@ const columns = [
   { title: '工号', dataIndex: 'engineerNo', key: 'engineerNo', width: 110 },
   { title: '姓名', dataIndex: 'name', key: 'name', width: 100 },
   { title: '区域', dataIndex: 'region', key: 'region', width: 100 },
+  { title: '所属组织', dataIndex: 'orgName', key: 'orgName', width: 140, ellipsis: true },
   { title: '技能', key: 'skills', ellipsis: true },
   { title: '利用率', key: 'utilization', width: 140 },
   { title: '进行中任务', dataIndex: 'ongoingTaskCount', key: 'ongoingTaskCount', width: 100 },
@@ -139,6 +154,7 @@ const columns = [
 
 onMounted(() => {
   loadData()
+  loadOrgTree()
 })
 </script>
 
@@ -222,8 +238,18 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="所属组织 ID">
-              <a-input-number v-model:value="formData.orgId" style="width: 100%" />
+            <a-form-item label="所属组织">
+              <a-tree-select
+                v-model:value="formData.orgId"
+                style="width: 100%"
+                :tree-data="orgTree"
+                :field-names="{ label: 'orgName', value: 'id', children: 'children' }"
+                tree-default-expand-all
+                allow-clear
+                show-search
+                tree-node-filter-prop="orgName"
+                placeholder="请选择组织"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">

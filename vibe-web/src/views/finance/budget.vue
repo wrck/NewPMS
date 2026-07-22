@@ -17,6 +17,7 @@ import {
   approveFinanceBudget,
   getFinanceBudgetDetail
 } from '@/api/finance'
+import { pageProjects } from '@/api/project'
 import type { FinanceBudget, FinanceBudgetQuery, FinanceBudgetDTO, BudgetApprovalStatus } from '@/types/finance'
 import type { PageResult } from '@/types/api'
 
@@ -67,7 +68,7 @@ function handleReset() {
 }
 
 const columns = [
-  { title: '项目ID', dataIndex: 'projectId', key: 'projectId', width: 100 },
+  { title: '项目', dataIndex: 'projectName', key: 'projectName', width: 140, ellipsis: true },
   { title: '年度', dataIndex: 'year', key: 'year', width: 100 },
   { title: '人工', dataIndex: 'laborAmount', key: 'laborAmount', width: 120 },
   { title: '差旅', dataIndex: 'travelAmount', key: 'travelAmount', width: 120 },
@@ -91,8 +92,21 @@ const form = reactive<FinanceBudgetDTO>({
   remark: ''
 })
 const rules = {
-  projectId: [{ required: true, message: '请输入项目ID' }],
+  projectId: [{ required: true, message: '请选择项目' }],
   year: [{ required: true, message: '请输入年度' }]
+}
+
+/* ============ 实体引用下拉选项 ============ */
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[finance.budget] load projects failed:', e)
+  }
 }
 
 function openCreate() {
@@ -149,7 +163,7 @@ async function handleSubmit() {
 function handleDelete(record: FinanceBudget) {
   Modal.confirm({
     title: '确认删除',
-    content: `确定删除项目「${record.projectId}」${record.year} 年预算吗？`,
+    content: `确定删除项目「${record.projectName || record.projectId}」${record.year} 年预算吗？`,
     okText: '删除',
     okType: 'danger',
     async onOk() {
@@ -167,7 +181,7 @@ function handleDelete(record: FinanceBudget) {
 function handleSubmitApproval(record: FinanceBudget) {
   Modal.confirm({
     title: '提交审批',
-    content: `确定提交项目「${record.projectId}」${record.year} 年预算审批吗？`,
+    content: `确定提交项目「${record.projectName || record.projectId}」${record.year} 年预算审批吗？`,
     okText: '提交',
     async onOk() {
       try {
@@ -184,7 +198,7 @@ function handleSubmitApproval(record: FinanceBudget) {
 function handleApprove(record: FinanceBudget, passed: boolean) {
   Modal.confirm({
     title: passed ? '审批通过' : '审批驳回',
-    content: `确定${passed ? '通过' : '驳回'}项目「${record.projectId}」的预算吗？`,
+    content: `确定${passed ? '通过' : '驳回'}项目「${record.projectName || record.projectId}」的预算吗？`,
     okText: '确定',
     async onOk() {
       try {
@@ -213,6 +227,8 @@ async function viewDetail(record: FinanceBudget) {
 
 onMounted(() => {
   loadData()
+  // 预加载搜索表单 / 弹窗下拉选项
+  loadProjectOptions()
 })
 </script>
 
@@ -230,8 +246,16 @@ onMounted(() => {
     </template>
 
     <a-form layout="inline" style="margin-bottom: 16px" @submit.prevent="handleSearch">
-      <a-form-item label="项目ID">
-        <a-input-number v-model:value="query.projectId" placeholder="项目ID" :min="1" style="width: 140px" />
+      <a-form-item label="项目">
+        <a-select
+          v-model:value="query.projectId"
+          show-search
+          allow-clear
+          placeholder="选择项目"
+          style="width: 200px"
+          :options="projectOptions"
+          :filter-option="(input: string, option: any) => option.label.includes(input)"
+        />
       </a-form-item>
       <a-form-item label="年度">
         <a-input-number v-model:value="query.year" placeholder="年度" :min="2020" :max="2099" style="width: 120px" />
@@ -258,7 +282,10 @@ onMounted(() => {
         <EmptyState description="暂无预算数据" />
       </template>
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'approvalStatus'">
+        <template v-if="column.key === 'projectName'">
+          {{ record.projectName || record.projectId }}
+        </template>
+        <template v-else-if="column.key === 'approvalStatus'">
           <a-tag :color="statusMap[record.approvalStatus as BudgetApprovalStatus]?.color">
             {{ statusMap[record.approvalStatus as BudgetApprovalStatus]?.label }}
           </a-tag>
@@ -298,8 +325,15 @@ onMounted(() => {
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="项目ID" name="projectId">
-              <a-input-number v-model:value="form.projectId" placeholder="项目ID" style="width: 100%" />
+            <a-form-item label="项目" name="projectId">
+              <a-select
+                v-model:value="form.projectId"
+                show-search
+                placeholder="选择项目"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">

@@ -8,7 +8,8 @@ import { PlusOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { pageInventoryTransactions, createInventoryTransaction, listWarehouses } from '@/api/device'
+import { pageInventoryTransactions, createInventoryTransaction, listWarehouses, pageDeviceModels } from '@/api/device'
+import { pageProjects } from '@/api/project'
 import type { InventoryTransaction, InventoryTransactionDTO, InventoryQueryParams, Warehouse } from '@/types/device'
 import type { PageResult } from '@/types/api'
 
@@ -44,6 +45,30 @@ async function loadWarehouses() {
   }
 }
 
+// 实体引用字段下拉选项（型号/项目）
+const modelOptions = ref<Array<{ value: string | number; label: string }>>([])
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadModelOptions() {
+  try {
+    const res = await pageDeviceModels({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    modelOptions.value = list.map((m: any) => ({ value: m.id, label: m.modelName }))
+  } catch (e) {
+    console.warn('[device.inout] load models failed:', e)
+  }
+}
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[device.inout] load projects failed:', e)
+  }
+}
+
 function handleSearch() {
   pagination.current = 1
   loadData()
@@ -65,7 +90,7 @@ const formData = reactive<InventoryTransactionDTO>({
   type: 'IN',
   warehouseId: 0,
   toWarehouseId: undefined,
-  modelId: 0,
+  modelId: undefined,
   quantity: 1,
   projectId: undefined,
   remark: ''
@@ -76,12 +101,14 @@ function openCreate() {
     type: 'IN',
     warehouseId: 0,
     toWarehouseId: undefined,
-    modelId: 0,
+    modelId: undefined,
     quantity: 1,
     projectId: undefined,
     remark: ''
   })
   formVisible.value = true
+  loadModelOptions()
+  loadProjectOptions()
 }
 
 async function handleSubmit() {
@@ -122,6 +149,7 @@ const columns = [
 onMounted(() => {
   loadData()
   loadWarehouses()
+  loadModelOptions()
 })
 </script>
 
@@ -139,8 +167,16 @@ onMounted(() => {
             <a-select-option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.warehouseName }}</a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="型号ID">
-          <a-input-number v-model:value="query.modelId" placeholder="型号ID" style="width: 130px" />
+        <a-form-item label="型号">
+          <a-select
+            v-model:value="query.modelId"
+            placeholder="全部"
+            allow-clear
+            show-search
+            style="width: 160px"
+            :options="modelOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="类型">
           <a-select v-model:value="query.type" placeholder="全部" allow-clear style="width: 130px" :options="typeOptions" />
@@ -185,8 +221,15 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="型号 ID" required>
-              <a-input-number v-model:value="formData.modelId" style="width: 100%" />
+            <a-form-item label="型号" required>
+              <a-select
+                v-model:value="formData.modelId"
+                show-search
+                placeholder="选择型号"
+                style="width: 100%"
+                :options="modelOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
@@ -195,8 +238,16 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="所属项目 ID">
-              <a-input-number v-model:value="formData.projectId" style="width: 100%" />
+            <a-form-item label="所属项目">
+              <a-select
+                v-model:value="formData.projectId"
+                show-search
+                allow-clear
+                placeholder="选择项目"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="24">

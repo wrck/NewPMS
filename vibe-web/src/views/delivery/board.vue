@@ -21,6 +21,7 @@ import {
   completeWorkOrder,
   confirmWorkOrder
 } from '@/api/delivery'
+import { pageProjects } from '@/api/project'
 import type { WorkOrder, WorkOrderQueryParams, WorkOrderConfirmDTO } from '@/types/delivery'
 import { TaskStatus, TaskStatusTone, TaskStatusLabel, Priority, PriorityLabel } from '@/types/enum'
 
@@ -66,6 +67,18 @@ const confirmFormRules = {
   ]
 }
 const confirmFormRef = ref()
+
+// 项目下拉选项（实体引用字段：projectId）
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadProjects() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[project] load failed:', e)
+  }
+}
 
 async function loadData() {
   loading.value = true
@@ -197,6 +210,7 @@ function colPercent(status: TaskStatus): number {
 }
 
 onMounted(() => {
+  loadProjects()
   loadData()
 })
 </script>
@@ -249,8 +263,16 @@ onMounted(() => {
     <!-- 过滤 -->
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
-        <a-form-item label="项目ID">
-          <a-input-number v-model:value="query.projectId" placeholder="项目ID" style="width: 140px" />
+        <a-form-item label="项目">
+          <a-select
+            v-model:value="query.projectId"
+            placeholder="选择项目"
+            allow-clear
+            show-search
+            style="width: 200px"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="执行方式">
           <a-select v-model:value="query.executeMode" placeholder="全部" allow-clear style="width: 130px">

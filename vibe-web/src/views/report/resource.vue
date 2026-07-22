@@ -17,6 +17,8 @@ import ProgressBar from '@/components/ProgressBar.vue'
 import { ImportExport } from '@/components/ImportExport'
 import { StackedChart, RadarChart, MapChart } from '@/components/charts'
 import { getResourceReport } from '@/api/report'
+import { pageEngineers } from '@/api/resource'
+import { listOrgTree } from '@/api/system'
 
 /* ============ 类型 ============ */
 interface EngineerRow {
@@ -136,8 +138,32 @@ const projectColumns = [
 const engineerData = computed(() => data.value?.byEngineer || [])
 const projectData = computed(() => data.value?.byProject || [])
 
+// 工程师下拉选项（实体引用字段：engineerId）
+const engineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadEngineers() {
+  try {
+    const res = await pageEngineers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    engineerOptions.value = list.map((e: any) => ({ value: e.id, label: e.name || e.engineerNo }))
+  } catch (e) {
+    console.warn('[engineer] load failed:', e)
+  }
+}
+
+// 组织树下拉选项（实体引用字段：orgId）
+const orgTreeData = ref<any[]>([])
+async function loadOrgTree() {
+  try {
+    orgTreeData.value = (await listOrgTree()) || []
+  } catch (e) {
+    console.warn('[org] load failed:', e)
+  }
+}
+
 onMounted(() => {
   loadData()
+  loadEngineers()
+  loadOrgTree()
 })
 </script>
 
@@ -152,11 +178,26 @@ onMounted(() => {
     <!-- 筛选 + ImportExport -->
     <a-card class="filter-card" :bordered="true">
       <a-form layout="inline" :model="query">
-        <a-form-item label="工程师ID">
-          <a-input-number v-model:value="query.engineerId" placeholder="工程师ID" style="width: 140px" />
+        <a-form-item label="工程师">
+          <a-select
+            v-model:value="query.engineerId"
+            show-search
+            allow-clear
+            :options="engineerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            placeholder="全部工程师"
+            style="width: 160px"
+          />
         </a-form-item>
-        <a-form-item label="组织ID">
-          <a-input-number v-model:value="query.orgId" placeholder="组织ID" style="width: 140px" />
+        <a-form-item label="组织">
+          <a-tree-select
+            v-model:value="query.orgId"
+            allow-clear
+            :tree-data="orgTreeData"
+            :field-names="{ label: 'orgName', value: 'id', children: 'children' }"
+            placeholder="全部组织"
+            style="width: 160px"
+          />
         </a-form-item>
         <a-form-item label="开始起">
           <a-date-picker v-model:value="query.startDate" value-format="YYYY-MM-DD" style="width: 150px" />

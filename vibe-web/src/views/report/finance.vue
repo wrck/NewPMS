@@ -16,6 +16,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import { ImportExport } from '@/components/ImportExport'
 import { LineChart, BarChart, FunnelChart } from '@/components/charts'
 import { getFinanceReport } from '@/api/report'
+import { pageCustomers } from '@/api/project'
 
 /* ============ 类型 ============ */
 interface FinanceReportData {
@@ -135,8 +136,21 @@ const regionData = computed(() => data.value?.byRegion || [])
 const productLineData = computed(() => data.value?.byProductLine || [])
 const agentData = computed(() => data.value?.agentSettlement || [])
 
+// 客户下拉选项（实体引用字段：customerId）
+const customerOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadCustomers() {
+  try {
+    const res = await pageCustomers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    customerOptions.value = list.map((c: any) => ({ value: c.id, label: c.customerName }))
+  } catch (e) {
+    console.warn('[customer] load failed:', e)
+  }
+}
+
 onMounted(() => {
   loadData()
+  loadCustomers()
 })
 </script>
 
@@ -151,8 +165,16 @@ onMounted(() => {
     <!-- 筛选 + ImportExport -->
     <a-card class="filter-card" :bordered="true">
       <a-form layout="inline" :model="query">
-        <a-form-item label="客户ID">
-          <a-input-number v-model:value="query.customerId" placeholder="客户ID" style="width: 140px" />
+        <a-form-item label="客户">
+          <a-select
+            v-model:value="query.customerId"
+            show-search
+            allow-clear
+            :options="customerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            placeholder="全部客户"
+            style="width: 160px"
+          />
         </a-form-item>
         <a-form-item label="开始起">
           <a-date-picker v-model:value="query.startDate" value-format="YYYY-MM-DD" style="width: 150px" />

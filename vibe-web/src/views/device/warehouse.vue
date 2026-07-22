@@ -14,6 +14,7 @@ import {
   updateWarehouse,
   deleteWarehouse
 } from '@/api/device'
+import { pageUsers } from '@/api/system'
 import type { Warehouse, WarehouseDTO, WarehouseQueryParams } from '@/types/device'
 import type { PageResult } from '@/types/api'
 
@@ -88,6 +89,7 @@ function openCreate() {
     safetyStock: ''
   })
   formVisible.value = true
+  loadManagerOptions()
 }
 
 function openEdit(row: Warehouse) {
@@ -102,6 +104,7 @@ function openEdit(row: Warehouse) {
     safetyStock: row.safetyStock || ''
   })
   formVisible.value = true
+  loadManagerOptions()
 }
 
 async function handleSubmit() {
@@ -152,6 +155,19 @@ function handleDelete(row: Warehouse) {
       }
     }
   })
+}
+
+// 仓库管理员下拉选项（实体引用字段：managerId）
+const managerOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadManagerOptions() {
+  try {
+    const res = await pageUsers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    managerOptions.value = list.map((u: any) => ({ value: u.id, label: u.realName || u.userName }))
+  } catch (e) {
+    console.warn('[device.warehouse] load managers failed:', e)
+  }
 }
 
 const columns = [
@@ -281,8 +297,16 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="仓库管理员 ID">
-              <a-input-number v-model:value="formData.managerId" placeholder="管理员用户 ID" style="width: 100%" />
+            <a-form-item label="管理员">
+              <a-select
+                v-model:value="formData.managerId"
+                show-search
+                allow-clear
+                placeholder="选择管理员"
+                style="width: 100%"
+                :options="managerOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="24">

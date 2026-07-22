@@ -32,6 +32,7 @@ import {
   transitionProjectStatus,
   createTask
 } from '@/api/project'
+import { pageEngineers } from '@/api/resource'
 import type { ProjectDetail, ProjectPhase, ProjectTask, Milestone, ProjectRisk, ProjectIssue, ProjectChange, ProjectMember, ProjectComment, TaskType } from '@/types/project'
 import {
   ProjectStatus,
@@ -46,7 +47,8 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const projectId = computed(() => Number(route.params.id))
+// 直接透传字符串 id，避免雪花 Long 经 Number() 转换丢精度
+const projectId = computed(() => route.params.id as string)
 
 const loading = ref(false)
 const detail = ref<ProjectDetail | null>(null)
@@ -155,17 +157,29 @@ const priorityOptions = [
   { label: PriorityLabel[Priority.URGENT], value: Priority.URGENT }
 ]
 
-/** 新增任务表单字段定义 */
-const taskFormFields: FormField[] = [
+/** 工程师下拉选项（实体引用字段：assigneeId） */
+const engineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadEngineerOptions() {
+  try {
+    const res = await pageEngineers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    engineerOptions.value = list.map((e: any) => ({ value: e.id, label: e.name }))
+  } catch (e) {
+    console.warn('[engineer] load failed:', e)
+  }
+}
+
+/** 新增任务表单字段定义（assigneeId 改为 select + 动态加载工程师列表） */
+const taskFormFields = computed<FormField[]>(() => [
   { field: 'taskName', label: '任务名称', type: 'input', required: true, placeholder: '请输入任务名称', maxLength: 100, span: 24 },
   { field: 'taskType', label: '任务类型', type: 'select', required: true, options: taskTypeOptions, span: 12 },
   { field: 'executeMode', label: '执行模式', type: 'select', required: true, options: executeModeOptions, span: 12 },
   { field: 'priority', label: '优先级', type: 'select', required: true, options: priorityOptions, span: 12 },
-  { field: 'assigneeId', label: '指派给', type: 'inputNumber', placeholder: '执行人 ID（可留空后派单）', span: 12 },
+  { field: 'assigneeId', label: '指派给', type: 'select', options: engineerOptions.value, placeholder: '选择执行人（可留空后派单）', span: 12 },
   { field: 'plannedStart', label: '计划开始', type: 'date', valueFormat: 'YYYY-MM-DD', span: 12 },
   { field: 'plannedEnd', label: '计划结束', type: 'date', valueFormat: 'YYYY-MM-DD', span: 12 },
   { field: 'description', label: '描述', type: 'textarea', placeholder: '任务描述 / 交付要求等', maxLength: 500, span: 24 }
-]
+])
 
 /** 打开新增任务弹窗 */
 function handleOpenTaskModal() {
@@ -181,6 +195,8 @@ function handleOpenTaskModal() {
     description: ''
   })
   taskModalVisible.value = true
+  // 加载工程师下拉选项（assigneeId 实体引用字段）
+  loadEngineerOptions()
 }
 
 /** 新增任务提交 */

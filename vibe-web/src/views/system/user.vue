@@ -24,7 +24,8 @@ import {
   changeUserStatus,
   resetUserPassword,
   assignUserRoles,
-  listRoles
+  listRoles,
+  listOrgTree
 } from '@/api/system'
 import type { SysUser, SysUserDTO, SysUserQueryParams, SysRole } from '@/api/system'
 import type { RoleCode } from '@/types/user'
@@ -132,6 +133,16 @@ async function loadRoles() {
     roleOptions.value = (await listRoles()) as unknown as SysRole[]
   } catch (e) {
     console.error('[system.user] load roles failed:', e)
+  }
+}
+
+// 组织树下拉选项（实体引用字段：orgId）
+const orgTreeData = ref<any[]>([])
+async function loadOrgTree() {
+  try {
+    orgTreeData.value = (await listOrgTree()) || []
+  } catch (e) {
+    console.error('[system.user] load org tree failed:', e)
   }
 }
 
@@ -293,6 +304,7 @@ async function handleResetPwd() {
 onMounted(() => {
   loadData()
   loadRoles()
+  loadOrgTree()
 })
 </script>
 
@@ -380,8 +392,16 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="组织 ID">
-              <a-input-number v-model:value="formData.orgId" style="width: 100%" />
+            <a-form-item label="组织">
+              <a-tree-select
+                v-model:value="formData.orgId"
+                show-search
+                allow-clear
+                :tree-data="orgTreeData"
+                :field-names="{ label: 'orgName', value: 'id', children: 'children' }"
+                placeholder="选择组织"
+                style="width: 100%"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">

@@ -9,7 +9,9 @@ import { ReloadOutlined, ThunderboltOutlined, SendOutlined } from '@ant-design/i
 import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { pageDispatchTasks, recommendCandidates, batchDispatchTasks, dispatchTask } from '@/api/resource'
+import { pageDispatchTasks, recommendCandidates, batchDispatchTasks, dispatchTask, pageEngineers } from '@/api/resource'
+import { pageProjects } from '@/api/project'
+import { pageAgentCompanies, listAgentEngineers } from '@/api/agent'
 import type { DispatchTask, DispatchCandidate, DispatchQueryParams, DispatchDTO } from '@/types/resource'
 import { Priority, PriorityLabel } from '@/types/enum'
 import type { PageResult } from '@/types/api'
@@ -90,6 +92,58 @@ const dispatchForm = reactive<DispatchDTO>({
   remark: ''
 })
 
+// ============ 下拉选项（实体引用字段） ============
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+const engineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+const agentCompanyOptions = ref<Array<{ value: string | number; label: string }>>([])
+const agentEngineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadProjectOptions() {
+  try {
+    const res = (await pageProjects({ page: 1, size: 200 } as any)) as any
+    projectOptions.value = (res?.records || []).map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[resource.dispatch] load projects failed:', e)
+  }
+}
+
+async function loadEngineerOptions() {
+  try {
+    const res = (await pageEngineers({ page: 1, size: 200 } as any)) as any
+    engineerOptions.value = (res?.records || []).map((e: any) => ({ value: e.id, label: e.name }))
+  } catch (e) {
+    console.warn('[resource.dispatch] load engineers failed:', e)
+  }
+}
+
+async function loadAgentCompanyOptions() {
+  try {
+    const res = (await pageAgentCompanies({ page: 1, size: 200 } as any)) as any
+    agentCompanyOptions.value = (res?.records || []).map((c: any) => ({ value: c.id, label: c.companyName }))
+  } catch (e) {
+    console.warn('[resource.dispatch] load agent companies failed:', e)
+  }
+}
+
+async function loadAgentEngineerOptions(companyId?: string | number) {
+  if (!companyId) {
+    agentEngineerOptions.value = []
+    return
+  }
+  try {
+    const list = (await listAgentEngineers(companyId as any)) as any
+    agentEngineerOptions.value = (list || []).map((e: any) => ({ value: e.id, label: e.name }))
+  } catch (e) {
+    console.warn('[resource.dispatch] load agent engineers failed:', e)
+    agentEngineerOptions.value = []
+  }
+}
+
+function handleAgentCompanyChange(value?: string | number) {
+  dispatchForm.agentEngineerId = undefined
+  loadAgentEngineerOptions(value)
+}
+
 function openDispatch(row?: DispatchTask) {
   Object.assign(dispatchForm, {
     executeMode: 'SELF',
@@ -102,6 +156,13 @@ function openDispatch(row?: DispatchTask) {
     selectedRowKeys.value = [row.id]
   }
   dispatchVisible.value = true
+  loadEngineerOptions()
+  loadAgentCompanyOptions()
+  if (dispatchForm.agentCompanyId) {
+    loadAgentEngineerOptions(dispatchForm.agentCompanyId)
+  } else {
+    agentEngineerOptions.value = []
+  }
 }
 
 async function handleDispatch() {
@@ -110,7 +171,7 @@ async function handleDispatch() {
     return
   }
   if (dispatchForm.executeMode === 'SELF' && !dispatchForm.assigneeId) {
-    message.warning('请填写工程师 ID')
+    message.warning('请选择工程师')
     return
   }
   dispatchLoading.value = true
@@ -151,6 +212,7 @@ const columns = [
 
 onMounted(() => {
   loadData()
+  loadProjectOptions()
 })
 </script>
 
@@ -166,8 +228,16 @@ onMounted(() => {
 
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
-        <a-form-item label="项目ID">
-          <a-input-number v-model:value="query.projectId" placeholder="项目ID" style="width: 130px" />
+        <a-form-item label="项目">
+          <a-select
+            v-model:value="query.projectId"
+            placeholder="选择项目"
+            allow-clear
+            show-search
+            style="width: 180px"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="优先级">
           <a-select v-model:value="query.priority" placeholder="全部" allow-clear style="width: 110px" :options="priorityOptions" />
@@ -259,15 +329,37 @@ onMounted(() => {
             <a-radio value="AGENT">代理商代施</a-radio>
           </a-radio-group>
         </a-form-item>
-        <a-form-item v-if="dispatchForm.executeMode === 'SELF'" label="工程师 ID">
-          <a-input-number v-model:value="dispatchForm.assigneeId" style="width: 100%" placeholder="工程师 ID" />
+        <a-form-item v-if="dispatchForm.executeMode === 'SELF'" label="工程师">
+          <a-select
+            v-model:value="dispatchForm.assigneeId"
+            show-search
+            placeholder="选择工程师"
+            style="width: 100%"
+            :options="engineerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <template v-else>
-          <a-form-item label="代理商公司 ID">
-            <a-input-number v-model:value="dispatchForm.agentCompanyId" style="width: 100%" />
+          <a-form-item label="代理商公司">
+            <a-select
+              v-model:value="dispatchForm.agentCompanyId"
+              show-search
+              placeholder="选择代理商公司"
+              style="width: 100%"
+              :options="agentCompanyOptions"
+              :filter-option="(input: string, option: any) => option.label.includes(input)"
+              @change="handleAgentCompanyChange"
+            />
           </a-form-item>
-          <a-form-item label="代理商工程师 ID">
-            <a-input-number v-model:value="dispatchForm.agentEngineerId" style="width: 100%" />
+          <a-form-item label="代理商工程师">
+            <a-select
+              v-model:value="dispatchForm.agentEngineerId"
+              show-search
+              placeholder="选择代理商工程师"
+              style="width: 100%"
+              :options="agentEngineerOptions"
+              :filter-option="(input: string, option: any) => option.label.includes(input)"
+            />
           </a-form-item>
         </template>
         <a-form-item label="备注">

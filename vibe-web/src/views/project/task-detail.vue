@@ -18,6 +18,8 @@ import {
   returnTask,
   updateTaskProgress
 } from '@/api/project'
+import { pageEngineers } from '@/api/resource'
+import { pageAgentCompanies, listAgentEngineers } from '@/api/agent'
 import type { ProjectTask, TaskDispatchDTO, TaskTransferDTO, TaskProgressDTO } from '@/types/project'
 import {
   TaskStatus,
@@ -29,7 +31,8 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const taskId = computed(() => Number(route.params.taskId))
+// 直接透传字符串 id，避免雪花 Long 经 Number() 转换丢精度
+const taskId = computed(() => route.params.taskId as string)
 
 const loading = ref(false)
 const detail = ref<ProjectTask | null>(null)
@@ -56,6 +59,67 @@ const dispatchForm = reactive<TaskDispatchDTO>({
 })
 const dispatchLoading = ref(false)
 
+// ============ 下拉选项（实体引用字段） ============
+// 工程师 / 代理商公司 选项在派发与转派弹窗间共享
+const engineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+const agentCompanyOptions = ref<Array<{ value: string | number; label: string }>>([])
+// 派发弹窗：代理商工程师选项（联动 dispatchForm.agentCompanyId）
+const agentEngineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+// 转派弹窗：代理商公司为本地辅助字段（不随 TaskTransferDTO 提交），驱动代理商工程师选项联动
+const transferAgentCompanyId = ref<string | number | undefined>(undefined)
+const transferAgentEngineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadEngineerOptions() {
+  try {
+    const res = await pageEngineers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    engineerOptions.value = list.map((e: any) => ({ value: e.id, label: e.name }))
+  } catch (e) {
+    console.warn('[engineer] load failed:', e)
+  }
+}
+
+async function loadAgentCompanyOptions() {
+  try {
+    const res = await pageAgentCompanies({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    agentCompanyOptions.value = list.map((c: any) => ({ value: c.id, label: c.companyName }))
+  } catch (e) {
+    console.warn('[agentCompany] load failed:', e)
+  }
+}
+
+/** 按代理商公司加载代理商工程师选项（派发/转派弹窗分别缓存） */
+async function loadAgentEngineerOptions(companyId: string | number | undefined, target: 'dispatch' | 'transfer') {
+  if (companyId === undefined || companyId === null || companyId === '') {
+    if (target === 'dispatch') agentEngineerOptions.value = []
+    else transferAgentEngineerOptions.value = []
+    return
+  }
+  try {
+    const list = await listAgentEngineers(companyId as unknown as number)
+    const opts = (list as any)?.map((e: any) => ({ value: e.id, label: e.name })) || []
+    if (target === 'dispatch') agentEngineerOptions.value = opts
+    else transferAgentEngineerOptions.value = opts
+  } catch (e) {
+    console.warn('[agentEngineer] load failed:', e)
+    if (target === 'dispatch') agentEngineerOptions.value = []
+    else transferAgentEngineerOptions.value = []
+  }
+}
+
+/** 派发弹窗：代理商公司变化 -> 清空代理商工程师并重载其选项 */
+function onDispatchAgentCompanyChange(value: any) {
+  dispatchForm.agentEngineerId = undefined
+  loadAgentEngineerOptions(value, 'dispatch')
+}
+
+/** 转派弹窗：代理商公司变化 -> 清空代理商工程师并重载其选项 */
+function onTransferAgentCompanyChange(value: any) {
+  transferForm.toAgentEngineerId = undefined
+  loadAgentEngineerOptions(value, 'transfer')
+}
+
 function openDispatch() {
   Object.assign(dispatchForm, {
     executeMode: detail.value?.executeMode || 'SELF',
@@ -64,16 +128,20 @@ function openDispatch() {
     agentEngineerId: undefined,
     remark: ''
   })
+  agentEngineerOptions.value = []
   dispatchVisible.value = true
+  // 加载工程师 / 代理商公司下拉选项（实体引用字段）
+  loadEngineerOptions()
+  loadAgentCompanyOptions()
 }
 
 async function handleDispatch() {
   if (dispatchForm.executeMode === 'SELF' && !dispatchForm.assigneeId) {
-    message.warning('请输入工程师 ID')
+    message.warning('请选择工程师')
     return
   }
   if (dispatchForm.executeMode === 'AGENT' && !dispatchForm.agentCompanyId) {
-    message.warning('请输入代理商公司 ID')
+    message.warning('请选择代理商公司')
     return
   }
   dispatchLoading.value = true
@@ -102,12 +170,17 @@ function openTransfer() {
   transferForm.toAssigneeId = undefined
   transferForm.toAgentEngineerId = undefined
   transferForm.reason = ''
+  transferAgentCompanyId.value = undefined
+  transferAgentEngineerOptions.value = []
   transferVisible.value = true
+  // 加载工程师 / 代理商公司下拉选项（实体引用字段）
+  loadEngineerOptions()
+  loadAgentCompanyOptions()
 }
 
 async function handleTransfer() {
   if (!transferForm.toAssigneeId && !transferForm.toAgentEngineerId) {
-    message.warning('请填写转派目标工程师')
+    message.warning('请选择转派目标工程师')
     return
   }
   if (!transferForm.reason.trim()) {
@@ -278,15 +351,40 @@ onMounted(() => {
             <a-radio value="AGENT">代理商代施</a-radio>
           </a-radio-group>
         </a-form-item>
-        <a-form-item v-if="dispatchForm.executeMode === 'SELF'" label="工程师 ID">
-          <a-input-number v-model:value="dispatchForm.assigneeId" style="width: 100%" placeholder="工程师 ID" />
+        <a-form-item v-if="dispatchForm.executeMode === 'SELF'" label="工程师">
+          <a-select
+            v-model:value="dispatchForm.assigneeId"
+            show-search
+            :options="engineerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            placeholder="选择工程师"
+            style="width: 100%"
+            allow-clear
+          />
         </a-form-item>
         <template v-else>
-          <a-form-item label="代理商公司 ID">
-            <a-input-number v-model:value="dispatchForm.agentCompanyId" style="width: 100%" placeholder="代理商公司 ID" />
+          <a-form-item label="代理商公司">
+            <a-select
+              v-model:value="dispatchForm.agentCompanyId"
+              show-search
+              :options="agentCompanyOptions"
+              :filter-option="(input: string, option: any) => option.label.includes(input)"
+              placeholder="选择代理商公司"
+              style="width: 100%"
+              allow-clear
+              @change="onDispatchAgentCompanyChange"
+            />
           </a-form-item>
-          <a-form-item label="代理商工程师 ID">
-            <a-input-number v-model:value="dispatchForm.agentEngineerId" style="width: 100%" placeholder="可留空，由代理商指派" />
+          <a-form-item label="代理商工程师">
+            <a-select
+              v-model:value="dispatchForm.agentEngineerId"
+              show-search
+              :options="agentEngineerOptions"
+              :filter-option="(input: string, option: any) => option.label.includes(input)"
+              placeholder="可留空，由代理商指派"
+              style="width: 100%"
+              allow-clear
+            />
           </a-form-item>
         </template>
         <a-form-item label="备注">
@@ -298,11 +396,39 @@ onMounted(() => {
     <!-- 转派弹窗 -->
     <a-modal v-model:open="transferVisible" title="任务转派" :confirm-loading="transferLoading" @ok="handleTransfer">
       <a-form layout="vertical">
-        <a-form-item label="转派给自有工程师 ID">
-          <a-input-number v-model:value="transferForm.toAssigneeId" style="width: 100%" placeholder="自有工程师 ID" />
+        <a-form-item label="转派给自有工程师">
+          <a-select
+            v-model:value="transferForm.toAssigneeId"
+            show-search
+            :options="engineerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            placeholder="选择自有工程师"
+            style="width: 100%"
+            allow-clear
+          />
         </a-form-item>
-        <a-form-item label="或转派给代理商工程师 ID">
-          <a-input-number v-model:value="transferForm.toAgentEngineerId" style="width: 100%" placeholder="代理商工程师 ID" />
+        <a-form-item label="代理商公司">
+          <a-select
+            v-model:value="transferAgentCompanyId"
+            show-search
+            :options="agentCompanyOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            placeholder="选择代理商公司（用于筛选代理商工程师）"
+            style="width: 100%"
+            allow-clear
+            @change="onTransferAgentCompanyChange"
+          />
+        </a-form-item>
+        <a-form-item label="或转派给代理商工程师">
+          <a-select
+            v-model:value="transferForm.toAgentEngineerId"
+            show-search
+            :options="transferAgentEngineerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            placeholder="选择代理商工程师"
+            style="width: 100%"
+            allow-clear
+          />
         </a-form-item>
         <a-form-item label="转派原因" required>
           <a-textarea v-model:value="transferForm.reason" :rows="3" placeholder="请说明转派原因" />

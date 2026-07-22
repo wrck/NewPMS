@@ -40,10 +40,14 @@ export interface ProjectQueryParams extends PageParams {
 
 /** 项目列表项 */
 export interface Project {
-  id: number
+  /**
+   * 主键 ID（雪花算法 Long，后端序列化为字符串以避免 JS 精度丢失）
+   * 实际运行时类型为 string，类型签名保留 string | number 以兼容历史调用方
+   */
+  id: string | number
   projectCode: string
   projectName: string
-  customerId: number
+  customerId: string | number
   customerName?: string
   projectType: ProjectType
   productLine: ProductLine
@@ -51,7 +55,7 @@ export interface Project {
   priority: Priority
   status: ProjectStatus
   currentPhase?: string
-  pmId: number
+  pmId: string | number
   pmName?: string
   region?: string
   contractNo?: string
@@ -343,21 +347,21 @@ export interface ProjectStatusDTO {
 
 /** 项目创建/编辑 DTO */
 export interface ProjectSaveDTO {
-  id?: number
+  id?: string | number
   projectName: string
-  customerId: number
+  customerId: string | number
   projectType: ProjectType
   productLine: ProductLine
   executeMode: ExecuteMode
   priority: Priority
-  pmId: number
+  pmId: string | number
   region?: string
   contractNo?: string
   plannedStart?: string
   plannedEnd?: string
   description?: string
   remark?: string
-  templateId?: number
+  templateId?: string | number
 }
 
 /** 任务 DTO */

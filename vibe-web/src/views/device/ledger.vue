@@ -15,8 +15,11 @@ import {
   updateDeviceInstance,
   deleteDeviceInstance,
   importDeviceInstances,
-  downloadImportTemplate
+  downloadImportTemplate,
+  pageDeviceModels,
+  listWarehouses
 } from '@/api/device'
+import { pageProjects } from '@/api/project'
 import type { DeviceInstance, DeviceInstanceDTO, DeviceInstanceQueryParams } from '@/types/device'
 import { DeviceStatus, DeviceStatusTone, DeviceStatusLabel } from '@/types/enum'
 import type { PageResult } from '@/types/api'
@@ -64,7 +67,7 @@ const isEdit = ref(false)
 const formData = reactive<DeviceInstanceDTO>({
   serialNumber: '',
   macAddress: '',
-  modelId: 0,
+  modelId: undefined,
   firmwareVersion: '',
   projectId: undefined,
   warehouseId: undefined,
@@ -94,7 +97,7 @@ function openCreate() {
     id: undefined,
     serialNumber: '',
     macAddress: '',
-    modelId: 0,
+    modelId: undefined,
     firmwareVersion: '',
     projectId: undefined,
     warehouseId: undefined,
@@ -103,12 +106,18 @@ function openCreate() {
     remark: ''
   })
   formVisible.value = true
+  loadModelOptions()
+  loadProjectOptions()
+  loadWarehouseOptions()
 }
 
 function openEdit(row: DeviceInstance) {
   isEdit.value = true
   Object.assign(formData, row)
   formVisible.value = true
+  loadModelOptions()
+  loadProjectOptions()
+  loadWarehouseOptions()
 }
 
 async function handleSubmit() {
@@ -203,6 +212,40 @@ async function handleDownloadTemplate() {
 
 const statusOptions = Object.values(DeviceStatus).map((s) => ({ value: s, label: DeviceStatusLabel[s] }))
 
+// 实体引用字段下拉选项（型号/项目/仓库）
+const modelOptions = ref<Array<{ value: string | number; label: string }>>([])
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+const warehouseOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadModelOptions() {
+  try {
+    const res = await pageDeviceModels({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    modelOptions.value = list.map((m: any) => ({ value: m.id, label: m.modelName }))
+  } catch (e) {
+    console.warn('[device.ledger] load models failed:', e)
+  }
+}
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[device.ledger] load projects failed:', e)
+  }
+}
+
+async function loadWarehouseOptions() {
+  try {
+    const list = (await listWarehouses()) || []
+    warehouseOptions.value = list.map((w: any) => ({ value: w.id, label: w.warehouseName }))
+  } catch (e) {
+    console.warn('[device.ledger] load warehouses failed:', e)
+  }
+}
+
 const columns = [
   { title: 'SN', dataIndex: 'serialNumber', key: 'serialNumber', width: 160, fixed: 'left' },
   { title: 'MAC', dataIndex: 'macAddress', key: 'macAddress', width: 150 },
@@ -217,6 +260,8 @@ const columns = [
 
 onMounted(() => {
   loadData()
+  loadModelOptions()
+  loadProjectOptions()
 })
 </script>
 
@@ -243,11 +288,27 @@ onMounted(() => {
         <a-form-item label="状态">
           <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 130px" :options="statusOptions" />
         </a-form-item>
-        <a-form-item label="型号ID">
-          <a-input-number v-model:value="query.modelId" placeholder="型号ID" style="width: 130px" />
+        <a-form-item label="型号">
+          <a-select
+            v-model:value="query.modelId"
+            placeholder="全部"
+            allow-clear
+            show-search
+            style="width: 160px"
+            :options="modelOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
-        <a-form-item label="项目ID">
-          <a-input-number v-model:value="query.projectId" placeholder="项目ID" style="width: 130px" />
+        <a-form-item label="项目">
+          <a-select
+            v-model:value="query.projectId"
+            placeholder="全部"
+            allow-clear
+            show-search
+            style="width: 160px"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item>
           <a-space>
@@ -292,8 +353,15 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="型号 ID" name="modelId" required>
-              <a-input-number v-model:value="formData.modelId" style="width: 100%" />
+            <a-form-item label="型号" name="modelId" required>
+              <a-select
+                v-model:value="formData.modelId"
+                show-search
+                placeholder="选择型号"
+                style="width: 100%"
+                :options="modelOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
@@ -302,13 +370,29 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="所属项目 ID">
-              <a-input-number v-model:value="formData.projectId" style="width: 100%" />
+            <a-form-item label="所属项目">
+              <a-select
+                v-model:value="formData.projectId"
+                show-search
+                allow-clear
+                placeholder="选择项目"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="仓库 ID">
-              <a-input-number v-model:value="formData.warehouseId" style="width: 100%" />
+            <a-form-item label="仓库">
+              <a-select
+                v-model:value="formData.warehouseId"
+                show-search
+                allow-clear
+                placeholder="选择仓库"
+                style="width: 100%"
+                :options="warehouseOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">

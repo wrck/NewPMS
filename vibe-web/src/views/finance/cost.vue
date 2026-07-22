@@ -14,6 +14,8 @@ import {
   updateFinanceCost,
   deleteFinanceCost
 } from '@/api/finance'
+import { pageProjects } from '@/api/project'
+import { pageOutsourceTasks } from '@/api/agent'
 import type { FinanceCost, FinanceCostQuery, FinanceCostDTO, FinanceCostType } from '@/types/finance'
 import type { PageResult } from '@/types/api'
 
@@ -65,7 +67,7 @@ function handleReset() {
 }
 
 const columns = [
-  { title: '项目ID', dataIndex: 'projectId', key: 'projectId', width: 100 },
+  { title: '项目', dataIndex: 'projectName', key: 'projectName', width: 140, ellipsis: true },
   { title: '成本类型', dataIndex: 'costType', key: 'costType', width: 140 },
   { title: '金额', dataIndex: 'amount', key: 'amount', width: 140 },
   { title: '发生日期', dataIndex: 'costDate', key: 'costDate', width: 120 },
@@ -88,10 +90,57 @@ const form = reactive<FinanceCostDTO>({
   description: ''
 })
 const rules = {
-  projectId: [{ required: true, message: '请输入项目ID' }],
+  projectId: [{ required: true, message: '请选择项目' }],
   costType: [{ required: true, message: '请选择成本类型' }],
   amount: [{ required: true, message: '请输入金额' }],
   costDate: [{ required: true, message: '请选择发生日期' }]
+}
+
+/* ============ 实体引用下拉选项 ============ */
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+const outsourceTaskOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[finance.cost] load projects failed:', e)
+  }
+}
+
+// 按当前选中的项目加载转包任务，供 refId 在 refType=OUTSOURCE_TASK 时使用
+async function loadOutsourceTaskOptions(projectId?: string | number) {
+  if (!projectId) {
+    outsourceTaskOptions.value = []
+    return
+  }
+  try {
+    const res = await pageOutsourceTasks({ page: 1, size: 200, projectId } as any)
+    const list = (res as any)?.records || []
+    outsourceTaskOptions.value = list.map((t: any) => ({ value: t.id, label: t.taskName }))
+  } catch (e) {
+    console.warn('[finance.cost] load outsource tasks failed:', e)
+  }
+}
+
+// 项目变更时清空 refId，并按新项目重载转包任务选项
+function handleProjectChange() {
+  form.refId = undefined
+  if (form.refType === 'OUTSOURCE_TASK') {
+    loadOutsourceTaskOptions(form.projectId)
+  }
+}
+
+// 业务来源类型变更：清空 refId，并按需重载转包任务选项
+function handleRefTypeChange() {
+  form.refId = undefined
+  if (form.refType === 'OUTSOURCE_TASK') {
+    loadOutsourceTaskOptions(form.projectId)
+  } else {
+    outsourceTaskOptions.value = []
+  }
 }
 
 function openCreate() {
@@ -106,6 +155,7 @@ function openCreate() {
     refId: undefined,
     description: ''
   })
+  outsourceTaskOptions.value = []
   modalVisible.value = true
 }
 
@@ -121,6 +171,12 @@ function openEdit(record: FinanceCost) {
     refId: record.refId,
     description: record.description
   })
+  // 编辑时若来源为转包任务，按当前项目预加载转包任务选项
+  if (record.refType === 'OUTSOURCE_TASK') {
+    loadOutsourceTaskOptions(record.projectId)
+  } else {
+    outsourceTaskOptions.value = []
+  }
   modalVisible.value = true
 }
 
@@ -165,6 +221,8 @@ function handleDelete(record: FinanceCost) {
 
 onMounted(() => {
   loadData()
+  // 预加载搜索表单 / 弹窗下拉选项
+  loadProjectOptions()
 })
 </script>
 
@@ -182,8 +240,16 @@ onMounted(() => {
     </template>
 
     <a-form layout="inline" style="margin-bottom: 16px" @submit.prevent="handleSearch">
-      <a-form-item label="项目ID">
-        <a-input-number v-model:value="query.projectId" placeholder="项目ID" :min="1" style="width: 140px" />
+      <a-form-item label="项目">
+        <a-select
+          v-model:value="query.projectId"
+          show-search
+          allow-clear
+          placeholder="选择项目"
+          style="width: 200px"
+          :options="projectOptions"
+          :filter-option="(input: string, option: any) => option.label.includes(input)"
+        />
       </a-form-item>
       <a-form-item label="成本类型">
         <a-select v-model:value="query.costType" placeholder="全部" allow-clear style="width: 140px">
@@ -213,7 +279,10 @@ onMounted(() => {
         <EmptyState description="暂无成本数据" />
       </template>
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'costType'">
+        <template v-if="column.key === 'projectName'">
+          {{ record.projectName || record.projectId }}
+        </template>
+        <template v-else-if="column.key === 'costType'">
           <a-tag :color="costTypeMap[record.costType as FinanceCostType]?.color">
             {{ costTypeMap[record.costType as FinanceCostType]?.label }}
           </a-tag>
@@ -241,8 +310,16 @@ onMounted(() => {
       <a-form ref="formRef" :model="form" :rules="rules" layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="项目ID" name="projectId">
-              <a-input-number v-model:value="form.projectId" placeholder="项目ID" style="width: 100%" />
+            <a-form-item label="项目" name="projectId">
+              <a-select
+                v-model:value="form.projectId"
+                show-search
+                placeholder="选择项目"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                @change="handleProjectChange"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
@@ -268,7 +345,7 @@ onMounted(() => {
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="业务来源">
-              <a-select v-model:value="form.refType">
+              <a-select v-model:value="form.refType" @change="handleRefTypeChange">
                 <a-select-option value="MANUAL">手动录入</a-select-option>
                 <a-select-option value="TIMESHEET">工时单</a-select-option>
                 <a-select-option value="BUSINESS_TRIP">差旅单</a-select-option>
@@ -277,7 +354,19 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="业务ID">
+            <!-- 业务来源为转包任务时联动加载，其它来源保留手填 -->
+            <a-form-item v-if="form.refType === 'OUTSOURCE_TASK'" label="转包任务">
+              <a-select
+                v-model:value="form.refId"
+                show-search
+                allow-clear
+                placeholder="选择转包任务"
+                style="width: 100%"
+                :options="outsourceTaskOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
+            </a-form-item>
+            <a-form-item v-else label="关联单据">
               <a-input-number v-model:value="form.refId" placeholder="可选" style="width: 100%" />
             </a-form-item>
           </a-col>

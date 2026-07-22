@@ -23,8 +23,10 @@ import {
   respondOutsourceTask,
   assignAgentEngineer,
   listAgentEngineers,
-  listDeliverables
+  listDeliverables,
+  pageAgentCompanies
 } from '@/api/agent'
+import { pageProjects, pageTasks } from '@/api/project'
 import type {
   OutsourceTask,
   OutsourceTaskDTO,
@@ -70,6 +72,52 @@ const columns = [
   { title: '操作', key: 'action', width: 220, fixed: 'right' }
 ]
 
+// ============ 实体引用下拉选项 ============
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+const agentCompanyOptions = ref<Array<{ value: string | number; label: string }>>([])
+const taskOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[agent.outsource] load projects failed:', e)
+  }
+}
+
+async function loadAgentCompanyOptions() {
+  try {
+    const res = await pageAgentCompanies({ page: 1, size: 200 })
+    const list = (res as any)?.records || []
+    agentCompanyOptions.value = list.map((c: any) => ({ value: c.id, label: c.companyName }))
+  } catch (e) {
+    console.warn('[agent.outsource] load agent companies failed:', e)
+  }
+}
+
+async function loadTaskOptions(projectId?: string | number) {
+  if (!projectId) {
+    taskOptions.value = []
+    return
+  }
+  try {
+    const res = await pageTasks({ projectId, page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    taskOptions.value = list.map((t: any) => ({ value: t.id, label: t.taskName }))
+  } catch (e) {
+    console.warn('[agent.outsource] load tasks failed:', e)
+  }
+}
+
+// 项目变更联动：清空任务并重新加载任务选项
+function handleProjectChange(value?: string | number) {
+  formData.taskId = undefined
+  taskOptions.value = []
+  loadTaskOptions(value)
+}
+
 // 创建弹窗
 const formVisible = ref(false)
 const formLoading = ref(false)
@@ -91,7 +139,10 @@ function openCreate() {
     deadline: '',
     attachments: []
   })
+  taskOptions.value = []
   formVisible.value = true
+  loadProjectOptions()
+  loadAgentCompanyOptions()
 }
 
 async function handleSubmit() {
@@ -218,6 +269,8 @@ const deliverableColumns = [
 
 onMounted(() => {
   loadData()
+  loadProjectOptions()
+  loadAgentCompanyOptions()
 })
 </script>
 
@@ -230,11 +283,27 @@ onMounted(() => {
 
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
-        <a-form-item label="项目ID">
-          <a-input-number v-model:value="query.projectId" placeholder="项目ID" style="width: 130px" />
+        <a-form-item label="项目">
+          <a-select
+            v-model:value="query.projectId"
+            show-search
+            allow-clear
+            placeholder="选择项目"
+            style="width: 180px"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
-        <a-form-item label="代理商ID">
-          <a-input-number v-model:value="query.agentCompanyId" placeholder="代理商ID" style="width: 130px" />
+        <a-form-item label="代理商">
+          <a-select
+            v-model:value="query.agentCompanyId"
+            show-search
+            allow-clear
+            placeholder="选择代理商"
+            style="width: 180px"
+            :options="agentCompanyOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 130px">
@@ -280,18 +349,44 @@ onMounted(() => {
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="项目 ID" required>
-              <a-input-number v-model:value="formData.projectId" style="width: 100%" />
+            <a-form-item label="项目" required>
+              <a-select
+                v-model:value="formData.projectId"
+                show-search
+                allow-clear
+                placeholder="选择项目"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                @change="handleProjectChange"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="任务 ID">
-              <a-input-number v-model:value="formData.taskId" style="width: 100%" />
+            <a-form-item label="任务">
+              <a-select
+                v-model:value="formData.taskId"
+                show-search
+                allow-clear
+                placeholder="请先选择项目"
+                style="width: 100%"
+                :options="taskOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                :disabled="!formData.projectId"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="代理商公司 ID" required>
-              <a-input-number v-model:value="formData.agentCompanyId" style="width: 100%" />
+            <a-form-item label="代理商公司" required>
+              <a-select
+                v-model:value="formData.agentCompanyId"
+                show-search
+                allow-clear
+                placeholder="选择代理商公司"
+                style="width: 100%"
+                :options="agentCompanyOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">

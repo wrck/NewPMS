@@ -23,8 +23,10 @@ import {
   updateSparePart,
   deleteSparePart,
   sparePartAction,
-  listSparePartLogs
+  listSparePartLogs,
+  pageDeviceModels
 } from '@/api/device'
+import { pageProjects } from '@/api/project'
 import type { SparePart, SparePartQueryParams, SparePartLog, SparePartActionDTO } from '@/types/device'
 import type { PageResult } from '@/types/api'
 
@@ -107,12 +109,14 @@ function openCreate() {
     remark: ''
   })
   formVisible.value = true
+  loadModelOptions()
 }
 
 function openEdit(row: SparePart) {
   isEdit.value = true
   Object.assign(formData, row)
   formVisible.value = true
+  loadModelOptions()
 }
 
 async function handleSubmit() {
@@ -182,6 +186,7 @@ function openAction(row: SparePart, type: ActionType) {
   actionForm.projectId = undefined
   actionForm.remark = ''
   actionVisible.value = true
+  loadProjectOptions()
 }
 
 async function handleAction() {
@@ -259,6 +264,30 @@ const categoryOptions = [
   { value: 'LB', label: '负载均衡' },
   { value: 'OTHER', label: '其他' }
 ]
+
+// 实体引用字段下拉选项（型号/项目）
+const modelOptions = ref<Array<{ value: string | number; label: string }>>([])
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadModelOptions() {
+  try {
+    const res = await pageDeviceModels({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    modelOptions.value = list.map((m: any) => ({ value: m.id, label: m.modelName }))
+  } catch (e) {
+    console.warn('[device.spare] load models failed:', e)
+  }
+}
+
+async function loadProjectOptions() {
+  try {
+    const res = await pageProjects({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    projectOptions.value = list.map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[device.spare] load projects failed:', e)
+  }
+}
 
 const columns = [
   { title: '备件编码', dataIndex: 'partCode', key: 'partCode', width: 140 },
@@ -387,8 +416,16 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="所属型号 ID">
-              <a-input-number v-model:value="formData.modelId" style="width: 100%" />
+            <a-form-item label="所属型号">
+              <a-select
+                v-model:value="formData.modelId"
+                show-search
+                allow-clear
+                placeholder="选择型号"
+                style="width: 100%"
+                :options="modelOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="8">
@@ -435,8 +472,16 @@ onMounted(() => {
         <a-form-item label="数量" required>
           <a-input-number v-model:value="actionForm.quantity" :min="1" style="width: 100%" />
         </a-form-item>
-        <a-form-item label="关联项目 ID">
-          <a-input-number v-model:value="actionForm.projectId" placeholder="可选" style="width: 100%" />
+        <a-form-item label="关联项目">
+          <a-select
+            v-model:value="actionForm.projectId"
+            show-search
+            allow-clear
+            placeholder="选择项目"
+            style="width: 100%"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="备注">
           <a-textarea v-model:value="actionForm.remark" :rows="2" placeholder="领用事由/归还说明等" />

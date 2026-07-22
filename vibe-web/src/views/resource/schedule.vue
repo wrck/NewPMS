@@ -22,6 +22,7 @@ import {
   updateSchedule,
   deleteSchedule
 } from '@/api/resource'
+import { pageProjects } from '@/api/project'
 import type { Schedule, Engineer } from '@/types/resource'
 
 const loading = ref(false)
@@ -158,6 +159,18 @@ const formData = reactive<Partial<Schedule>>({
   remark: ''
 })
 
+// 所属项目下拉选项（实体引用字段）
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadProjectOptions() {
+  try {
+    const res = (await pageProjects({ page: 1, size: 200 } as any)) as any
+    projectOptions.value = (res?.records || []).map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[resource.schedule] load projects failed:', e)
+  }
+}
+
 function openCreate(engineerId?: number, date?: Dayjs) {
   const dateStr = date ? date.format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD')
   isEdit.value = false
@@ -172,6 +185,7 @@ function openCreate(engineerId?: number, date?: Dayjs) {
     remark: ''
   })
   formVisible.value = true
+  loadProjectOptions()
 }
 
 function openEdit(schedule: Schedule, e: Event) {
@@ -188,6 +202,7 @@ function openEdit(schedule: Schedule, e: Event) {
     remark: schedule.remark || ''
   })
   formVisible.value = true
+  loadProjectOptions()
 }
 
 async function handleSubmit() {
@@ -381,8 +396,16 @@ onMounted(() => {
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="所属项目 ID">
-              <a-input-number v-model:value="formData.projectId" style="width: 100%" placeholder="可选" />
+            <a-form-item label="所属项目">
+              <a-select
+                v-model:value="formData.projectId"
+                show-search
+                placeholder="选择项目（可选）"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                allow-clear
+              />
             </a-form-item>
           </a-col>
         </a-row>

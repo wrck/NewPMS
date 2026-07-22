@@ -19,6 +19,7 @@ import ProgressBar from '@/components/ProgressBar.vue'
 import { ImportExport } from '@/components/ImportExport'
 import { PieChart, LineChart, BarChart } from '@/components/charts'
 import { getProjectReport } from '@/api/report'
+import { pageUsers } from '@/api/system'
 import { ProjectStatus, ProjectStatusTone, ProjectStatusLabel } from '@/types/enum'
 
 /* ============ 类型 ============ */
@@ -160,8 +161,21 @@ const detailColumns = [
 
 const detailData = computed(() => data.value?.detail || [])
 
+// 项目经理下拉选项（实体引用字段：pmId）
+const pmOptions = ref<Array<{ value: string | number; label: string }>>([])
+async function loadPms() {
+  try {
+    const res = await pageUsers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    pmOptions.value = list.map((u: any) => ({ value: u.id, label: u.realName || u.userName }))
+  } catch (e) {
+    console.warn('[pm] load failed:', e)
+  }
+}
+
 onMounted(() => {
   loadData()
+  loadPms()
 })
 </script>
 
@@ -189,8 +203,16 @@ onMounted(() => {
             </a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="PM ID">
-          <a-input-number v-model:value="query.pmId" placeholder="PM ID" style="width: 120px" />
+        <a-form-item label="项目经理">
+          <a-select
+            v-model:value="query.pmId"
+            show-search
+            allow-clear
+            :options="pmOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+            placeholder="全部 PM"
+            style="width: 150px"
+          />
         </a-form-item>
         <a-form-item label="产品线">
           <a-input v-model:value="query.productLine" placeholder="产品线" allow-clear style="width: 130px" />

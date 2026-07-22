@@ -14,8 +14,10 @@ import {
   updateTimesheet,
   deleteTimesheet,
   submitTimesheet,
-  approveTimesheet
+  approveTimesheet,
+  pageEngineers
 } from '@/api/resource'
+import { pageProjects, pageTasks } from '@/api/project'
 import type { Timesheet, TimesheetDTO, TimesheetQueryParams } from '@/types/resource'
 import type { PageResult } from '@/types/api'
 
@@ -47,8 +49,8 @@ const formVisible = ref(false)
 const formLoading = ref(false)
 const isEdit = ref(false)
 const formData = reactive<TimesheetDTO>({
-  engineerId: 0,
-  projectId: 0,
+  engineerId: undefined,
+  projectId: undefined,
   taskId: undefined,
   workDate: '',
   hours: 8,
@@ -57,12 +59,55 @@ const formData = reactive<TimesheetDTO>({
   description: ''
 })
 
+// ============ 下拉选项（实体引用字段） ============
+const engineerOptions = ref<Array<{ value: string | number; label: string }>>([])
+const projectOptions = ref<Array<{ value: string | number; label: string }>>([])
+const taskOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadEngineerOptions() {
+  try {
+    const res = (await pageEngineers({ page: 1, size: 200 } as any)) as any
+    engineerOptions.value = (res?.records || []).map((e: any) => ({ value: e.id, label: e.name }))
+  } catch (e) {
+    console.warn('[resource.timesheet] load engineers failed:', e)
+  }
+}
+
+async function loadProjectOptions() {
+  try {
+    const res = (await pageProjects({ page: 1, size: 200 } as any)) as any
+    projectOptions.value = (res?.records || []).map((p: any) => ({ value: p.id, label: p.projectName }))
+  } catch (e) {
+    console.warn('[resource.timesheet] load projects failed:', e)
+  }
+}
+
+async function loadTaskOptions(projectId?: string | number) {
+  if (!projectId) {
+    taskOptions.value = []
+    return
+  }
+  try {
+    const res = (await pageTasks({ projectId: projectId as any, page: 1, size: 200 } as any)) as any
+    const list = res?.records || []
+    taskOptions.value = list.map((t: any) => ({ value: t.id, label: t.taskName }))
+  } catch (e) {
+    console.warn('[resource.timesheet] load tasks failed:', e)
+    taskOptions.value = []
+  }
+}
+
+function handleProjectChange(value?: string | number) {
+  formData.taskId = undefined
+  loadTaskOptions(value)
+}
+
 function openCreate() {
   isEdit.value = false
   Object.assign(formData, {
     id: undefined,
-    engineerId: 0,
-    projectId: 0,
+    engineerId: undefined,
+    projectId: undefined,
     taskId: undefined,
     workDate: '',
     hours: 8,
@@ -70,6 +115,7 @@ function openCreate() {
     workType: 'NORMAL',
     description: ''
   })
+  taskOptions.value = []
   formVisible.value = true
 }
 
@@ -86,6 +132,7 @@ function openEdit(row: Timesheet) {
     workType: row.workType,
     description: row.description
   })
+  loadTaskOptions(row.projectId)
   formVisible.value = true
 }
 
@@ -191,6 +238,8 @@ const columns = [
 
 onMounted(() => {
   loadData()
+  loadEngineerOptions()
+  loadProjectOptions()
 })
 </script>
 
@@ -203,11 +252,27 @@ onMounted(() => {
 
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
-        <a-form-item label="工程师ID">
-          <a-input-number v-model:value="query.engineerId" placeholder="工程师ID" style="width: 130px" />
+        <a-form-item label="工程师">
+          <a-select
+            v-model:value="query.engineerId"
+            placeholder="选择工程师"
+            allow-clear
+            show-search
+            style="width: 180px"
+            :options="engineerOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
-        <a-form-item label="项目ID">
-          <a-input-number v-model:value="query.projectId" placeholder="项目ID" style="width: 130px" />
+        <a-form-item label="项目">
+          <a-select
+            v-model:value="query.projectId"
+            placeholder="选择项目"
+            allow-clear
+            show-search
+            style="width: 180px"
+            :options="projectOptions"
+            :filter-option="(input: string, option: any) => option.label.includes(input)"
+          />
         </a-form-item>
         <a-form-item label="状态">
           <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 130px">
@@ -255,18 +320,41 @@ onMounted(() => {
       <a-form layout="vertical">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="工程师 ID" required>
-              <a-input-number v-model:value="formData.engineerId" style="width: 100%" />
+            <a-form-item label="工程师" required>
+              <a-select
+                v-model:value="formData.engineerId"
+                show-search
+                placeholder="选择工程师"
+                style="width: 100%"
+                :options="engineerOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="项目 ID" required>
-              <a-input-number v-model:value="formData.projectId" style="width: 100%" />
+            <a-form-item label="项目" required>
+              <a-select
+                v-model:value="formData.projectId"
+                show-search
+                placeholder="选择项目"
+                style="width: 100%"
+                :options="projectOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                @change="handleProjectChange"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="任务 ID">
-              <a-input-number v-model:value="formData.taskId" style="width: 100%" />
+            <a-form-item label="任务">
+              <a-select
+                v-model:value="formData.taskId"
+                show-search
+                placeholder="选择任务"
+                style="width: 100%"
+                :options="taskOptions"
+                :filter-option="(input: string, option: any) => option.label.includes(input)"
+                allow-clear
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">

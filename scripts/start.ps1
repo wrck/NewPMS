@@ -178,6 +178,13 @@ $Config = @{
     HasDocker    = $HasDocker
 }
 
+# 联动注入 VITE_API_TARGET：让前端 vite proxy 自动转发到当前后端端口
+# 仅当用户未显式设置 VITE_API_TARGET 时注入（支持远程后端场景显式覆盖）
+# vite 的 loadEnv 进程环境变量优先级最高，会覆盖 .env.development 中的硬编码值
+if (-not $env:VITE_API_TARGET) {
+    $env:VITE_API_TARGET = "http://localhost:$($Config.BackendPort)"
+}
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -516,7 +523,7 @@ function Start-Frontend {
         $env:VITE_PORT = "$Port"
     }
 
-    Write-Status "  启动 $Name..." -Status Info
+    Write-Status "  启动 $Name (代理目标: $env:VITE_API_TARGET)..." -Status Info
     # On Windows npm is a .cmd batch script; must invoke npm.cmd explicitly
     $npmCmd = if ($IsWindows -or $env:OS -eq "Windows_NT") { "npm.cmd" } else { "npm" }
     $proc = Start-Process -FilePath $npmCmd `

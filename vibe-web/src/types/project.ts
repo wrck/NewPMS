@@ -71,10 +71,22 @@ export interface Project {
   version?: number
 }
 
-/** 项目详情（聚合） */
+/** 项目详情（聚合，对齐后端 ProjectDetailVO 扁平字段） */
 export interface ProjectDetail extends Project {
   phases?: ProjectPhase[]
   milestones?: Milestone[]
+  members?: ProjectMember[]
+  /** 任务总数（后端扁平字段 taskTotal） */
+  taskTotal?: number
+  /** 已完成任务数（后端扁平字段 taskCompleted） */
+  taskCompleted?: number
+  /** 进行中任务数（后端扁平字段 taskInProgress） */
+  taskInProgress?: number
+  /** 待分配任务数（后端扁平字段 taskPending） */
+  taskPending?: number
+  riskCount?: number
+  issueCount?: number
+  /** @deprecated 兼容旧嵌套对象 taskStats */
   taskStats?: {
     total: number
     completed: number
@@ -82,9 +94,6 @@ export interface ProjectDetail extends Project {
     pending: number
     overdue: number
   }
-  riskCount?: number
-  issueCount?: number
-  members?: ProjectMember[]
 }
 
 /** 项目阶段（对齐后端 ProjectPhaseVO） */
@@ -132,10 +141,11 @@ export interface ProjectTask {
   priority: Priority
   description?: string
   attachments?: string
-  progressPct?: number
   version?: number
   createTime?: string
   updateTime?: string
+  /** @deprecated 后端 VO 无此字段，保留仅为前端兼容 */
+  progressPct?: number
 }
 
 /** 项目任务查询参数 */
@@ -202,7 +212,7 @@ export interface ProjectIssue {
 export interface ProjectChange {
   id: string | number
   projectId: string | number
-  changeType: 'SCOPE' | 'TIME' | 'RESOURCE' | 'COST' | 'OTHER'
+  changeType: 'SCOPE' | 'TIME' | 'RESOURCE' | 'OTHER'
   /** 变更内容（后端字段名 changeContent） */
   changeContent: string
   reason: string
@@ -213,15 +223,18 @@ export interface ProjectChange {
   approverId?: string | number
   approverName?: string
   approveTime?: string
+  createTime?: string
+  /** @deprecated 兼容旧字段名 createdAt */
   createdAt?: string
 }
 
-/** 项目成员（对齐后端 ProjectMemberVO） */
+/** 项目成员（对齐后端 ProjectMemberVO，无 realName 字段） */
 export interface ProjectMember {
   id: string | number
   projectId: string | number
   userId: string | number
   userName: string
+  /** @deprecated 后端 VO 无 realName，保留仅为前端兼容 */
   realName?: string
   role: 'PM' | 'ENGINEER' | 'TECH_LEAD' | 'QA' | 'VIEWER'
   joinTime?: string
@@ -229,15 +242,21 @@ export interface ProjectMember {
   joinedAt?: string
 }
 
-/** 项目沟通记录 */
+/** 项目沟通记录（对齐后端 ProjectCommentVO） */
 export interface ProjectComment {
-  id: number
-  projectId: number
-  userId: number
-  userName: string
+  id: string | number
+  projectId: string | number
+  taskId?: string | number
   content: string
-  attachments?: Array<{ name: string; url: string }>
-  createdAt: string
+  authorId?: string | number
+  authorName?: string
+  parentId?: string | number
+  replies?: ProjectComment[]
+  createTime?: string
+  /** @deprecated 兼容旧字段名 createdAt */
+  createdAt?: string
+  /** @deprecated 兼容旧字段名 userName */
+  userName?: string
 }
 
 /** 项目模板阶段 */
@@ -265,14 +284,17 @@ export interface ProjectTemplateTask {
 
 /** 项目模板（含阶段、任务详情） */
 export interface ProjectTemplate {
-  id: number
+  id: string | number
   templateName: string
   projectType?: ProjectType
   productLine?: ProductLine
   description?: string
   phases?: ProjectTemplatePhase[]
   tasks?: ProjectTemplateTask[]
-  status?: 'ENABLED' | 'DISABLED'
+  /** 模板状态：1-启用 0-禁用（对齐后端 Integer status） */
+  status?: number
+  createTime?: string
+  /** @deprecated 兼容旧字段名 createdAt */
   createdAt?: string
 }
 
@@ -373,20 +395,23 @@ export interface ProjectSaveDTO {
   templateId?: string | number
 }
 
-/** 任务 DTO */
+/** 任务 DTO（对齐后端 ProjectTaskDTO） */
 export interface ProjectTaskDTO {
-  id?: number
-  projectId?: number
-  phaseId?: number
-  parentTaskId?: number
+  id?: string | number
+  projectId?: string | number
+  phaseId?: string | number
+  parentTaskId?: string | number
   taskName: string
   taskType: TaskType
   executeMode: 'SELF' | 'AGENT'
-  assigneeId?: number
-  agentCompanyId?: number
-  agentEngineerId?: number
-  siteInfo?: ProjectTask['siteInfo']
-  deviceIds?: number[]
+  assigneeId?: string | number
+  agentCompanyId?: string | number
+  agentEngineerId?: string | number
+  siteInfo?: string
+  /** 关联设备ID列表（JSON 字符串，后端为 String 类型） */
+  deviceIds?: string
+  /** 附件列表（JSON 字符串） */
+  attachments?: string
   plannedStart?: string
   plannedEnd?: string
   priority: Priority

@@ -141,6 +141,7 @@ const taskFormData = reactive<Record<string, any>>({
   taskType: 'OTHER',
   executeMode: 'SELF',
   priority: Priority.MEDIUM,
+  phaseId: undefined,
   assigneeId: undefined,
   plannedStart: '',
   plannedEnd: '',
@@ -183,11 +184,17 @@ async function loadEngineerOptions() {
   }
 }
 
+/** 阶段下拉选项（实体引用字段：phaseId，从已加载的阶段列表派生） */
+const phaseOptions = computed(() =>
+  (phases.value || []).map((p) => ({ value: p.id, label: p.phaseName }))
+)
+
 /** 新增任务表单字段定义（assigneeId 改为 select + 动态加载工程师列表） */
 const taskFormFields = computed<FormField[]>(() => [
   { field: 'taskName', label: '任务名称', type: 'input', required: true, placeholder: '请输入任务名称', maxLength: 100, span: 24 },
   { field: 'taskType', label: '任务类型', type: 'select', required: true, options: taskTypeOptions, span: 12 },
   { field: 'executeMode', label: '执行模式', type: 'select', required: true, options: executeModeOptions, span: 12 },
+  { field: 'phaseId', label: '所属阶段', type: 'select', options: phaseOptions.value, placeholder: '选择所属阶段（可留空）', span: 12 },
   { field: 'priority', label: '优先级', type: 'select', required: true, options: priorityOptions, span: 12 },
   { field: 'assigneeId', label: '指派给', type: 'select', options: engineerOptions.value, placeholder: '选择执行人（可留空后派单）', span: 12 },
   { field: 'plannedStart', label: '计划开始', type: 'date', valueFormat: 'YYYY-MM-DD', span: 12 },
@@ -196,18 +203,27 @@ const taskFormFields = computed<FormField[]>(() => [
 ])
 
 /** 打开新增任务弹窗 */
-function handleOpenTaskModal() {
+async function handleOpenTaskModal() {
   // 重置表单数据为默认值
   Object.assign(taskFormData, {
     taskName: '',
     taskType: 'OTHER',
     executeMode: 'SELF',
     priority: Priority.MEDIUM,
+    phaseId: undefined,
     assigneeId: undefined,
     plannedStart: '',
     plannedEnd: '',
     description: ''
   })
+  // 确保阶段列表已加载（phaseId 实体引用字段需要 options）
+  if (!phases.value?.length) {
+    try {
+      phases.value = (await listPhases(projectId.value)) || []
+    } catch (e) {
+      console.warn('[phase] load for task modal failed:', e)
+    }
+  }
   taskModalVisible.value = true
   // 加载工程师下拉选项（assigneeId 实体引用字段）
   loadEngineerOptions()
@@ -343,13 +359,13 @@ async function handleArchiveSubmit() {
 }
 
 // ============ 表格列 ============
+// 注：后端 ProjectTaskVO/ProjectPhaseVO 暂无 progressPct 字段，移除进度列以避免永远显示 0。
 const taskColumns = [
   { title: '任务名称', dataIndex: 'taskName', key: 'taskName', ellipsis: true },
   { title: '所属阶段', dataIndex: 'phaseName', key: 'phaseName', width: 120 },
   { title: '执行人', dataIndex: 'assigneeName', key: 'assigneeName', width: 110 },
   { title: '执行模式', key: 'executeMode', width: 90 },
   { title: '状态', key: 'status', width: 100 },
-  { title: '进度', key: 'progressPct', width: 140 },
   { title: '优先级', key: 'priority', width: 80 },
   { title: '计划周期', key: 'plannedRange', width: 200 },
   { title: '操作', key: 'action', width: 80, fixed: 'right' }
@@ -358,7 +374,6 @@ const taskColumns = [
 const phaseColumns = [
   { title: '阶段', dataIndex: 'phaseName', key: 'phaseName', width: 140 },
   { title: '状态', key: 'status', width: 120 },
-  { title: '进度', key: 'progressPct', width: 160 },
   { title: '计划开始', dataIndex: 'plannedStart', key: 'plannedStart', width: 130 },
   { title: '计划结束', dataIndex: 'plannedEnd', key: 'plannedEnd', width: 130 },
   { title: '实际开始', dataIndex: 'actualStart', key: 'actualStart', width: 130 },
@@ -710,7 +725,7 @@ async function handleMemberSubmit() {
 function handleMemberRemove(record: ProjectMember) {
   Modal.confirm({
     title: '确认移除',
-    content: `确定要移除成员「${record.realName || record.userName}」吗？`,
+    content: `确定要移除成员「${record.userName}」吗？`,
     okType: 'danger',
     async onOk() {
       try {
@@ -792,7 +807,7 @@ onMounted(() => {
           <div class="vibe-card overview-card">
             <div class="overview-label">任务统计</div>
             <div class="overview-value text-statistic">
-              {{ detail.taskStats?.completed || 0 }} / {{ detail.taskStats?.total || 0 }}
+              {{ detail.taskCompleted || 0 }} / {{ detail.taskTotal || 0 }}
               <span class="overview-sub">已完成</span>
             </div>
           </div>
@@ -856,9 +871,6 @@ onMounted(() => {
                     {{ phaseStatusMap[record.status]?.label || record.status }}
                   </StatusTag>
                 </template>
-                <template v-else-if="column.key === 'progressPct'">
-                  <ProgressBar :percent="record.progressPct || 0" />
-                </template>
                 <template v-else-if="column.key === 'action'">
                   <a-button type="link" size="small" @click="openPhaseEdit(record)">编辑</a-button>
                   <a-divider type="vertical" />
@@ -895,9 +907,6 @@ onMounted(() => {
                   <StatusTag :tone="TaskStatusTone[record.status as TaskStatus]">
                     {{ TaskStatusLabel[record.status as TaskStatus] }}
                   </StatusTag>
-                </template>
-                <template v-else-if="column.key === 'progressPct'">
-                  <ProgressBar :percent="record.progressPct || 0" />
                 </template>
                 <template v-else-if="column.key === 'priority'">
                   {{ PriorityLabel[record.priority as Priority] }}
@@ -1044,7 +1053,7 @@ onMounted(() => {
                 { title: '申请人', dataIndex: 'applicantName', key: 'applicantName', width: 100 },
                 { title: '审批人', dataIndex: 'approverName', key: 'approverName', width: 100 },
                 { title: '状态', key: 'status', width: 100 },
-                { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 160 }
+                { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 160 }
               ]"
             >
               <template #bodyCell="{ column, record }">
@@ -1075,7 +1084,6 @@ onMounted(() => {
               :scroll="{ x: 900 }"
               :columns="[
                 { title: '用户名', dataIndex: 'userName', key: 'userName' },
-                { title: '姓名', dataIndex: 'realName', key: 'realName' },
                 { title: '角色', dataIndex: 'role', key: 'role' },
                 { title: '加入时间', dataIndex: 'joinTime', key: 'joinTime' },
                 { title: '操作', key: 'action', width: 100, fixed: 'right' }
@@ -1112,11 +1120,11 @@ onMounted(() => {
                 <a-list-item>
                   <a-list-item-meta :description="item.content">
                     <template #title>
-                      {{ item.userName }}
-                      <span class="comment-time">{{ item.createdAt }}</span>
+                      {{ item.authorName || item.userName || '匿名' }}
+                      <span class="comment-time">{{ item.createTime || item.createdAt }}</span>
                     </template>
                     <template #avatar>
-                      <a-avatar>{{ item.userName?.charAt(0)?.toUpperCase() }}</a-avatar>
+                      <a-avatar>{{ (item.authorName || item.userName || '?').charAt(0)?.toUpperCase() }}</a-avatar>
                     </template>
                   </a-list-item-meta>
                 </a-list-item>

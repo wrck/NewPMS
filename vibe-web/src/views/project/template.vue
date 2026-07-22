@@ -69,7 +69,7 @@ const formData = reactive<Partial<ProjectTemplate>>({
   description: '',
   phases: [],
   tasks: [],
-  status: 'ENABLED'
+  status: 1
 })
 
 function openCreate() {
@@ -82,7 +82,7 @@ function openCreate() {
     description: '',
     phases: [{ phaseCode: 'SURVEY', phaseName: '勘察', sortOrder: 1 }],
     tasks: [],
-    status: 'ENABLED'
+    status: 1
   })
   formVisible.value = true
 }
@@ -105,12 +105,19 @@ async function handleSubmit() {
   }
   formLoading.value = true
   try {
+    // 后端 ProjectTemplateDTO 不接受 phases/tasks 数组（仅 ProjectTemplateDetailVO 返回）。
+    // 这里只提交基础字段；阶段/任务需通过抽屉逐条 addTemplatePhase/addTemplateTask 维护。
+    const { phases: _phases, tasks: _tasks, ...payload } = formData
+    const hasInlinePhaseTask = !!(formData.phases?.length || formData.tasks?.length)
     if (isEdit.value && formData.id) {
-      await updateTemplate(formData.id, formData)
+      await updateTemplate(formData.id, payload)
       message.success('模板已更新')
     } else {
-      await createTemplate(formData)
+      await createTemplate(payload)
       message.success('模板已创建')
+    }
+    if (hasInlinePhaseTask && !isEdit.value) {
+      message.info('已创建模板。表单中填写的阶段/任务需在「阶段/任务」抽屉中重新维护。', 6)
     }
     formVisible.value = false
     loadData()
@@ -138,32 +145,12 @@ function handleDelete(row: ProjectTemplate) {
   })
 }
 
-function addPhase() {
-  if (!formData.phases) formData.phases = []
-  formData.phases.push({ id: 0, phaseCode: 'INSTALL', phaseName: '', sortOrder: formData.phases.length + 1 } as ProjectTemplatePhase)
-}
-
-function removePhase(idx: number) {
-  formData.phases?.splice(idx, 1)
-}
-
-function addTask() {
-  if (!formData.tasks) formData.tasks = []
-  formData.tasks.push({ id: 0, phaseCode: 'INSTALL', taskName: '', taskType: 'INSTALL', defaultDays: 1 } as ProjectTemplateTask)
-}
-
-function removeTask(idx: number) {
-  formData.tasks?.splice(idx, 1)
-}
-
 const columns = [
   { title: '模板名称', dataIndex: 'templateName', key: 'templateName', ellipsis: true },
   { title: '项目类型', dataIndex: 'projectType', key: 'projectType', width: 100 },
   { title: '产品线', dataIndex: 'productLine', key: 'productLine', width: 100 },
-  { title: '阶段数', key: 'phaseCount', width: 80 },
-  { title: '任务数', key: 'taskCount', width: 80 },
   { title: '状态', key: 'status', width: 90 },
-  { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 170 },
+  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 170 },
   { title: '操作', key: 'action', width: 240, fixed: 'right' }
 ]
 
@@ -459,11 +446,9 @@ onMounted(() => {
         size="middle"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'phaseCount'">{{ record.phases?.length || 0 }}</template>
-          <template v-else-if="column.key === 'taskCount'">{{ record.tasks?.length || 0 }}</template>
-          <template v-else-if="column.key === 'status'">
-            <StatusTag :tone="record.status === 'ENABLED' ? 'success' : 'archived'">
-              {{ record.status === 'ENABLED' ? '启用' : '停用' }}
+          <template v-if="column.key === 'status'">
+            <StatusTag :tone="record.status === 1 ? 'success' : 'archived'">
+              {{ record.status === 1 ? '启用' : '停用' }}
             </StatusTag>
           </template>
           <template v-else-if="column.key === 'action'">
@@ -529,31 +514,12 @@ onMounted(() => {
           <a-textarea v-model:value="formData.description" :rows="2" />
         </a-form-item>
 
-        <div class="sub-section">
-          <div class="sub-title">
-            <span>阶段定义</span>
-            <a-button size="small" type="link" @click="addPhase">+ 添加阶段</a-button>
-          </div>
-          <div v-for="(phase, idx) in formData.phases" :key="idx" class="sub-row">
-            <a-select v-model:value="phase.phaseCode" :options="phaseCodeOptions" style="width: 120px" placeholder="阶段编码" />
-            <a-input v-model:value="phase.phaseName" placeholder="阶段名称" style="flex: 1" />
-            <a-input-number v-model:value="phase.sortOrder" placeholder="排序" style="width: 90px" />
-            <a-button type="link" danger @click="removePhase(idx)">删除</a-button>
-          </div>
-        </div>
-
-        <div class="sub-section">
-          <div class="sub-title">
-            <span>任务定义</span>
-            <a-button size="small" type="link" @click="addTask">+ 添加任务</a-button>
-          </div>
-          <div v-for="(task, idx) in formData.tasks" :key="idx" class="sub-row">
-            <a-input v-model:value="task.taskName" placeholder="任务名称" style="flex: 1" />
-            <a-select v-model:value="task.taskType" :options="taskTypeOptions" style="width: 120px" placeholder="类型" />
-            <a-input-number v-model:value="task.defaultDays" placeholder="默认工期" style="width: 110px" />
-            <a-button type="link" danger @click="removeTask(idx)">删除</a-button>
-          </div>
-        </div>
+        <a-alert
+          type="info"
+          show-icon
+          message="阶段与任务定义需保存模板后，通过列表「阶段/任务」操作进入抽屉维护。"
+          style="margin-top: 8px"
+        />
       </a-form>
     </a-modal>
 

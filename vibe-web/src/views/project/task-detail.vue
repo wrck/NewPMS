@@ -9,7 +9,6 @@ import { message } from 'ant-design-vue'
 import { ReloadOutlined, ArrowLeftOutlined } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
-import ProgressBar from '@/components/ProgressBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import {
   getTaskDetail,
@@ -36,6 +35,19 @@ const taskId = computed(() => route.params.taskId as string)
 
 const loading = ref(false)
 const detail = ref<ProjectTask | null>(null)
+
+/** 解析后端 siteInfo（JSON 字符串）为对象，便于模板访问 .siteName/.contact/.phone/.address */
+const siteInfoObj = computed<Record<string, any> | null>(() => {
+  const raw = detail.value?.siteInfo
+  if (!raw) return null
+  if (typeof raw === 'object') return raw as Record<string, any>
+  try {
+    const parsed = JSON.parse(raw as string)
+    return typeof parsed === 'object' && parsed ? parsed : null
+  } catch {
+    return null
+  }
+})
 
 async function loadDetail() {
   loading.value = true
@@ -317,20 +329,17 @@ onMounted(() => {
               <a-descriptions-item label="计划结束">{{ detail.plannedEnd || '-' }}</a-descriptions-item>
               <a-descriptions-item label="实际开始">{{ detail.actualStart || '-' }}</a-descriptions-item>
               <a-descriptions-item label="实际结束">{{ detail.actualEnd || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="进度" :span="2">
-                <ProgressBar :percent="detail.progressPct || 0" />
-              </a-descriptions-item>
               <a-descriptions-item label="任务描述" :span="2">{{ detail.description || '-' }}</a-descriptions-item>
             </a-descriptions>
           </div>
 
-          <div v-if="detail?.siteInfo" class="vibe-card info-card">
+          <div v-if="siteInfoObj" class="vibe-card info-card">
             <h3 class="card-title">站点信息</h3>
             <a-descriptions :column="2" bordered size="small">
-              <a-descriptions-item label="站点名称">{{ detail.siteInfo.siteName || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="联系人">{{ detail.siteInfo.contact || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="联系电话">{{ detail.siteInfo.phone || '-' }}</a-descriptions-item>
-              <a-descriptions-item label="地址" :span="2">{{ detail.siteInfo.address || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="站点名称">{{ siteInfoObj.siteName || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="联系人">{{ siteInfoObj.contact || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="联系电话">{{ siteInfoObj.phone || '-' }}</a-descriptions-item>
+              <a-descriptions-item label="地址" :span="2">{{ siteInfoObj.address || '-' }}</a-descriptions-item>
             </a-descriptions>
           </div>
         </a-col>

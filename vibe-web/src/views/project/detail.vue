@@ -30,9 +30,23 @@ import {
   listComments,
   addComment,
   transitionProjectStatus,
-  createTask
+  createTask,
+  exportProjects,
+  checkProjectClose,
+  archiveProject,
+  savePhase,
+  deletePhase,
+  saveMilestone,
+  deleteMilestone,
+  saveRisk,
+  deleteRisk,
+  saveIssue,
+  deleteIssue,
+  addMember,
+  removeMember
 } from '@/api/project'
 import { pageEngineers } from '@/api/resource'
+import { pageUsers } from '@/api/system'
 import type { ProjectDetail, ProjectPhase, ProjectTask, Milestone, ProjectRisk, ProjectIssue, ProjectChange, ProjectMember, ProjectComment, TaskType } from '@/types/project'
 import {
   ProjectStatus,
@@ -272,8 +286,60 @@ async function submitComment() {
   }
 }
 
-function goTask(taskId: number) {
+function goTask(taskId: number | string) {
   router.push(`/project/task/${taskId}`)
+}
+
+// ============ 导出 ============
+const exportLoading = ref(false)
+
+async function handleExport() {
+  exportLoading.value = true
+  try {
+    await exportProjects()
+    message.success('导出成功')
+  } catch (e) {
+    // 错误提示已在拦截器处理
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+// ============ 归档（CLOSE → ARCHIVED） ============
+const archiveVisible = ref(false)
+const archiveForm = reactive({ reviewSummary: '', lessonsLearned: '' })
+const archiveLoading = ref(false)
+
+async function handleArchiveCheck() {
+  try {
+    const reason = await checkProjectClose(projectId.value)
+    if (reason) {
+      message.warning(`结项检查未通过：${reason}`)
+      return
+    }
+    archiveForm.reviewSummary = ''
+    archiveForm.lessonsLearned = ''
+    archiveVisible.value = true
+  } catch (e) {
+    // 错误提示已在拦截器处理
+  }
+}
+
+async function handleArchiveSubmit() {
+  archiveLoading.value = true
+  try {
+    await archiveProject(projectId.value, {
+      reviewSummary: archiveForm.reviewSummary || undefined,
+      lessonsLearned: archiveForm.lessonsLearned || undefined
+    })
+    message.success('归档成功')
+    archiveVisible.value = false
+    loadDetail()
+  } catch (e) {
+    // ignore
+  } finally {
+    archiveLoading.value = false
+  }
 }
 
 // ============ 表格列 ============
@@ -296,8 +362,367 @@ const phaseColumns = [
   { title: '计划开始', dataIndex: 'plannedStart', key: 'plannedStart', width: 130 },
   { title: '计划结束', dataIndex: 'plannedEnd', key: 'plannedEnd', width: 130 },
   { title: '实际开始', dataIndex: 'actualStart', key: 'actualStart', width: 130 },
-  { title: '实际结束', dataIndex: 'actualEnd', key: 'actualEnd', width: 130 }
+  { title: '实际结束', dataIndex: 'actualEnd', key: 'actualEnd', width: 130 },
+  { title: '操作', key: 'action', width: 120, fixed: 'right' }
 ]
+
+// ============ 阶段 CRUD ============
+const phaseModalVisible = ref(false)
+const phaseForm = reactive<Partial<ProjectPhase>>({})
+const phaseLoading = ref(false)
+const phaseIsEdit = ref(false)
+
+const phaseCodeOptions = [
+  { label: '勘察', value: 'SURVEY' },
+  { label: '设计', value: 'DESIGN' },
+  { label: '交付', value: 'DELIVER' },
+  { label: '安装', value: 'INSTALL' },
+  { label: '调试', value: 'DEBUG' },
+  { label: '验收', value: 'ACCEPT' }
+]
+
+const phaseStatusOptions = [
+  { label: '未开始', value: 'NOT_STARTED' },
+  { label: '进行中', value: 'IN_PROGRESS' },
+  { label: '已完成', value: 'COMPLETED' }
+]
+
+function openPhaseCreate() {
+  phaseIsEdit.value = false
+  Object.assign(phaseForm, {
+    phaseCode: undefined,
+    phaseName: '',
+    sortOrder: 0,
+    status: 'NOT_STARTED',
+    plannedStart: undefined,
+    plannedEnd: undefined,
+    actualStart: undefined,
+    actualEnd: undefined,
+    deliverables: '' as any
+  })
+  phaseModalVisible.value = true
+}
+
+function openPhaseEdit(record: ProjectPhase) {
+  phaseIsEdit.value = true
+  Object.assign(phaseForm, record, { deliverables: (record as any).deliverables ?? '' })
+  phaseModalVisible.value = true
+}
+
+async function handlePhaseSubmit() {
+  if (!phaseForm.phaseCode || !phaseForm.phaseName) {
+    message.warning('请填写阶段编码和名称')
+    return
+  }
+  phaseLoading.value = true
+  try {
+    await savePhase(projectId.value, phaseForm)
+    message.success(phaseIsEdit.value ? '阶段已更新' : '阶段已创建')
+    phaseModalVisible.value = false
+    phases.value = await listPhases(projectId.value)
+  } catch (e) {
+    // ignore
+  } finally {
+    phaseLoading.value = false
+  }
+}
+
+function handlePhaseDelete(record: ProjectPhase) {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除阶段「${record.phaseName}」吗？`,
+    okType: 'danger',
+    async onOk() {
+      try {
+        await deletePhase(projectId.value, record.id)
+        message.success('删除成功')
+        phases.value = await listPhases(projectId.value)
+      } catch (e) {
+        // ignore
+      }
+    }
+  })
+}
+
+// ============ 里程碑 CRUD ============
+const milestoneModalVisible = ref(false)
+const milestoneForm = reactive<Partial<Milestone>>({})
+const milestoneLoading = ref(false)
+const milestoneIsEdit = ref(false)
+
+const milestoneStatusOptions = [
+  { label: '待达成', value: 'PENDING' },
+  { label: '已达成', value: 'ACHIEVED' },
+  { label: '已超期', value: 'OVERDUE' }
+]
+
+function openMilestoneCreate() {
+  milestoneIsEdit.value = false
+  Object.assign(milestoneForm, {
+    milestoneName: '',
+    plannedDate: undefined,
+    actualDate: undefined,
+    deliverables: '',
+    status: 'PENDING'
+  })
+  milestoneModalVisible.value = true
+}
+
+function openMilestoneEdit(record: Milestone) {
+  milestoneIsEdit.value = true
+  Object.assign(milestoneForm, record)
+  milestoneModalVisible.value = true
+}
+
+async function handleMilestoneSubmit() {
+  if (!milestoneForm.milestoneName) {
+    message.warning('请填写里程碑名称')
+    return
+  }
+  milestoneLoading.value = true
+  try {
+    await saveMilestone(projectId.value, milestoneForm)
+    message.success(milestoneIsEdit.value ? '里程碑已更新' : '里程碑已创建')
+    milestoneModalVisible.value = false
+    milestones.value = await listMilestones(projectId.value)
+  } catch (e) {
+    // ignore
+  } finally {
+    milestoneLoading.value = false
+  }
+}
+
+function handleMilestoneDelete(record: Milestone) {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除里程碑「${record.milestoneName}」吗？`,
+    okType: 'danger',
+    async onOk() {
+      try {
+        await deleteMilestone(projectId.value, record.id)
+        message.success('删除成功')
+        milestones.value = await listMilestones(projectId.value)
+      } catch (e) {
+        // ignore
+      }
+    }
+  })
+}
+
+// ============ 风险 CRUD ============
+// 注：后端字段为 measure，前端类型 ProjectRisk 沿用 response，这里以交叉类型补齐 measure
+type RiskForm = Partial<ProjectRisk> & { measure?: string }
+const riskModalVisible = ref(false)
+const riskForm = reactive<RiskForm>({})
+const riskLoading = ref(false)
+const riskIsEdit = ref(false)
+
+const riskImpactOptions = [
+  { label: '低', value: 'LOW' },
+  { label: '中', value: 'MEDIUM' },
+  { label: '高', value: 'HIGH' }
+]
+
+const riskStatusOptions = [
+  { label: '待处理', value: 'OPEN' },
+  { label: '处理中', value: 'PROCESSING' },
+  { label: '已关闭', value: 'CLOSED' }
+]
+
+function openRiskCreate() {
+  riskIsEdit.value = false
+  Object.assign(riskForm, {
+    riskDesc: '',
+    impact: 'MEDIUM',
+    probability: 'MEDIUM',
+    measure: '' as any,
+    ownerId: undefined,
+    status: 'OPEN',
+    dueDate: undefined
+  })
+  riskModalVisible.value = true
+  loadEngineerOptions()
+}
+
+function openRiskEdit(record: ProjectRisk) {
+  riskIsEdit.value = true
+  Object.assign(riskForm, record, { measure: (record as any).measure ?? (record as any).response ?? '' })
+  riskModalVisible.value = true
+  loadEngineerOptions()
+}
+
+async function handleRiskSubmit() {
+  if (!riskForm.riskDesc) {
+    message.warning('请填写风险描述')
+    return
+  }
+  riskLoading.value = true
+  try {
+    await saveRisk(projectId.value, riskForm)
+    message.success(riskIsEdit.value ? '风险已更新' : '风险已创建')
+    riskModalVisible.value = false
+    risks.value = await listRisks(projectId.value)
+  } catch (e) {
+    // ignore
+  } finally {
+    riskLoading.value = false
+  }
+}
+
+function handleRiskDelete(record: ProjectRisk) {
+  Modal.confirm({
+    title: '确认删除',
+    content: '确定要删除该风险记录吗？',
+    okType: 'danger',
+    async onOk() {
+      try {
+        await deleteRisk(projectId.value, record.id)
+        message.success('删除成功')
+        risks.value = await listRisks(projectId.value)
+      } catch (e) {
+        // ignore
+      }
+    }
+  })
+}
+
+// ============ 问题 CRUD ============
+const issueModalVisible = ref(false)
+const issueForm = reactive<Partial<ProjectIssue>>({})
+const issueLoading = ref(false)
+const issueIsEdit = ref(false)
+
+const issueStatusOptions = [
+  { label: '待处理', value: 'OPEN' },
+  { label: '处理中', value: 'PROCESSING' },
+  { label: '已解决', value: 'RESOLVED' },
+  { label: '已关闭', value: 'CLOSED' }
+]
+
+function openIssueCreate() {
+  issueIsEdit.value = false
+  Object.assign(issueForm, {
+    issueDesc: '',
+    impact: '',
+    ownerId: undefined,
+    status: 'OPEN',
+    dueDate: undefined
+  })
+  issueModalVisible.value = true
+  loadEngineerOptions()
+}
+
+function openIssueEdit(record: ProjectIssue) {
+  issueIsEdit.value = true
+  Object.assign(issueForm, record)
+  issueModalVisible.value = true
+  loadEngineerOptions()
+}
+
+async function handleIssueSubmit() {
+  if (!issueForm.issueDesc) {
+    message.warning('请填写问题描述')
+    return
+  }
+  issueLoading.value = true
+  try {
+    await saveIssue(projectId.value, issueForm)
+    message.success(issueIsEdit.value ? '问题已更新' : '问题已创建')
+    issueModalVisible.value = false
+    issues.value = await listIssues(projectId.value)
+  } catch (e) {
+    // ignore
+  } finally {
+    issueLoading.value = false
+  }
+}
+
+function handleIssueDelete(record: ProjectIssue) {
+  Modal.confirm({
+    title: '确认删除',
+    content: '确定要删除该问题记录吗？',
+    okType: 'danger',
+    async onOk() {
+      try {
+        await deleteIssue(projectId.value, record.id)
+        message.success('删除成功')
+        issues.value = await listIssues(projectId.value)
+      } catch (e) {
+        // ignore
+      }
+    }
+  })
+}
+
+// ============ 成员 CRUD ============
+const memberModalVisible = ref(false)
+const memberForm = reactive<{ userId: string | number | undefined; role: string }>({
+  userId: undefined,
+  role: 'ENGINEER'
+})
+const memberLoading = ref(false)
+
+const userOptions = ref<Array<{ value: string | number; label: string }>>([])
+
+async function loadUserOptions() {
+  try {
+    const res = await pageUsers({ page: 1, size: 200 } as any)
+    const list = (res as any)?.records || []
+    userOptions.value = list.map((u: any) => ({ value: u.id, label: u.realName || u.userName }))
+  } catch (e) {
+    console.warn('[user] load failed:', e)
+  }
+}
+
+const memberRoleOptions = [
+  { label: '项目经理', value: 'PM' },
+  { label: '工程师', value: 'ENGINEER' },
+  { label: '技术负责人', value: 'TECH_LEAD' },
+  { label: '测试', value: 'QA' },
+  { label: '观察者', value: 'VIEWER' }
+]
+
+function openMemberAdd() {
+  memberForm.userId = undefined
+  memberForm.role = 'ENGINEER'
+  memberModalVisible.value = true
+  loadUserOptions()
+}
+
+async function handleMemberSubmit() {
+  if (!memberForm.userId) {
+    message.warning('请选择用户')
+    return
+  }
+  memberLoading.value = true
+  try {
+    await addMember(projectId.value, { userId: memberForm.userId, role: memberForm.role })
+    message.success('成员已添加')
+    memberModalVisible.value = false
+    members.value = await listMembers(projectId.value)
+  } catch (e) {
+    // ignore
+  } finally {
+    memberLoading.value = false
+  }
+}
+
+function handleMemberRemove(record: ProjectMember) {
+  Modal.confirm({
+    title: '确认移除',
+    content: `确定要移除成员「${record.realName || record.userName}」吗？`,
+    okType: 'danger',
+    async onOk() {
+      try {
+        await removeMember(projectId.value, record.id)
+        message.success('移除成功')
+        members.value = await listMembers(projectId.value)
+      } catch (e) {
+        // ignore
+      }
+    }
+  })
+}
 
 const phaseStatusMap: Record<string, { tone: any; label: string }> = {
   NOT_STARTED: { tone: 'default', label: '未开始' },
@@ -330,9 +755,12 @@ onMounted(() => {
         <template #icon><ReloadOutlined /></template>
         刷新
       </a-button>
-      <a-button>
+      <a-button :loading="exportLoading" @click="handleExport">
         <template #icon><ExportOutlined /></template>
         导出
+      </a-button>
+      <a-button v-if="detail && detail.status === ProjectStatus.CLOSE" type="primary" @click="handleArchiveCheck">
+        归档
       </a-button>
       <a-button v-if="detail && nextStatus(detail.status)" type="primary" @click="handleTransition">
         流转至「{{ ProjectStatusLabel[nextStatus(detail.status) as ProjectStatus] }}」
@@ -408,12 +836,19 @@ onMounted(() => {
 
           <!-- 阶段 -->
           <a-tab-pane key="phases" tab="阶段">
+            <div class="tab-toolbar">
+              <a-button type="primary" size="small" @click="openPhaseCreate">
+                <template #icon><PlusOutlined /></template>
+                新增阶段
+              </a-button>
+            </div>
             <a-table
               :columns="phaseColumns"
               :data-source="phases"
               row-key="id"
               :pagination="false"
               size="small"
+              :scroll="{ x: 1100 }"
             >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'status'">
@@ -423,6 +858,11 @@ onMounted(() => {
                 </template>
                 <template v-else-if="column.key === 'progressPct'">
                   <ProgressBar :percent="record.progressPct || 0" />
+                </template>
+                <template v-else-if="column.key === 'action'">
+                  <a-button type="link" size="small" @click="openPhaseEdit(record)">编辑</a-button>
+                  <a-divider type="vertical" />
+                  <a-button type="link" size="small" danger @click="handlePhaseDelete(record)">删除</a-button>
                 </template>
               </template>
               <template #emptyText><EmptyState description="暂无阶段数据" size="compact" /></template>
@@ -475,6 +915,12 @@ onMounted(() => {
 
           <!-- 里程碑 -->
           <a-tab-pane key="milestones" tab="里程碑">
+            <div class="tab-toolbar">
+              <a-button type="primary" size="small" @click="openMilestoneCreate">
+                <template #icon><PlusOutlined /></template>
+                新增里程碑
+              </a-button>
+            </div>
             <a-timeline>
               <a-timeline-item
                 v-for="m in milestones"
@@ -489,6 +935,11 @@ onMounted(() => {
                     :tone="m.status === 'ACHIEVED' ? 'success' : m.status === 'OVERDUE' ? 'error' : 'default'"
                     :text="m.status === 'ACHIEVED' ? '已达成' : m.status === 'OVERDUE' ? '已超期' : '待达成'"
                   />
+                  <span class="milestone-actions">
+                    <a-button type="link" size="small" @click="openMilestoneEdit(m)">编辑</a-button>
+                    <a-divider type="vertical" />
+                    <a-button type="link" size="small" danger @click="handleMilestoneDelete(m)">删除</a-button>
+                  </span>
                 </div>
                 <div v-if="m.deliverables" class="milestone-deliverable">交付物：{{ m.deliverables }}</div>
               </a-timeline-item>
@@ -498,19 +949,27 @@ onMounted(() => {
 
           <!-- 风险 -->
           <a-tab-pane key="risks" tab="风险">
+            <div class="tab-toolbar">
+              <a-button type="primary" size="small" @click="openRiskCreate">
+                <template #icon><PlusOutlined /></template>
+                新增风险
+              </a-button>
+            </div>
             <a-table
               :data-source="risks"
               row-key="id"
               :pagination="false"
               size="small"
+              :scroll="{ x: 1100 }"
               :columns="[
                 { title: '风险描述', dataIndex: 'riskDesc', key: 'riskDesc', ellipsis: true },
                 { title: '影响', dataIndex: 'impact', key: 'impact', width: 80 },
                 { title: '概率', dataIndex: 'probability', key: 'probability', width: 80 },
-                { title: '应对措施', dataIndex: 'response', key: 'response', ellipsis: true },
+                { title: '应对措施', dataIndex: 'measure', key: 'measure', ellipsis: true },
                 { title: '责任人', dataIndex: 'ownerName', key: 'ownerName', width: 100 },
                 { title: '状态', key: 'status', width: 100 },
-                { title: '截止', dataIndex: 'dueDate', key: 'dueDate', width: 120 }
+                { title: '截止', dataIndex: 'dueDate', key: 'dueDate', width: 120 },
+                { title: '操作', key: 'action', width: 120, fixed: 'right' }
               ]"
             >
               <template #bodyCell="{ column, record }">
@@ -520,6 +979,11 @@ onMounted(() => {
                     :text="record.status === 'CLOSED' ? '已关闭' : record.status === 'PROCESSING' ? '处理中' : '待处理'"
                   />
                 </template>
+                <template v-else-if="column.key === 'action'">
+                  <a-button type="link" size="small" @click="openRiskEdit(record)">编辑</a-button>
+                  <a-divider type="vertical" />
+                  <a-button type="link" size="small" danger @click="handleRiskDelete(record)">删除</a-button>
+                </template>
               </template>
               <template #emptyText><EmptyState description="暂无风险登记" size="compact" /></template>
             </a-table>
@@ -527,18 +991,26 @@ onMounted(() => {
 
           <!-- 问题 -->
           <a-tab-pane key="issues" tab="问题">
+            <div class="tab-toolbar">
+              <a-button type="primary" size="small" @click="openIssueCreate">
+                <template #icon><PlusOutlined /></template>
+                新增问题
+              </a-button>
+            </div>
             <a-table
               :data-source="issues"
               row-key="id"
               :pagination="false"
               size="small"
+              :scroll="{ x: 1100 }"
               :columns="[
                 { title: '问题描述', dataIndex: 'issueDesc', key: 'issueDesc', ellipsis: true },
                 { title: '影响', dataIndex: 'impact', key: 'impact', ellipsis: true },
                 { title: '责任人', dataIndex: 'ownerName', key: 'ownerName', width: 100 },
                 { title: '状态', key: 'status', width: 100 },
                 { title: '截止', dataIndex: 'dueDate', key: 'dueDate', width: 120 },
-                { title: '解决时间', dataIndex: 'resolvedAt', key: 'resolvedAt', width: 150 }
+                { title: '解决时间', dataIndex: 'resolvedTime', key: 'resolvedTime', width: 150 },
+                { title: '操作', key: 'action', width: 120, fixed: 'right' }
               ]"
             >
               <template #bodyCell="{ column, record }">
@@ -547,6 +1019,11 @@ onMounted(() => {
                     :tone="record.status === 'CLOSED' ? 'success' : record.status === 'RESOLVED' ? 'success' : record.status === 'PROCESSING' ? 'processing' : 'warning'"
                     :text="({ OPEN: '待处理', PROCESSING: '处理中', RESOLVED: '已解决', CLOSED: '已关闭' } as Record<string, string>)[record.status]"
                   />
+                </template>
+                <template v-else-if="column.key === 'action'">
+                  <a-button type="link" size="small" @click="openIssueEdit(record)">编辑</a-button>
+                  <a-divider type="vertical" />
+                  <a-button type="link" size="small" danger @click="handleIssueDelete(record)">删除</a-button>
                 </template>
               </template>
               <template #emptyText><EmptyState description="暂无问题记录" size="compact" /></template>
@@ -561,7 +1038,7 @@ onMounted(() => {
               :pagination="false"
               size="small"
               :columns="[
-                { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
+                { title: '变更内容', dataIndex: 'changeContent', key: 'changeContent', ellipsis: true },
                 { title: '类型', dataIndex: 'changeType', key: 'changeType', width: 100 },
                 { title: '原因', dataIndex: 'reason', key: 'reason', ellipsis: true },
                 { title: '申请人', dataIndex: 'applicantName', key: 'applicantName', width: 100 },
@@ -584,21 +1061,32 @@ onMounted(() => {
 
           <!-- 成员 -->
           <a-tab-pane key="members" tab="成员">
+            <div class="tab-toolbar">
+              <a-button type="primary" size="small" @click="openMemberAdd">
+                <template #icon><PlusOutlined /></template>
+                添加成员
+              </a-button>
+            </div>
             <a-table
               :data-source="members"
               row-key="id"
               :pagination="false"
               size="small"
+              :scroll="{ x: 900 }"
               :columns="[
                 { title: '用户名', dataIndex: 'userName', key: 'userName' },
                 { title: '姓名', dataIndex: 'realName', key: 'realName' },
                 { title: '角色', dataIndex: 'role', key: 'role' },
-                { title: '加入时间', dataIndex: 'joinedAt', key: 'joinedAt' }
+                { title: '加入时间', dataIndex: 'joinTime', key: 'joinTime' },
+                { title: '操作', key: 'action', width: 100, fixed: 'right' }
               ]"
             >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'role'">
                   <a-tag>{{ record.role }}</a-tag>
+                </template>
+                <template v-else-if="column.key === 'action'">
+                  <a-button type="link" size="small" danger @click="handleMemberRemove(record)">移除</a-button>
                 </template>
               </template>
               <template #emptyText><EmptyState description="暂无成员" size="compact" /></template>
@@ -650,7 +1138,179 @@ onMounted(() => {
         :span="12"
         @submit="handleTaskSubmit"
       />
+
+      <!-- 阶段新增/编辑弹窗 -->
+      <a-modal
+        v-model:open="phaseModalVisible"
+        :title="phaseIsEdit ? '编辑阶段' : '新增阶段'"
+        :confirm-loading="phaseLoading"
+        @ok="handlePhaseSubmit"
+      >
+        <a-form layout="vertical">
+          <a-form-item label="阶段编码" required>
+            <a-select v-model:value="phaseForm.phaseCode" :options="phaseCodeOptions" placeholder="选择阶段" />
+          </a-form-item>
+          <a-form-item label="阶段名称" required>
+            <a-input v-model:value="phaseForm.phaseName" placeholder="如：勘察设计" />
+          </a-form-item>
+          <a-form-item label="排序">
+            <a-input-number v-model:value="phaseForm.sortOrder" :min="0" style="width: 100%" />
+          </a-form-item>
+          <a-form-item label="状态">
+            <a-select v-model:value="phaseForm.status" :options="phaseStatusOptions" />
+          </a-form-item>
+          <a-form-item label="计划开始">
+            <a-date-picker v-model:value="phaseForm.plannedStart" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+          <a-form-item label="计划结束">
+            <a-date-picker v-model:value="phaseForm.plannedEnd" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+          <a-form-item label="实际开始">
+            <a-date-picker v-model:value="phaseForm.actualStart" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+          <a-form-item label="实际结束">
+            <a-date-picker v-model:value="phaseForm.actualEnd" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+          <a-form-item label="交付物">
+            <a-textarea v-model:value="phaseForm.deliverables" :rows="2" />
+          </a-form-item>
+        </a-form>
+      </a-modal>
+
+      <!-- 里程碑新增/编辑弹窗 -->
+      <a-modal
+        v-model:open="milestoneModalVisible"
+        :title="milestoneIsEdit ? '编辑里程碑' : '新增里程碑'"
+        :confirm-loading="milestoneLoading"
+        @ok="handleMilestoneSubmit"
+      >
+        <a-form layout="vertical">
+          <a-form-item label="里程碑名称" required>
+            <a-input v-model:value="milestoneForm.milestoneName" placeholder="请输入里程碑名称" />
+          </a-form-item>
+          <a-form-item label="计划日期">
+            <a-date-picker v-model:value="milestoneForm.plannedDate" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+          <a-form-item label="实际日期">
+            <a-date-picker v-model:value="milestoneForm.actualDate" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+          <a-form-item label="状态">
+            <a-select v-model:value="milestoneForm.status" :options="milestoneStatusOptions" />
+          </a-form-item>
+          <a-form-item label="交付物">
+            <a-textarea v-model:value="milestoneForm.deliverables" :rows="2" />
+          </a-form-item>
+        </a-form>
+      </a-modal>
+
+      <!-- 风险新增/编辑弹窗 -->
+      <a-modal
+        v-model:open="riskModalVisible"
+        :title="riskIsEdit ? '编辑风险' : '新增风险'"
+        :confirm-loading="riskLoading"
+        @ok="handleRiskSubmit"
+      >
+        <a-form layout="vertical">
+          <a-form-item label="风险描述" required>
+            <a-textarea v-model:value="riskForm.riskDesc" :rows="2" placeholder="请输入风险描述" />
+          </a-form-item>
+          <a-form-item label="影响">
+            <a-select v-model:value="riskForm.impact" :options="riskImpactOptions" />
+          </a-form-item>
+          <a-form-item label="概率">
+            <a-select v-model:value="riskForm.probability" :options="riskImpactOptions" />
+          </a-form-item>
+          <a-form-item label="应对措施">
+            <a-textarea v-model:value="riskForm.measure" :rows="2" placeholder="应对/缓解措施" />
+          </a-form-item>
+          <a-form-item label="责任人">
+            <a-select
+              v-model:value="riskForm.ownerId"
+              :options="engineerOptions"
+              placeholder="选择责任人"
+              allow-clear
+            />
+          </a-form-item>
+          <a-form-item label="状态">
+            <a-select v-model:value="riskForm.status" :options="riskStatusOptions" />
+          </a-form-item>
+          <a-form-item label="截止日期">
+            <a-date-picker v-model:value="riskForm.dueDate" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+        </a-form>
+      </a-modal>
+
+      <!-- 问题新增/编辑弹窗 -->
+      <a-modal
+        v-model:open="issueModalVisible"
+        :title="issueIsEdit ? '编辑问题' : '新增问题'"
+        :confirm-loading="issueLoading"
+        @ok="handleIssueSubmit"
+      >
+        <a-form layout="vertical">
+          <a-form-item label="问题描述" required>
+            <a-textarea v-model:value="issueForm.issueDesc" :rows="2" placeholder="请输入问题描述" />
+          </a-form-item>
+          <a-form-item label="影响">
+            <a-input v-model:value="issueForm.impact" placeholder="问题影响" />
+          </a-form-item>
+          <a-form-item label="责任人">
+            <a-select
+              v-model:value="issueForm.ownerId"
+              :options="engineerOptions"
+              placeholder="选择责任人"
+              allow-clear
+            />
+          </a-form-item>
+          <a-form-item label="状态">
+            <a-select v-model:value="issueForm.status" :options="issueStatusOptions" />
+          </a-form-item>
+          <a-form-item label="截止日期">
+            <a-date-picker v-model:value="issueForm.dueDate" value-format="YYYY-MM-DD" style="width: 100%" />
+          </a-form-item>
+        </a-form>
+      </a-modal>
+
+      <!-- 成员添加弹窗 -->
+      <a-modal
+        v-model:open="memberModalVisible"
+        title="添加成员"
+        :confirm-loading="memberLoading"
+        @ok="handleMemberSubmit"
+      >
+        <a-form layout="vertical">
+          <a-form-item label="用户" required>
+            <a-select
+              v-model:value="memberForm.userId"
+              :options="userOptions"
+              placeholder="选择用户"
+              show-search
+              option-filter-prop="label"
+            />
+          </a-form-item>
+          <a-form-item label="角色" required>
+            <a-select v-model:value="memberForm.role" :options="memberRoleOptions" />
+          </a-form-item>
+        </a-form>
+      </a-modal>
     </a-spin>
+
+    <!-- 归档弹窗 -->
+    <a-modal
+      v-model:open="archiveVisible"
+      title="项目归档"
+      :confirm-loading="archiveLoading"
+      @ok="handleArchiveSubmit"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="复盘记录">
+          <a-textarea v-model:value="archiveForm.reviewSummary" :rows="4" placeholder="项目复盘总结" />
+        </a-form-item>
+        <a-form-item label="经验沉淀">
+          <a-textarea v-model:value="archiveForm.lessonsLearned" :rows="4" placeholder="经验教训沉淀" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </PageContainer>
 </template>
 
@@ -718,6 +1378,11 @@ onMounted(() => {
   margin-top: 4px;
   font-size: 12px;
   color: @text-secondary;
+}
+.milestone-actions {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
 }
 .comment-input {
   margin: 12px 0;

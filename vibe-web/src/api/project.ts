@@ -64,6 +64,29 @@ export function deleteProject(id: string | number) {
   return http.delete<void>(`${BASE}/${id}`)
 }
 
+/** 导出项目列表为 Excel（后端返回二进制流，非 Result 包装） */
+export async function exportProjects(params?: ProjectQueryParams) {
+  const response = await http.get<Blob>(`${BASE}/export`, params as Record<string, unknown>, {
+    responseType: 'blob'
+  })
+  // 拦截器对非标准响应体返回原始 response，这里取 data 为 Blob
+  const resp = response as unknown as { data: Blob; headers: Record<string, string> }
+  const blob = resp.data
+  // 从 Content-Disposition 提取文件名
+  const disposition = resp.headers?.['content-disposition'] || ''
+  const match = /filename\*?=(?:UTF-8'')?([^;]+)/i.exec(disposition)
+  const filename = match ? decodeURIComponent(match[1].replace(/["']/g, '')) : `projects-${Date.now()}.xlsx`
+  // 触发浏览器下载
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  window.URL.revokeObjectURL(url)
+}
+
 /** 项目状态流转 */
 export function transitionProjectStatus(id: string | number, dto: ProjectStatusDTO) {
   return http.put<void>(`${BASE}/${id}/status`, dto)
@@ -265,8 +288,12 @@ export function listComments(projectId: string | number) {
   return http.get<ProjectComment[]>(`${BASE}/${projectId}/comments`)
 }
 
-export function addComment(projectId: string | number, content: string, attachments?: Array<{ name: string; url: string }>) {
-  return http.post<number>(`${BASE}/${projectId}/comments`, { content, attachments })
+export function addComment(projectId: string | number, content: string, taskId?: string | number, parentId?: string | number) {
+  // 后端 ProjectCommentDTO 字段：projectId / taskId / content / parentId（无 attachments）
+  const payload: Record<string, unknown> = { content }
+  if (taskId !== undefined) payload.taskId = taskId
+  if (parentId !== undefined) payload.parentId = parentId
+  return http.post<number>(`${BASE}/${projectId}/comments`, payload)
 }
 
 /* ============ 项目模板 ============ */

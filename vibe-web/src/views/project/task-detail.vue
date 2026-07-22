@@ -55,7 +55,8 @@ const dispatchForm = reactive<TaskDispatchDTO>({
   assigneeId: undefined,
   agentCompanyId: undefined,
   agentEngineerId: undefined,
-  remark: ''
+  taskScope: undefined,
+  deadline: undefined
 })
 const dispatchLoading = ref(false)
 
@@ -116,7 +117,7 @@ function onDispatchAgentCompanyChange(value: any) {
 
 /** 转派弹窗：代理商公司变化 -> 清空代理商工程师并重载其选项 */
 function onTransferAgentCompanyChange(value: any) {
-  transferForm.toAgentEngineerId = undefined
+  transferForm.newAgentEngineerId = undefined
   loadAgentEngineerOptions(value, 'transfer')
 }
 
@@ -126,7 +127,8 @@ function openDispatch() {
     assigneeId: undefined,
     agentCompanyId: undefined,
     agentEngineerId: undefined,
-    remark: ''
+    taskScope: undefined,
+    deadline: undefined
   })
   agentEngineerOptions.value = []
   dispatchVisible.value = true
@@ -160,15 +162,17 @@ async function handleDispatch() {
 // ============ 转派 ============
 const transferVisible = ref(false)
 const transferForm = reactive<TaskTransferDTO>({
-  toAssigneeId: undefined,
-  toAgentEngineerId: undefined,
+  newAssigneeId: undefined,
+  newAgentCompanyId: undefined,
+  newAgentEngineerId: undefined,
   reason: ''
 })
 const transferLoading = ref(false)
 
 function openTransfer() {
-  transferForm.toAssigneeId = undefined
-  transferForm.toAgentEngineerId = undefined
+  transferForm.newAssigneeId = undefined
+  transferForm.newAgentCompanyId = undefined
+  transferForm.newAgentEngineerId = undefined
   transferForm.reason = ''
   transferAgentCompanyId.value = undefined
   transferAgentEngineerOptions.value = []
@@ -179,7 +183,7 @@ function openTransfer() {
 }
 
 async function handleTransfer() {
-  if (!transferForm.toAssigneeId && !transferForm.toAgentEngineerId) {
+  if (!transferForm.newAssigneeId && !transferForm.newAgentEngineerId) {
     message.warning('请选择转派目标工程师')
     return
   }
@@ -231,15 +235,13 @@ async function handleReturn() {
 // ============ 进度更新 ============
 const progressVisible = ref(false)
 const progressForm = reactive<TaskProgressDTO>({
-  status: TaskStatus.IN_PROGRESS,
-  progressPct: 0,
+  targetStatus: TaskStatus.IN_PROGRESS,
   remark: ''
 })
 const progressLoading = ref(false)
 
 function openProgress() {
-  progressForm.status = detail.value?.status || TaskStatus.IN_PROGRESS
-  progressForm.progressPct = detail.value?.progressPct || 0
+  progressForm.targetStatus = detail.value?.status || TaskStatus.IN_PROGRESS
   progressForm.remark = ''
   progressVisible.value = true
 }
@@ -387,8 +389,16 @@ onMounted(() => {
             />
           </a-form-item>
         </template>
-        <a-form-item label="备注">
-          <a-textarea v-model:value="dispatchForm.remark" :rows="2" />
+        <a-form-item label="任务范围">
+          <a-input v-model:value="dispatchForm.taskScope" placeholder="可留空，描述任务执行范围" />
+        </a-form-item>
+        <a-form-item label="截止日期">
+          <a-date-picker
+            v-model:value="dispatchForm.deadline"
+            value-format="YYYY-MM-DD"
+            placeholder="选择截止日期"
+            style="width: 100%"
+          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -398,7 +408,7 @@ onMounted(() => {
       <a-form layout="vertical">
         <a-form-item label="转派给自有工程师">
           <a-select
-            v-model:value="transferForm.toAssigneeId"
+            v-model:value="transferForm.newAssigneeId"
             show-search
             :options="engineerOptions"
             :filter-option="(input: string, option: any) => option.label.includes(input)"
@@ -421,7 +431,7 @@ onMounted(() => {
         </a-form-item>
         <a-form-item label="或转派给代理商工程师">
           <a-select
-            v-model:value="transferForm.toAgentEngineerId"
+            v-model:value="transferForm.newAgentEngineerId"
             show-search
             :options="transferAgentEngineerOptions"
             :filter-option="(input: string, option: any) => option.label.includes(input)"
@@ -449,10 +459,7 @@ onMounted(() => {
     <a-modal v-model:open="progressVisible" title="更新进度" :confirm-loading="progressLoading" @ok="handleProgress">
       <a-form layout="vertical">
         <a-form-item label="任务状态">
-          <a-select v-model:value="progressForm.status" :options="statusOptions" />
-        </a-form-item>
-        <a-form-item label="完成进度">
-          <a-slider v-model:value="progressForm.progressPct" :min="0" :max="100" />
+          <a-select v-model:value="progressForm.targetStatus" :options="statusOptions" />
         </a-form-item>
         <a-form-item label="备注">
           <a-textarea v-model:value="progressForm.remark" :rows="2" />

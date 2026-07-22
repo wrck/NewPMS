@@ -87,10 +87,10 @@ export interface ProjectDetail extends Project {
   members?: ProjectMember[]
 }
 
-/** 项目阶段 */
+/** 项目阶段（对齐后端 ProjectPhaseVO） */
 export interface ProjectPhase {
-  id: number
-  projectId: number
+  id: string | number
+  projectId: string | number
   phaseCode: PhaseCode
   phaseName: string
   sortOrder: number
@@ -99,41 +99,43 @@ export interface ProjectPhase {
   plannedEnd?: string
   actualStart?: string
   actualEnd?: string
-  deliverables?: Array<{ name: string; required: boolean; submitted: boolean }>
+  deliverables?: string
   progressPct?: number
+  createTime?: string
 }
 
-/** 项目任务 */
+/** 项目任务（对齐后端 ProjectTaskVO） */
 export interface ProjectTask {
-  id: number
-  projectId: number
+  id: string | number
+  projectId: string | number
   projectName?: string
-  phaseId?: number
+  phaseId?: string | number
   phaseName?: string
-  parentTaskId?: number
+  parentTaskId?: string | number
   parentTaskName?: string
   taskName: string
   taskType: TaskType
   status: TaskStatus
   executeMode: 'SELF' | 'AGENT'
-  assigneeId?: number
+  assigneeId?: string | number
   assigneeName?: string
-  agentCompanyId?: number
+  agentCompanyId?: string | number
   agentCompanyName?: string
-  agentEngineerId?: number
+  agentEngineerId?: string | number
   agentEngineerName?: string
-  siteInfo?: { siteName?: string; address?: string; contact?: string; phone?: string }
-  deviceIds?: number[]
+  siteInfo?: string
+  deviceIds?: string
   plannedStart?: string
   plannedEnd?: string
   actualStart?: string
   actualEnd?: string
   priority: Priority
   description?: string
-  attachments?: Array<{ name: string; url: string }>
+  attachments?: string
   progressPct?: number
-  createdAt?: string
-  updatedAt?: string
+  version?: number
+  createTime?: string
+  updateTime?: string
 }
 
 /** 项目任务查询参数 */
@@ -148,75 +150,82 @@ export interface ProjectTaskQueryParams extends PageParams {
   overdue?: boolean
 }
 
-/** 里程碑 */
+/** 里程碑（对齐后端 ProjectMilestoneVO） */
 export interface Milestone {
-  id: number
-  projectId: number
+  id: string | number
+  projectId: string | number
   milestoneName: string
-  plannedDate: string
+  plannedDate?: string
   actualDate?: string
   deliverables?: string
-  status: 'PENDING' | 'ACHIEVED' | 'OVERDUE'
-  remark?: string
+  status?: 'PENDING' | 'ACHIEVED' | 'OVERDUE'
+  createTime?: string
 }
 
-/** 风险登记 */
+/** 风险登记（对齐后端 ProjectRiskVO/DTO，字段 measure 非 response） */
 export interface ProjectRisk {
-  id: number
-  projectId: number
+  id: string | number
+  projectId: string | number
   riskDesc: string
   impact: 'LOW' | 'MEDIUM' | 'HIGH'
   probability: 'LOW' | 'MEDIUM' | 'HIGH'
-  response?: string
-  ownerId?: number
+  /** 应对措施（后端字段名 measure） */
+  measure?: string
+  ownerId?: string | number
   ownerName?: string
   status: 'OPEN' | 'PROCESSING' | 'CLOSED'
   dueDate?: string
+  /** 是否超期 */
+  overdue?: boolean
   createdAt?: string
 }
 
-/** 问题跟踪 */
+/** 问题跟踪（对齐后端 ProjectIssueVO） */
 export interface ProjectIssue {
-  id: number
-  projectId: number
+  id: string | number
+  projectId: string | number
+  taskId?: string | number
   issueDesc: string
   impact?: string
-  ownerId?: number
+  ownerId?: string | number
   ownerName?: string
   status: 'OPEN' | 'PROCESSING' | 'RESOLVED' | 'CLOSED'
   dueDate?: string
-  resolvedAt?: string
+  /** 解决时间（后端字段名 resolvedTime） */
+  resolvedTime?: string
+  overdue?: boolean
   remark?: string
   createdAt?: string
 }
 
-/** 变更记录 */
+/** 变更记录（对齐后端 ProjectChangeLogVO/DTO，字段 changeContent 非 title） */
 export interface ProjectChange {
-  id: number
-  projectId: number
+  id: string | number
+  projectId: string | number
   changeType: 'SCOPE' | 'TIME' | 'RESOURCE' | 'COST' | 'OTHER'
-  title: string
+  /** 变更内容（后端字段名 changeContent） */
+  changeContent: string
   reason: string
-  beforeSnapshot?: string
-  afterSnapshot?: string
   impactAnalysis?: string
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED'
-  applicantId?: number
+  applicantId?: string | number
   applicantName?: string
-  approverId?: number
+  approverId?: string | number
   approverName?: string
-  approvedAt?: string
+  approveTime?: string
   createdAt?: string
 }
 
-/** 项目成员 */
+/** 项目成员（对齐后端 ProjectMemberVO） */
 export interface ProjectMember {
-  id: number
-  projectId: number
-  userId: number
+  id: string | number
+  projectId: string | number
+  userId: string | number
   userName: string
   realName?: string
   role: 'PM' | 'ENGINEER' | 'TECH_LEAD' | 'QA' | 'VIEWER'
+  joinTime?: string
+  /** 兼容旧字段名 joinedAt */
   joinedAt?: string
 }
 
@@ -384,19 +393,23 @@ export interface ProjectTaskDTO {
   description?: string
 }
 
-/** 任务派发 DTO */
+/** 任务派发 DTO（对齐后端 TaskDispatchDTO） */
 export interface TaskDispatchDTO {
   executeMode: 'SELF' | 'AGENT'
-  assigneeId?: number
-  agentCompanyId?: number
-  agentEngineerId?: number
-  remark?: string
+  assigneeId?: string | number
+  agentCompanyId?: string | number
+  agentEngineerId?: string | number
+  /** 任务范围 */
+  taskScope?: string
+  /** 截止日期 yyyy-MM-dd（后端为 String 类型） */
+  deadline?: string
 }
 
-/** 任务转派 DTO */
+/** 任务转派 DTO（对齐后端 TaskTransferDTO，字段名 newAssigneeId/newAgentCompanyId/newAgentEngineerId） */
 export interface TaskTransferDTO {
-  toAssigneeId?: number
-  toAgentEngineerId?: number
+  newAssigneeId?: string | number
+  newAgentCompanyId?: string | number
+  newAgentEngineerId?: string | number
   reason: string
 }
 
@@ -405,12 +418,10 @@ export interface TaskReturnDTO {
   reason: string
 }
 
-/** 任务进度更新 DTO */
+/** 任务进度更新 DTO（对齐后端 TaskProgressDTO，字段名 targetStatus） */
 export interface TaskProgressDTO {
-  status: TaskStatus
-  progressPct: number
+  targetStatus: TaskStatus
   remark?: string
-  version?: number
 }
 
 export { ProjectStatus, TaskStatus }

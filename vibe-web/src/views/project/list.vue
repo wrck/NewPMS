@@ -25,6 +25,7 @@ import {
   createProject,
   updateProject,
   deleteProject,
+  exportProjects,
   pageTemplates,
   pageCustomers
 } from '@/api/project'
@@ -106,6 +107,20 @@ function handleReset() {
   query.executeMode = undefined
   pagination.current = 1
   loadData()
+}
+
+const exportLoading = ref(false)
+
+async function handleExport() {
+  exportLoading.value = true
+  try {
+    await exportProjects(query)
+    message.success('导出成功')
+  } catch (e) {
+    // 错误提示已在拦截器处理
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 function handleTableChange(p: any) {
@@ -299,7 +314,7 @@ onMounted(() => {
       />
     </template>
     <template #extra>
-      <a-button @click="handleReset">
+      <a-button @click="loadData">
         <template #icon><ReloadOutlined /></template>
         刷新
       </a-button>
@@ -307,7 +322,7 @@ onMounted(() => {
         <a-radio-button value="table"><TableOutlined /></a-radio-button>
         <a-radio-button value="kanban"><AppstoreOutlined /></a-radio-button>
       </a-radio-group>
-      <a-button>
+      <a-button :loading="exportLoading" @click="handleExport">
         <template #icon><ExportOutlined /></template>
         导出
       </a-button>

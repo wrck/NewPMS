@@ -51,6 +51,17 @@ public interface OutsourceDeliverableService {
     List<OutsourceDeliverableVO> listByTaskId(Long taskId);
 
     /**
+     * 删除交付物（逻辑删除）。
+     *
+     * <p>权限校验：AGENT_ADMIN 仅能删除本公司任务下的交付物（task.agentCompanyId = tenantId），
+     * PM/SUPER_ADMIN 可删除任意交付物。taskId 用于校验交付物归属该任务。</p>
+     *
+     * @param taskId 转包任务ID
+     * @param id     交付物ID
+     */
+    void delete(Long taskId, Long id);
+
+    /**
      * 按任务ID统计各类型交付物数量。
      *
      * @return Map: deliverableType → count

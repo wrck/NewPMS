@@ -183,10 +183,11 @@ async function openItemDrawer(record: AcceptanceStandard) {
   itemDrawerLoading.value = true
   try {
     const detail = (await getAcceptanceStandardDetail(record.id)) as unknown as AcceptanceStandard
-    itemRows.value = (detail.items || []).map((it) => ({ ...it }))
+    // weight 为 BigDecimal 经 JacksonConfig 序列化为字符串，绑定 a-input-number 前转 number
+    itemRows.value = (detail.items || []).map((it) => ({ ...it, weight: it.weight != null ? Number(it.weight) : 0 }))
   } catch (e) {
     console.error('[acceptance.standard] load items failed:', e)
-    itemRows.value = (record.items || []).map((it) => ({ ...it }))
+    itemRows.value = (record.items || []).map((it) => ({ ...it, weight: it.weight != null ? Number(it.weight) : 0 }))
   } finally {
     itemDrawerLoading.value = false
   }

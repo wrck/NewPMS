@@ -1,13 +1,18 @@
 package com.vibe.agent.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vibe.agent.constant.AgentConstant;
 import com.vibe.agent.dto.OutsourceWorkloadDTO;
+import com.vibe.agent.dto.OutsourceWorkloadQueryDTO;
 import com.vibe.agent.entity.OutsourceWorkloadEntity;
 import com.vibe.agent.mapper.OutsourceWorkloadMapper;
 import com.vibe.agent.service.OutsourceWorkloadService;
 import com.vibe.agent.vo.OutsourceWorkloadVO;
+import com.vibe.common.context.UserContext;
 import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.exception.BusinessException;
+import com.vibe.common.result.PageResult;
 import com.vibe.common.result.ResultCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -93,5 +98,24 @@ public class OutsourceWorkloadServiceImpl implements OutsourceWorkloadService {
             return List.of();
         }
         return workloadMapper.selectByTaskId(taskId);
+    }
+
+    @Override
+    public PageResult<OutsourceWorkloadVO> page(OutsourceWorkloadQueryDTO query) {
+        // AGENT_ADMIN 数据隔离：强制仅查看本公司工作量（覆盖前端传入的 agentCompanyId）
+        UserContext ctx = UserContextHolder.get();
+        if (ctx != null && ctx.hasRole(AgentConstant.ROLE_AGENT_ADMIN)) {
+            Long tenantId = ctx.getTenantId();
+            if (tenantId == null) {
+                return PageResult.of(List.of(), 0L, query.getPage(), query.getSize());
+            }
+            query.setAgentCompanyId(tenantId);
+        }
+
+        IPage<OutsourceWorkloadVO> page = new Page<>(
+                query.getPage() == null ? 1 : query.getPage(),
+                query.getSize() == null ? 20 : query.getSize());
+        IPage<OutsourceWorkloadVO> result = workloadMapper.selectWorkloadPage(page, query);
+        return PageResult.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
     }
 }

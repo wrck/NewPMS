@@ -199,10 +199,10 @@ describe('system dict view', () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
-    await vm.openData({ id: 1, dictName: '项目状态' })
+    await vm.openData({ id: 1, dictName: '项目状态', dictCode: 'project_status' })
     await flushPromises()
     expect(vm.currentType.id).toBe(1)
-    expect(apiMocks.pageDictData).toHaveBeenCalledWith(expect.objectContaining({ dictTypeId: 1 }))
+    expect(apiMocks.pageDictData).toHaveBeenCalledWith(expect.objectContaining({ dictType: 'project_status' }))
     expect(vm.dataData.length).toBe(1)
   })
 

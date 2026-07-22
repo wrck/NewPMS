@@ -95,7 +95,9 @@ export interface SysRole {
   permissions?: string[]
   permissionsTree?: any[]
   userCount?: number
+  menuIds?: number[]
   createdAt?: string
+  createTime?: string
 }
 
 export interface SysRoleDTO {
@@ -112,7 +114,7 @@ export interface SysRoleDTO {
 const ROLE_BASE = '/roles'
 
 export function listRoles(params?: { roleName?: string; status?: 1 | 0 }) {
-  return http.get<SysRole[]>(ROLE_BASE, params as Record<string, unknown>)
+  return http.get<SysRole[]>(`${ROLE_BASE}/all`)
 }
 
 export function getRoleDetail(id: number) {
@@ -131,9 +133,9 @@ export function deleteRole(id: number) {
   return http.delete<void>(`${ROLE_BASE}/${id}`)
 }
 
-/** 获取角色的菜单权限树 */
+/** 获取角色的菜单权限 ID 列表 */
 export function getRolePermissions(id: number) {
-  return http.get<{ permissionCodes: string[]; permissionTree: any[] }>(`${ROLE_BASE}/${id}/permissions`)
+  return http.get<string[]>(`${ROLE_BASE}/${id}/permissions`)
 }
 
 /** 分配角色权限 */
@@ -299,7 +301,7 @@ export function deleteDictType(id: number) {
   return http.delete<void>(`${DICT_TYPE_BASE}/${id}`)
 }
 
-export function pageDictData(params: PageParams & { dictTypeId?: number; dictTypeCode?: string }) {
+export function pageDictData(params: PageParams & { dictType?: string; keyword?: string; status?: 1 | 0 }) {
   return http.get<PageResult<SysDictData>>(DICT_DATA_BASE, params as Record<string, unknown>)
 }
 
@@ -335,7 +337,7 @@ export interface SysConfig {
 
 const CONFIG_BASE = '/configs'
 
-export function pageConfigs(params: PageParams & { configKey?: string; configName?: string }) {
+export function pageConfigs(params: PageParams & { keyword?: string; configType?: string }) {
   return http.get<PageResult<SysConfig>>(CONFIG_BASE, params as Record<string, unknown>)
 }
 
@@ -351,9 +353,9 @@ export function deleteConfig(id: number) {
   return http.delete<void>(`${CONFIG_BASE}/${id}`)
 }
 
-/** 按 key 拉取配置 */
+/** 按 key 拉取配置值 */
 export function getConfigByKey(key: string) {
-  return http.get<SysConfig>(`${CONFIG_BASE}/key/${key}`)
+  return http.get<string>(`${CONFIG_BASE}/key/${key}`)
 }
 
 /* ============ 操作日志 ============ */
@@ -379,22 +381,16 @@ export interface SysLog {
 
 export interface SysLogQueryParams extends PageParams {
   title?: string
-  module?: string
-  type?: SysLog['type']
+  businessType?: string
   operatorId?: number
-  status?: 1 | 0
-  startBegin?: string
-  startEnd?: string
+  beginTime?: string
+  endTime?: string
 }
 
 const LOG_BASE = '/logs'
 
 export function pageLogs(params: SysLogQueryParams) {
   return http.get<PageResult<SysLog>>(LOG_BASE, params as Record<string, unknown>)
-}
-
-export function getLogDetail(id: number) {
-  return http.get<SysLog>(`${LOG_BASE}/${id}`)
 }
 
 /** 登录日志 */

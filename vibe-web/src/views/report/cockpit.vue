@@ -56,7 +56,8 @@ const kpis = computed<KpiCard[]>(() => {
 const phaseChartData = computed(() =>
   (data.value?.phaseDistribution || []).map((p) => ({
     name: p.phaseName || p.phase,
-    value: p.count
+    // Long 经 JacksonConfig 序列化为字符串，需转 number 供 ECharts 使用
+    value: Number(p.count) || 0
   }))
 )
 
@@ -67,9 +68,9 @@ const trendSeries = computed(() => {
   const trend = data.value?.projectTrend || []
   if (trend.length === 0) return []
   return [
-    { name: '新增', data: trend.map((t) => t.newCount) },
-    { name: '结项', data: trend.map((t) => t.closedCount) },
-    { name: '在建', data: trend.map((t) => t.ongoingCount) }
+    { name: '新增', data: trend.map((t) => Number(t.newCount) || 0) },
+    { name: '结项', data: trend.map((t) => Number(t.closedCount) || 0) },
+    { name: '在建', data: trend.map((t) => Number(t.ongoingCount) || 0) }
   ]
 })
 
@@ -112,7 +113,7 @@ async function loadData() {
     data.value = cockpitRes as unknown as CockpitData
     // 项目报表 byRegion → MapChart 数据
     const byRegion = (projectRes as unknown as { byRegion?: Array<{ region: string; count: number }> } | null)?.byRegion
-    regionData.value = (byRegion || []).map((r) => ({ name: r.region, value: r.count }))
+    regionData.value = (byRegion || []).map((r) => ({ name: r.region, value: Number(r.count) || 0 }))
   } catch (e) {
     console.error('[report.cockpit] load failed:', e)
     message.error('加载驾驶舱数据失败')

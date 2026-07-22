@@ -67,10 +67,7 @@ describe('system role view', () => {
     apiMocks.createRole.mockResolvedValue(3)
     apiMocks.updateRole.mockResolvedValue(undefined)
     apiMocks.deleteRole.mockResolvedValue(undefined)
-    apiMocks.getRolePermissions.mockResolvedValue({
-      permissionCodes: ['project:view', 'project:edit'],
-      permissionTree: [{ key: 'project', title: '项目管理', children: [{ key: 'project:view', title: '查看' }] }]
-    })
+    apiMocks.getRolePermissions.mockResolvedValue(['project:view', 'project:edit'])
     apiMocks.assignRolePermissions.mockResolvedValue(undefined)
   })
 

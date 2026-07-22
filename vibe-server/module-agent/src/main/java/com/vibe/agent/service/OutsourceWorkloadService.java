@@ -1,7 +1,9 @@
 package com.vibe.agent.service;
 
 import com.vibe.agent.dto.OutsourceWorkloadDTO;
+import com.vibe.agent.dto.OutsourceWorkloadQueryDTO;
 import com.vibe.agent.vo.OutsourceWorkloadVO;
+import com.vibe.common.result.PageResult;
 
 import java.util.List;
 
@@ -40,4 +42,12 @@ public interface OutsourceWorkloadService {
      * 按任务ID查询工作量记录列表。
      */
     List<OutsourceWorkloadVO> listByTaskId(Long taskId);
+
+    /**
+     * 全局分页查询工作量（含项目名/代理商名/确认人名）。
+     *
+     * <p>AGENT_ADMIN 仅查看本公司工作量（强制 agentCompanyId = tenantId），
+     * PM/SUPER_ADMIN/DIRECTOR 查看全部。</p>
+     */
+    PageResult<OutsourceWorkloadVO> page(OutsourceWorkloadQueryDTO query);
 }

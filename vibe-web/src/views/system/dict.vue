@@ -135,7 +135,7 @@ async function loadData() {
   if (!currentType.value) return
   dataLoading.value = true
   try {
-    const res = (await pageDictData({ dictTypeId: currentType.value.id, page: dataPagination.current, size: dataPagination.pageSize })) as unknown as PageResult<SysDictData>
+    const res = (await pageDictData({ dictType: currentType.value.dictCode, page: dataPagination.current, size: dataPagination.pageSize })) as unknown as PageResult<SysDictData>
     dataData.value = res.records || []
     dataPagination.total = res.total || 0
   } catch (e) {

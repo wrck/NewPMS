@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.delivery.mapper.CutoverPlanMapper">
+
+    <resultMap id="planVoMap" type="com.vibe.delivery.vo.CutoverPlanVO">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="planName" column="plan_name"/>
+        <result property="cutoverDate" column="cutover_date"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="status" column="status"/>
+        <result property="applyUserId" column="apply_user_id"/>
+        <result property="applyUserName" column="apply_user_name"/>
+        <result property="applyTime" column="apply_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <resultMap id="planDetailVoMap" type="com.vibe.delivery.vo.CutoverPlanDetailVO" extends="planVoMap">
+        <result property="impactScope" column="impact_scope"/>
+        <result property="emergencyContact" column="emergency_contact"/>
+        <result property="remark" column="remark"/>
+        <result property="approvalUserId" column="approval_user_id"/>
+        <result property="approvalUserName" column="approval_user_name"/>
+        <result property="approvalTime" column="approval_time"/>
+        <result property="approvalRemark" column="approval_remark"/>
+        <result property="customerSignLink" column="customer_sign_link"/>
+        <result property="customerSignUser" column="customer_sign_user"/>
+        <result property="customerSignTime" column="customer_sign_time"/>
+        <result property="customerSignResult" column="customer_sign_result"/>
+        <result property="customerSignRemark" column="customer_sign_remark"/>
+        <result property="actualStartTime" column="actual_start_time"/>
+        <result property="actualEndTime" column="actual_end_time"/>
+        <result property="summary" column="summary"/>
+        <result property="problemImprovement" column="problem_improvement"/>
+    </resultMap>
+
+    <sql id="planColumns">
+        cp.id, cp.project_id, cp.plan_name, cp.cutover_date, cp.start_time, cp.end_time,
+        cp.status, cp.apply_user_id, cp.apply_time, cp.create_time, cp.update_time,
+        p.project_name,
+        ua.real_name AS apply_user_name
+    </sql>
+
+    <sql id="planDetailColumns">
+        cp.id, cp.project_id, cp.plan_name, cp.cutover_date, cp.start_time, cp.end_time,
+        cp.status, cp.apply_user_id, cp.apply_time, cp.create_time, cp.update_time,
+        cp.approval_user_id, cp.approval_time, cp.approval_remark,
+        cp.customer_sign_link, cp.customer_sign_user, cp.customer_sign_time,
+        cp.customer_sign_result, cp.customer_sign_remark,
+        cp.actual_start_time, cp.actual_end_time, cp.impact_scope,
+        cp.emergency_contact, cp.remark, cp.summary, cp.problem_improvement,
+        p.project_name,
+        ua.real_name AS apply_user_name,
+        uv.real_name AS approval_user_name
+    </sql>
+
+    <sql id="planJoins">
+        LEFT JOIN project p ON p.id = cp.project_id AND p.deleted = 0
+        LEFT JOIN sys_user ua ON ua.id = cp.apply_user_id AND ua.deleted = 0
+    </sql>
+
+    <sql id="planDetailJoins">
+        LEFT JOIN project p ON p.id = cp.project_id AND p.deleted = 0
+        LEFT JOIN sys_user ua ON ua.id = cp.apply_user_id AND ua.deleted = 0
+        LEFT JOIN sys_user uv ON uv.id = cp.approval_user_id AND uv.deleted = 0
+    </sql>
+
+    <select id="selectPlanPage" resultMap="planVoMap">
+        SELECT <include refid="planColumns"/>
+        FROM cutover_plan cp
+        <include refid="planJoins"/>
+        <where>
+            cp.deleted = 0
+            <if test="query.projectId != null">
+                AND cp.project_id = #{query.projectId}
+            </if>
+            <if test="query.planName != null and query.planName != ''">
+                AND cp.plan_name LIKE CONCAT('%', #{query.planName}, '%')
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND cp.status = #{query.status}
+            </if>
+            <if test="query.dateFrom != null">
+                AND cp.cutover_date &gt;= #{query.dateFrom}
+            </if>
+            <if test="query.dateTo != null">
+                AND cp.cutover_date &lt;= #{query.dateTo}
+            </if>
+            <if test="query.applyUserId != null">
+                AND cp.apply_user_id = #{query.applyUserId}
+            </if>
+        </where>
+        ORDER BY cp.create_time DESC
+    </select>
+
+    <select id="selectDetailVoById" resultMap="planDetailVoMap">
+        SELECT <include refid="planDetailColumns"/>
+        FROM cutover_plan cp
+        <include refid="planDetailJoins"/>
+        WHERE cp.id = #{id} AND cp.deleted = 0
+    </select>
+
+</mapper>

@@ -5,22 +5,23 @@
  *   - 渲染（标题、表格、搜索）
  *   - onMounted 加载 listWorkloads
  *   - 搜索 / 重置
- *   - openConfirm 加载 getTaskWorkload 后回填
- *   - handleConfirm 校验 + confirmWorkload 调用
- *   - openApprove / handleApprove 调用 approveWorkload
+ *   - openConfirm 加载 getTaskWorkload（数组）后回填
+ *   - handleConfirm 调用 confirmWorkload(taskId, workloadId)
+ *   - openReject -> Modal.confirm -> rejectWorkload(taskId, workloadId, remark)
  *   - formatMoney 工具函数
- *   - statusMap 包含 8 状态
+ *   - statusMap 包含 3 状态（SUBMITTED/CONFIRMED/REJECTED）
  *   - 异常兜底
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import Settlement from '../settlement.vue'
 
-/* ============ Mock ant-design-vue message ============ */
+/* ============ Mock ant-design-vue message + Modal ============ */
 const mocks = vi.hoisted(() => ({
   messageSuccess: vi.fn(),
   messageError: vi.fn(),
-  messageWarning: vi.fn()
+  messageWarning: vi.fn(),
+  modalConfirmCallbacks: [] as Array<{ onOk?: () => any; onCancel?: () => any }>
 }))
 
 vi.mock('ant-design-vue', async () => {
@@ -33,6 +34,12 @@ vi.mock('ant-design-vue', async () => {
       warning: mocks.messageWarning,
       info: vi.fn(),
       loading: vi.fn()
+    },
+    Modal: {
+      confirm: (opts: any) => {
+        mocks.modalConfirmCallbacks.push({ onOk: opts?.onOk, onCancel: opts?.onCancel })
+        return { destroy: vi.fn(), update: vi.fn() }
+      }
     }
   }
 })
@@ -42,7 +49,7 @@ const apiMocks = vi.hoisted(() => ({
   listWorkloads: vi.fn(),
   getTaskWorkload: vi.fn(),
   confirmWorkload: vi.fn(),
-  approveWorkload: vi.fn()
+  rejectWorkload: vi.fn()
 }))
 
 vi.mock('@/api/agent', () => apiMocks)
@@ -50,35 +57,35 @@ vi.mock('@/api/agent', () => apiMocks)
 describe('agent settlement view', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.modalConfirmCallbacks.length = 0
     apiMocks.listWorkloads.mockResolvedValue({
       records: [
         {
+          id: 1,
           taskId: 1,
           projectName: '项目A',
           agentCompanyName: '代理商A',
           manDays: 5,
           siteCount: 2,
           deviceCount: 10,
-          travelDays: 1,
-          otherCost: 200,
-          totalAmount: 5000,
-          status: 'DRAFT',
+          status: 'SUBMITTED',
           confirmByName: '张三'
         }
       ],
       total: 1
     })
-    apiMocks.getTaskWorkload.mockResolvedValue({
-      manDays: 5,
-      siteCount: 2,
-      deviceCount: 10,
-      travelDays: 1,
-      otherCost: 200,
-      totalAmount: 5000,
-      remark: '已有备注'
-    })
+    apiMocks.getTaskWorkload.mockResolvedValue([
+      {
+        id: 1,
+        taskId: 1,
+        manDays: 5,
+        siteCount: 2,
+        deviceCount: 10,
+        remark: '已有备注'
+      }
+    ])
     apiMocks.confirmWorkload.mockResolvedValue(undefined)
-    apiMocks.approveWorkload.mockResolvedValue(undefined)
+    apiMocks.rejectWorkload.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -118,83 +125,46 @@ describe('agent settlement view', () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
-    await vm.openConfirm({ taskId: 1, projectName: 'X' })
+    await vm.openConfirm({ id: 1, taskId: 1, projectName: 'X' })
     await flushPromises()
     expect(apiMocks.getTaskWorkload).toHaveBeenCalledWith(1)
     expect(vm.confirmVisible).toBe(true)
     expect(vm.confirmForm.manDays).toBe(5)
-    expect(vm.confirmForm.totalAmount).toBe(5000)
+    expect(vm.confirmForm.remark).toBe('已有备注')
   })
 
-  it('handleConfirm 缺人天或金额时 warning', async () => {
+  it('handleConfirm 调用 confirmWorkload(taskId, workloadId)', async () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
-    await vm.openConfirm({ taskId: 1 })
-    await flushPromises()
-    vm.confirmForm.manDays = 0
-    vm.confirmForm.totalAmount = 0
-    await vm.handleConfirm()
-    await flushPromises()
-    expect(mocks.messageWarning).toHaveBeenCalledWith('请填写人天和结算金额')
-  })
-
-  it('handleConfirm 调用 confirmWorkload', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    const vm = wrapper.vm as any
-    await vm.openConfirm({ taskId: 1 })
+    await vm.openConfirm({ id: 1, taskId: 1 })
     await flushPromises()
     vm.confirmForm.manDays = 5
-    vm.confirmForm.totalAmount = 5000
     await vm.handleConfirm()
     await flushPromises()
-    expect(apiMocks.confirmWorkload).toHaveBeenCalledWith(1, expect.objectContaining({ manDays: 5 }))
+    expect(apiMocks.confirmWorkload).toHaveBeenCalledWith(1, 1)
     expect(mocks.messageSuccess).toHaveBeenCalledWith('工作量已确认')
     expect(vm.confirmVisible).toBe(false)
   })
 
-  it('openApprove 打开审批弹窗并设置 approved 标记', async () => {
+  it('openReject 触发 Modal.confirm', async () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
-    vm.openApprove({ taskId: 1 }, false)
-    expect(vm.approveVisible).toBe(true)
-    expect(vm.approveForm.approved).toBe(false)
+    const before = mocks.modalConfirmCallbacks.length
+    vm.openReject({ id: 2, taskId: 1 })
+    expect(mocks.modalConfirmCallbacks.length).toBeGreaterThan(before)
   })
 
-  it('handleApprove 驳回时缺原因 warning', async () => {
+  it('openReject onOk 调用 rejectWorkload(taskId, workloadId, remark)', async () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
-    vm.openApprove({ taskId: 1 }, false)
-    vm.approveForm.remark = ''
-    await vm.handleApprove()
+    vm.openReject({ id: 2, taskId: 1 })
+    const last = mocks.modalConfirmCallbacks.at(-1)
+    await last!.onOk!()
     await flushPromises()
-    expect(mocks.messageWarning).toHaveBeenCalledWith('请填写驳回原因')
-  })
-
-  it('handleApprove 通过调用 approveWorkload(true)', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    const vm = wrapper.vm as any
-    vm.openApprove({ taskId: 1 }, true)
-    vm.approveForm.remark = 'ok'
-    await vm.handleApprove()
-    await flushPromises()
-    expect(apiMocks.approveWorkload).toHaveBeenCalledWith(1, true, 'ok')
-    expect(mocks.messageSuccess).toHaveBeenCalledWith('已审批通过')
-  })
-
-  it('handleApprove 驳回调用 approveWorkload(false, remark)', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    const vm = wrapper.vm as any
-    vm.openApprove({ taskId: 1 }, false)
-    vm.approveForm.remark = '不合理'
-    await vm.handleApprove()
-    await flushPromises()
-    expect(apiMocks.approveWorkload).toHaveBeenCalledWith(1, false, '不合理')
+    expect(apiMocks.rejectWorkload).toHaveBeenCalledWith(1, 2, '')
     expect(mocks.messageSuccess).toHaveBeenCalledWith('已驳回')
   })
 
@@ -207,15 +177,14 @@ describe('agent settlement view', () => {
     expect(vm.formatMoney(null)).toBe('-')
   })
 
-  it('statusMap 包含 8 种状态', async () => {
+  it('statusMap 包含 3 种状态', async () => {
     const wrapper = mountView()
     await flushPromises()
     const vm = wrapper.vm as any
-    expect(Object.keys(vm.statusMap).length).toBe(8)
-    expect(vm.statusMap.DRAFT.label).toBe('草稿')
-    expect(vm.statusMap.CLOSED.label).toBe('已关闭')
+    expect(Object.keys(vm.statusMap).length).toBe(3)
+    expect(vm.statusMap.SUBMITTED.label).toBe('待确认')
+    expect(vm.statusMap.CONFIRMED.label).toBe('已确认')
     expect(vm.statusMap.REJECTED.label).toBe('已驳回')
-    expect(vm.statusMap.FINANCE_APPROVED.label).toBe('财务已审批')
   })
 
   it('listWorkloads 异常时不抛错', async () => {

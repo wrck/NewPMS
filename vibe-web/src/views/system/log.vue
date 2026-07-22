@@ -9,8 +9,7 @@ import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import {
-  pageLogs,
-  getLogDetail
+  pageLogs
 } from '@/api/system'
 import type { SysLog, SysLogQueryParams } from '@/api/system'
 import type { PageResult } from '@/types/api'
@@ -18,7 +17,7 @@ import type { PageResult } from '@/types/api'
 const loading = ref(false)
 const dataSource = ref<SysLog[]>([])
 const pagination = reactive({ current: 1, pageSize: 10, total: 0, showTotal: (t: number) => `共 ${t} 条` })
-const query = reactive<SysLogQueryParams>({ title: '', module: '', type: undefined, operatorId: undefined, status: undefined, startBegin: '', startEnd: '' })
+const query = reactive<SysLogQueryParams>({ title: '', businessType: undefined, operatorId: undefined, beginTime: '', endTime: '' })
 
 async function loadData() {
   loading.value = true
@@ -75,14 +74,7 @@ const detail = ref<SysLog | null>(null)
 
 async function openDetail(row: SysLog) {
   detailVisible.value = true
-  detailLoading.value = true
-  try {
-    detail.value = (await getLogDetail(row.id)) as unknown as SysLog
-  } catch (e) {
-    detail.value = row
-  } finally {
-    detailLoading.value = false
-  }
+  detail.value = row
 }
 
 function costColor(ms?: number) {
@@ -108,25 +100,19 @@ onMounted(() => {
         <a-form-item label="标题">
           <a-input v-model:value="query.title" placeholder="标题关键字" allow-clear style="width: 180px" @pressEnter="handleSearch" />
         </a-form-item>
-        <a-form-item label="模块">
-          <a-input v-model:value="query.module" placeholder="模块名" allow-clear style="width: 140px" @pressEnter="handleSearch" />
-        </a-form-item>
-        <a-form-item label="操作类型">
-          <a-select v-model:value="query.type" placeholder="全部" allow-clear style="width: 120px">
+        <a-form-item label="业务类型">
+          <a-select v-model:value="query.businessType" placeholder="全部" allow-clear style="width: 120px">
             <a-select-option v-for="(v, k) in typeLabel" :key="k" :value="k">{{ v }}</a-select-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="状态">
-          <a-select v-model:value="query.status" placeholder="全部" allow-clear style="width: 110px">
-            <a-select-option :value="1">成功</a-select-option>
-            <a-select-option :value="0">失败</a-select-option>
-          </a-select>
+        <a-form-item label="操作人ID">
+          <a-input-number v-model:value="query.operatorId" placeholder="操作人ID" style="width: 140px" />
         </a-form-item>
-        <a-form-item label="开始起">
-          <a-date-picker v-model:value="query.startBegin" value-format="YYYY-MM-DD" style="width: 150px" />
+        <a-form-item label="开始时间">
+          <a-date-picker v-model:value="query.beginTime" value-format="YYYY-MM-DD" style="width: 150px" />
         </a-form-item>
-        <a-form-item label="结束止">
-          <a-date-picker v-model:value="query.startEnd" value-format="YYYY-MM-DD" style="width: 150px" />
+        <a-form-item label="结束时间">
+          <a-date-picker v-model:value="query.endTime" value-format="YYYY-MM-DD" style="width: 150px" />
         </a-form-item>
         <a-form-item>
           <a-button type="primary" html-type="submit">查询</a-button>

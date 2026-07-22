@@ -70,7 +70,8 @@ const totalAbnormal = computed(
   () => dashboard.value?.statusDistribution?.find((d) => d.status === DeviceStatus.DAMAGED)?.count || 0
 )
 const totalWarning = computed(() =>
-  (dashboard.value?.warehouseStockStats || []).reduce((sum, w) => sum + (w.warningQty || 0), 0)
+  // 后端 Long 经 JacksonConfig 序列化为字符串，需 Number() 转换后再求和，避免字符串拼接
+  (dashboard.value?.warehouseStockStats || []).reduce((sum, w) => sum + (Number(w.warningQty) || 0), 0)
 )
 
 /** 跳转设备台账（按状态筛选） */

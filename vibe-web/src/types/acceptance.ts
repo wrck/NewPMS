@@ -70,7 +70,11 @@ export interface AcceptanceStandard {
 export interface AcceptanceTask {
   id: number
   projectId: number
+  /** 关联项目名称（后端 JOIN project 表填充） */
+  projectName?: string
   standardId?: number
+  /** 关联验收标准名称（后端 JOIN acceptance_standard 表填充） */
+  standardName?: string
   name: string
   applyUserId?: number
   applyTime?: string
@@ -109,6 +113,8 @@ export interface AcceptanceIssue {
   id: number
   taskId: number
   projectId: number
+  /** 关联项目名称（后端 JOIN project 表填充） */
+  projectName?: string
   name: string
   description?: string
   severity: IssueSeverity
@@ -128,6 +134,8 @@ export interface AcceptanceDoc {
   id: number
   taskId: number
   projectId: number
+  /** 关联项目名称（后端 JOIN project 表填充） */
+  projectName?: string
   docType: AcceptanceDocType
   name: string
   fileUrl: string

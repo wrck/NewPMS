@@ -68,11 +68,12 @@ const columns = computed(() => {
 /** 汇总统计 */
 const summary = computed(() => {
   const list = dataSource.value
-  const totalRevenue = list.reduce((sum, d) => sum + (d.revenue || 0), 0)
-  const totalSelfCost = list.reduce((sum, d) => sum + (d.selfCost || 0), 0)
-  const totalAgentCost = list.reduce((sum, d) => sum + (d.agentCost || 0), 0)
-  const totalCost = list.reduce((sum, d) => sum + (d.totalCost || 0), 0)
-  const totalProfit = list.reduce((sum, d) => sum + (d.profit || 0), 0)
+  // 后端 BigDecimal 经 JacksonConfig 序列化为字符串，需 Number() 转换后再求和，避免字符串拼接
+  const totalRevenue = list.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0)
+  const totalSelfCost = list.reduce((sum, d) => sum + (Number(d.selfCost) || 0), 0)
+  const totalAgentCost = list.reduce((sum, d) => sum + (Number(d.agentCost) || 0), 0)
+  const totalCost = list.reduce((sum, d) => sum + (Number(d.totalCost) || 0), 0)
+  const totalProfit = list.reduce((sum, d) => sum + (Number(d.profit) || 0), 0)
   const avgMargin = totalRevenue ? Math.round((totalProfit / totalRevenue) * 1000) / 10 : 0
   return {
     totalRevenue,
@@ -118,14 +119,17 @@ function handleDimensionChange(d: Dimension) {
   loadData()
 }
 
-function profitColor(profit: number | undefined): string {
+function profitColor(profit: number | string | undefined): string {
   if (profit === undefined || profit === null) return 'default'
-  return profit >= 0 ? 'success' : 'error'
+  return Number(profit) >= 0 ? 'success' : 'error'
 }
 
-function formatMoney(v: number | undefined): string {
-  if (v === undefined || v === null) return '-'
-  return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function formatMoney(v: number | string | undefined): string {
+  if (v === undefined || v === null || v === '') return '-'
+  // 后端 BigDecimal 经 JacksonConfig 序列化为字符串，需先转 number 再格式化
+  const n = Number(v)
+  if (isNaN(n)) return '-'
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function formatPercent(v: number | undefined): string {

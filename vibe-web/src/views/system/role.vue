@@ -33,7 +33,16 @@ const query = reactive({ roleName: '', status: undefined as 1 | 0 | undefined })
 async function loadData() {
   loading.value = true
   try {
-    dataSource.value = (await listRoles(query as Record<string, unknown>)) as unknown as SysRole[]
+    const all = (await listRoles()) as unknown as SysRole[]
+    let list = all || []
+    if (query.roleName) {
+      const kw = query.roleName.toLowerCase()
+      list = list.filter((r) => r.roleName?.toLowerCase().includes(kw))
+    }
+    if (query.status !== undefined) {
+      list = list.filter((r) => r.status === query.status)
+    }
+    dataSource.value = list
   } catch (e) {
     console.error('[system.role] load failed:', e)
   } finally {
@@ -73,7 +82,7 @@ const columns = [
   { title: '数据范围', key: 'dataScope', width: 120 },
   { title: '用户数', dataIndex: 'userCount', key: 'userCount', width: 90 },
   { title: '状态', key: 'status', width: 90 },
-  { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 170 },
+  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 170 },
   { title: '操作', key: 'action', width: 220, fixed: 'right' }
 ]
 
@@ -194,11 +203,10 @@ async function openPermissions(row: SysRole) {
   permVisible.value = true
   permLoading.value = true
   try {
-    const res = (await getRolePermissions(row.id)) as unknown as { permissionCodes: string[]; permissionTree: any[] }
-    permTree.value = res.permissionTree || []
-    checkedKeys.value = res.permissionCodes || []
-    // 默认展开第一层
-    expandedKeys.value = permTree.value.map((n) => n.key)
+    const menuIds = (await getRolePermissions(row.id)) as unknown as string[]
+    checkedKeys.value = menuIds || []
+    permTree.value = []
+    expandedKeys.value = []
   } catch (e) {
     console.error('[system.role] load permissions failed:', e)
   } finally {
@@ -255,6 +263,9 @@ onMounted(() => {
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'dataScope'">
             <StatusTag :tone="dataScopeTone[record.dataScope]">{{ dataScopeLabel[record.dataScope] || record.dataScope }}</StatusTag>
+          </template>
+          <template v-else-if="column.key === 'userCount'">
+            {{ record.userCount ?? '-' }}
           </template>
           <template v-else-if="column.key === 'status'">
             <StatusTag :tone="record.status === 1 ? 'success' : 'archived'">{{ record.status === 1 ? '启用' : '禁用' }}</StatusTag>

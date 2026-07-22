@@ -181,16 +181,18 @@ function openCreate() {
 
 function openEdit(record: FinanceWorkloadConfirmation) {
   modalTitle.value = '编辑结算单'
+  // BigDecimal 经 JacksonConfig 序列化为字符串，绑定 a-input-number 前转 number
+  const num = (v: unknown) => (v != null ? Number(v) : 0)
   Object.assign(form, {
     id: record.id,
     projectId: record.projectId,
     outsourceTaskId: record.outsourceTaskId,
     agentCompanyId: record.agentCompanyId,
     period: record.period,
-    workloadDays: record.workloadDays,
-    unitPrice: record.unitPrice,
-    travelAmount: record.travelAmount,
-    otherAmount: record.otherAmount,
+    workloadDays: num(record.workloadDays),
+    unitPrice: num(record.unitPrice),
+    travelAmount: num(record.travelAmount),
+    otherAmount: num(record.otherAmount),
     remark: record.remark
   })
   // 编辑时按当前代理商加载转包任务选项

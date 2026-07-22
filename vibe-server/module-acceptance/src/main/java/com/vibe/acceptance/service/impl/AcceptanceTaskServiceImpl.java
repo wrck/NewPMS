@@ -1,6 +1,7 @@
 package com.vibe.acceptance.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vibe.acceptance.constant.AcceptanceConstant;
 import com.vibe.acceptance.dto.AcceptanceTaskActionDTO;
@@ -41,41 +42,17 @@ public class AcceptanceTaskServiceImpl implements AcceptanceTaskService {
 
     @Override
     public PageResult<AcceptanceTaskVO> page(AcceptanceTaskQueryDTO query) {
-        LambdaQueryWrapper<AcceptanceTaskEntity> wrapper = new LambdaQueryWrapper<>();
-        if (query.getProjectId() != null) {
-            wrapper.eq(AcceptanceTaskEntity::getProjectId, query.getProjectId());
-        }
-        if (query.getName() != null && !query.getName().isBlank()) {
-            wrapper.like(AcceptanceTaskEntity::getName, query.getName());
-        }
-        if (query.getStatus() != null && !query.getStatus().isBlank()) {
-            wrapper.eq(AcceptanceTaskEntity::getStatus, query.getStatus());
-        }
-        if (query.getApplyUserId() != null) {
-            wrapper.eq(AcceptanceTaskEntity::getApplyUserId, query.getApplyUserId());
-        }
-        wrapper.orderByDesc(AcceptanceTaskEntity::getCreateTime);
-
-        Page<AcceptanceTaskEntity> page = new Page<>(query.getPage(), query.getSize());
-        Page<AcceptanceTaskEntity> result = taskMapper.selectPage(page, wrapper);
-
-        List<AcceptanceTaskVO> records = new ArrayList<>();
-        for (AcceptanceTaskEntity e : result.getRecords()) {
-            AcceptanceTaskVO vo = new AcceptanceTaskVO();
-            BeanUtils.copyProperties(e, vo);
-            records.add(vo);
-        }
-        return PageResult.of(records, result.getTotal(), query.getPage(), query.getSize());
+        IPage<AcceptanceTaskVO> page = new Page<>(query.getPage(), query.getSize());
+        IPage<AcceptanceTaskVO> result = taskMapper.selectTaskPage(page, query);
+        return PageResult.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
     }
 
     @Override
     public AcceptanceTaskVO getDetail(Long id) {
-        AcceptanceTaskEntity entity = taskMapper.selectById(id);
-        if (entity == null) {
+        AcceptanceTaskVO vo = taskMapper.selectVoById(id);
+        if (vo == null) {
             throw BusinessException.notFound("验收任务");
         }
-        AcceptanceTaskVO vo = new AcceptanceTaskVO();
-        BeanUtils.copyProperties(entity, vo);
         return vo;
     }
 

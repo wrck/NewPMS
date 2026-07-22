@@ -1,8 +1,5 @@
 package com.vibe.finance.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.vibe.finance.constant.FinanceConstant;
-import com.vibe.finance.entity.FinanceCostEntity;
 import com.vibe.finance.mapper.FinanceCostMapper;
 import com.vibe.finance.service.FinanceProfitService;
 import com.vibe.finance.vo.FinanceProfitVO;
@@ -11,14 +8,14 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 /**
  * 利润分析 Service 实现
  *
- * <p>注：本实现基于 finance_cost 表的成本数据计算。收入字段暂时返回 0（待项目表补充合同金额字段后完善）。</p>
+ * <p>注：本实现基于 finance_cost 表的成本数据计算。收入字段暂时返回 0（待项目表补充合同金额字段后完善）。
+ * 项目名称通过 finance_cost JOIN project 表直接获取（跨模块 SQL JOIN，参考 OutsourceTaskMapper 模式）。</p>
  *
  * @author vibe
  */
@@ -30,24 +27,20 @@ public class FinanceProfitServiceImpl implements FinanceProfitService {
 
     @Override
     public FinanceProfitVO getProjectProfit(Long projectId) {
-        FinanceProfitVO vo = buildProfitVO(projectId, "项目-" + projectId);
+        FinanceProfitVO vo = costMapper.selectProjectProfit(projectId);
+        if (vo == null) {
+            vo = new FinanceProfitVO();
+            vo.setProjectId(projectId);
+        }
+        enrichVO(vo);
         return vo;
     }
 
     @Override
     public List<FinanceProfitVO> listProjectProfit() {
-        // 查询所有成本记录，按 projectId 去重（LambdaQueryWrapper 不支持 distinct()）
-        LambdaQueryWrapper<FinanceCostEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.select(FinanceCostEntity::getProjectId);
-        List<FinanceCostEntity> all = costMapper.selectList(wrapper);
-        List<Long> projectIds = all.stream()
-                .map(FinanceCostEntity::getProjectId)
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
-        List<FinanceProfitVO> result = new ArrayList<>(projectIds.size());
-        for (Long pid : projectIds) {
-            result.add(buildProfitVO(pid, "项目-" + pid));
+        List<FinanceProfitVO> result = costMapper.selectProjectProfitList();
+        for (FinanceProfitVO vo : result) {
+            enrichVO(vo);
         }
         // 按利润倒序
         result.sort((a, b) -> nvl(b.getProfit()).compareTo(nvl(a.getProfit())));
@@ -75,18 +68,12 @@ public class FinanceProfitServiceImpl implements FinanceProfitService {
     /* ============ 私有方法 ============ */
 
     /**
-     * 构建单个项目的利润分析 VO
+     * 基于 mapper 聚合出的 selfCost / agentCost，计算 totalCost / 收入 / 利润 / 各项比率。
+     * 收入暂返回 0（待项目表补充合同金额字段）。
      */
-    private FinanceProfitVO buildProfitVO(Long projectId, String projectName) {
-        FinanceProfitVO vo = new FinanceProfitVO();
-        vo.setProjectId(projectId);
-        vo.setProjectName(projectName);
-
-        // 计算自有成本（LABOR + TRAVEL + OTHER）
-        BigDecimal selfCost = sumCostByType(projectId, null)
-                .subtract(sumCostByType(projectId, FinanceConstant.COST_TYPE_AGENT));
-        // 代理商成本
-        BigDecimal agentCost = sumCostByType(projectId, FinanceConstant.COST_TYPE_AGENT);
+    private void enrichVO(FinanceProfitVO vo) {
+        BigDecimal selfCost = nvl(vo.getSelfCost());
+        BigDecimal agentCost = nvl(vo.getAgentCost());
         BigDecimal totalCost = selfCost.add(agentCost);
 
         // 收入暂返回 0（待项目表补充合同金额字段）
@@ -111,22 +98,6 @@ public class FinanceProfitServiceImpl implements FinanceProfitService {
         vo.setProfitMargin(profitMargin);
         vo.setSelfCostRatio(selfCostRatio);
         vo.setAgentCostRatio(agentCostRatio);
-        return vo;
-    }
-
-    /**
-     * 汇总项目指定成本类型的金额
-     */
-    private BigDecimal sumCostByType(Long projectId, String costType) {
-        LambdaQueryWrapper<FinanceCostEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(FinanceCostEntity::getProjectId, projectId);
-        if (costType != null && !costType.isBlank()) {
-            wrapper.eq(FinanceCostEntity::getCostType, costType);
-        }
-        List<FinanceCostEntity> list = costMapper.selectList(wrapper);
-        return list.stream()
-                .map(FinanceCostEntity::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private BigDecimal nvl(BigDecimal v) {

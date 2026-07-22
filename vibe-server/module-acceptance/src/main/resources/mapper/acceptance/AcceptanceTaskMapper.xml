@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.acceptance.mapper.AcceptanceTaskMapper">
+
+    <resultMap id="taskVoMap" type="com.vibe.acceptance.vo.AcceptanceTaskVO">
+        <id property="id" column="id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="standardId" column="standard_id"/>
+        <result property="standardName" column="standard_name"/>
+        <result property="name" column="name"/>
+        <result property="applyUserId" column="apply_user_id"/>
+        <result property="applyTime" column="apply_time"/>
+        <result property="internalAuditUserId" column="internal_audit_user_id"/>
+        <result property="internalAuditTime" column="internal_audit_time"/>
+        <result property="internalAuditResult" column="internal_audit_result"/>
+        <result property="customerSignLink" column="customer_sign_link"/>
+        <result property="customerSignUser" column="customer_sign_user"/>
+        <result property="customerSignTime" column="customer_sign_time"/>
+        <result property="customerSignResult" column="customer_sign_result"/>
+        <result property="score" column="score"/>
+        <result property="status" column="status"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="taskColumns">
+        t.id, t.project_id, t.standard_id, t.name, t.apply_user_id, t.apply_time,
+        t.internal_audit_user_id, t.internal_audit_time, t.internal_audit_result,
+        t.customer_sign_link, t.customer_sign_user, t.customer_sign_time,
+        t.customer_sign_result, t.score, t.status, t.remark,
+        t.create_time, t.update_time,
+        p.project_name AS project_name,
+        s.name AS standard_name
+    </sql>
+
+    <select id="selectTaskPage" resultMap="taskVoMap">
+        SELECT <include refid="taskColumns"/>
+        FROM acceptance_task t
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN acceptance_standard s ON s.id = t.standard_id AND s.deleted = 0
+        <where>
+            t.deleted = 0
+            <if test="query.projectId != null">
+                AND t.project_id = #{query.projectId}
+            </if>
+            <if test="query.name != null and query.name != ''">
+                AND t.name LIKE CONCAT('%', #{query.name}, '%')
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND t.status = #{query.status}
+            </if>
+            <if test="query.applyUserId != null">
+                AND t.apply_user_id = #{query.applyUserId}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+    </select>
+
+    <select id="selectVoById" resultMap="taskVoMap">
+        SELECT <include refid="taskColumns"/>
+        FROM acceptance_task t
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        LEFT JOIN acceptance_standard s ON s.id = t.standard_id AND s.deleted = 0
+        WHERE t.id = #{id} AND t.deleted = 0
+    </select>
+
+</mapper>

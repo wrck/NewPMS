@@ -85,7 +85,7 @@ export function checkProjectClose(id: string | number) {
 }
 
 /** 归档（CLOSE → ARCHIVED） */
-export function archiveProject(id: string | number, dto: { reviewRecord?: string }) {
+export function archiveProject(id: string | number, dto: { reviewSummary?: string; lessonsLearned?: string }) {
   return http.put<void>(`${BASE}/${id}/archive`, dto)
 }
 
@@ -144,7 +144,7 @@ export function dispatchTask(taskId: string | number, dto: TaskDispatchDTO) {
 }
 
 /** 批量派单 */
-export function batchDispatchTasks(dto: { taskIds: Array<string | number> } & TaskDispatchDTO) {
+export function batchDispatchTasks(dto: { taskIds: Array<string | number>; dispatch: TaskDispatchDTO }) {
   return http.post<number>(`${BASE}/tasks/batch-dispatch`, dto)
 }
 
@@ -237,7 +237,10 @@ export function createChange(projectId: string | number, dto: Partial<ProjectCha
 }
 
 export function approveChange(projectId: string | number, id: string | number, approved: boolean, remark?: string) {
-  return http.put<void>(`${BASE}/${projectId}/changes/${id}/approve`, { approved, remark })
+  return http.put<void>(`${BASE}/${projectId}/changes/${id}/approve`, {
+    approveResult: approved ? 'APPROVED' : 'REJECTED',
+    opinion: remark
+  })
 }
 
 /* ============ 成员 ============ */
@@ -246,8 +249,10 @@ export function listMembers(projectId: string | number) {
   return http.get<ProjectMember[]>(`${BASE}/${projectId}/members`)
 }
 
-export function addMember(projectId: string | number, dto: Partial<ProjectMember>) {
-  return http.post<number>(`${BASE}/${projectId}/members`, dto)
+export function addMember(projectId: string | number, dto: { userId: number | string; role: string }) {
+  return http.post<number>(`${BASE}/${projectId}/members`, undefined, {
+    params: { userId: dto.userId, role: dto.role }
+  })
 }
 
 export function removeMember(projectId: string | number, id: string | number) {

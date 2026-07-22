@@ -28,6 +28,9 @@ public class AcceptanceDocVO implements Serializable {
     @Schema(description = "关联项目ID")
     private Long projectId;
 
+    @Schema(description = "项目名称")
+    private String projectName;
+
     @Schema(description = "文档类型")
     private String docType;
 

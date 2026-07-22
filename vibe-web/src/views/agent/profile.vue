@@ -506,7 +506,7 @@ onMounted(() => {
             <a-tag v-for="(p, i) in record.productLines || []" :key="i">{{ p }}</a-tag>
           </template>
           <template v-else-if="column.key === 'overallScore'">
-            <span class="tnum" :class="{ 'text-warning': (record.overallScore || 0) < 80 }">{{ record.overallScore?.toFixed(1) || '-' }}</span>
+            <span class="tnum" :class="{ 'text-warning': (Number(record.overallScore) || 0) < 80 }">{{ record.overallScore != null ? Number(record.overallScore).toFixed(1) : '-' }}</span>
           </template>
           <template v-else-if="column.key === 'status'">
             <StatusTag :tone="statusMap[record.status as AgentStatus]?.tone">{{ statusMap[record.status as AgentStatus]?.label || record.status }}</StatusTag>

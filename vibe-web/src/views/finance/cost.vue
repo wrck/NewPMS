@@ -161,11 +161,12 @@ function openCreate() {
 
 function openEdit(record: FinanceCost) {
   modalTitle.value = '编辑成本'
+  // BigDecimal 经 JacksonConfig 序列化为字符串，绑定 a-input-number 前转 number
   Object.assign(form, {
     id: record.id,
     projectId: record.projectId,
     costType: record.costType,
-    amount: record.amount,
+    amount: record.amount != null ? Number(record.amount) : 0,
     costDate: record.costDate,
     refType: record.refType,
     refId: record.refId,

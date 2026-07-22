@@ -26,7 +26,7 @@ import type { PageResult } from '@/types/api'
 const loading = ref(false)
 const dataSource = ref<SysConfig[]>([])
 const pagination = reactive({ current: 1, pageSize: 10, total: 0, showTotal: (t: number) => `共 ${t} 条` })
-const query = reactive({ configKey: '', configName: '' })
+const query = reactive({ keyword: '' })
 
 async function loadData() {
   loading.value = true
@@ -132,11 +132,8 @@ onMounted(() => {
 
     <div class="vibe-card search-card">
       <a-form layout="inline" :model="query" @submit.prevent="handleSearch">
-        <a-form-item label="参数键名">
-          <a-input v-model:value="query.configKey" placeholder="参数键名" allow-clear style="width: 200px" @pressEnter="handleSearch" />
-        </a-form-item>
-        <a-form-item label="参数名称">
-          <a-input v-model:value="query.configName" placeholder="参数名称" allow-clear style="width: 200px" @pressEnter="handleSearch" />
+        <a-form-item label="关键字">
+          <a-input v-model:value="query.keyword" placeholder="参数键名/名称" allow-clear style="width: 240px" @pressEnter="handleSearch" />
         </a-form-item>
         <a-form-item>
           <a-button type="primary" html-type="submit">查询</a-button>

@@ -97,7 +97,7 @@ const radarData = computed(() => {
 
   // 计算各维度最大值（利用率/按时率最大为 100）
   const maxTask = Math.max(...list.map((e) => e.taskCount), 1)
-  const maxHours = Math.max(...list.map((e) => e.hours), 1)
+  const maxHours = Math.max(...list.map((e) => Number(e.hours) || 0), 1)
   const indicators = [
     { name: '任务数', max: maxTask },
     { name: '工时', max: maxHours },
@@ -108,7 +108,8 @@ const radarData = computed(() => {
     indicators,
     series: list.map((e) => ({
       name: e.engineerName,
-      value: [e.taskCount, e.hours, e.utilization, e.onTimeRate]
+      // Long/BigDecimal 经 JacksonConfig 序列化为字符串，需转 number 供 ECharts 使用
+      value: [Number(e.taskCount) || 0, Number(e.hours) || 0, Number(e.utilization) || 0, Number(e.onTimeRate) || 0]
     }))
   }
 })

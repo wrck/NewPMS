@@ -1,6 +1,6 @@
 package com.vibe.acceptance.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vibe.acceptance.constant.AcceptanceConstant;
 import com.vibe.acceptance.dto.AcceptanceIssueQueryDTO;
@@ -18,8 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 验收遗留问题 Service 实现
@@ -34,44 +32,17 @@ public class AcceptanceIssueServiceImpl implements AcceptanceIssueService {
 
     @Override
     public PageResult<AcceptanceIssueVO> page(AcceptanceIssueQueryDTO query) {
-        LambdaQueryWrapper<AcceptanceIssueEntity> wrapper = new LambdaQueryWrapper<>();
-        if (query.getProjectId() != null) {
-            wrapper.eq(AcceptanceIssueEntity::getProjectId, query.getProjectId());
-        }
-        if (query.getTaskId() != null) {
-            wrapper.eq(AcceptanceIssueEntity::getTaskId, query.getTaskId());
-        }
-        if (query.getStatus() != null && !query.getStatus().isBlank()) {
-            wrapper.eq(AcceptanceIssueEntity::getStatus, query.getStatus());
-        }
-        if (query.getSeverity() != null && !query.getSeverity().isBlank()) {
-            wrapper.eq(AcceptanceIssueEntity::getSeverity, query.getSeverity());
-        }
-        if (query.getAssigneeId() != null) {
-            wrapper.eq(AcceptanceIssueEntity::getAssigneeId, query.getAssigneeId());
-        }
-        wrapper.orderByDesc(AcceptanceIssueEntity::getCreateTime);
-
-        Page<AcceptanceIssueEntity> page = new Page<>(query.getPage(), query.getSize());
-        Page<AcceptanceIssueEntity> result = issueMapper.selectPage(page, wrapper);
-
-        List<AcceptanceIssueVO> records = new ArrayList<>();
-        for (AcceptanceIssueEntity e : result.getRecords()) {
-            AcceptanceIssueVO vo = new AcceptanceIssueVO();
-            BeanUtils.copyProperties(e, vo);
-            records.add(vo);
-        }
-        return PageResult.of(records, result.getTotal(), query.getPage(), query.getSize());
+        IPage<AcceptanceIssueVO> page = new Page<>(query.getPage(), query.getSize());
+        IPage<AcceptanceIssueVO> result = issueMapper.selectIssuePage(page, query);
+        return PageResult.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
     }
 
     @Override
     public AcceptanceIssueVO getDetail(Long id) {
-        AcceptanceIssueEntity entity = issueMapper.selectById(id);
-        if (entity == null) {
+        AcceptanceIssueVO vo = issueMapper.selectVoById(id);
+        if (vo == null) {
             throw BusinessException.notFound("遗留问题");
         }
-        AcceptanceIssueVO vo = new AcceptanceIssueVO();
-        BeanUtils.copyProperties(entity, vo);
         return vo;
     }
 

@@ -52,7 +52,7 @@ export function deleteAgentCompany(id: number) {
 
 /** 变更合作状态（ACTIVE/SUSPENDED/TERMINATED） */
 export function changeAgentCompanyStatus(id: number, status: 'ACTIVE' | 'SUSPENDED' | 'TERMINATED', remark?: string) {
-  return http.put<void>(`${COMPANY_BASE}/${id}/status`, { status, remark })
+  return http.put<void>(`${COMPANY_BASE}/${id}/status`, undefined, { params: { status } })
 }
 
 /* ============ 代理商工程师 ============ */
@@ -107,7 +107,10 @@ export function createOutsourceTask(dto: OutsourceTaskDTO) {
 
 /** 代理商接单/拒绝 */
 export function respondOutsourceTask(id: number, accepted: boolean, remark?: string) {
-  return http.put<void>(`${OUTSOURCE_BASE}/${id}/respond`, { accepted, remark })
+  if (accepted) {
+    return http.put<void>(`${OUTSOURCE_BASE}/${id}/accept`)
+  }
+  return http.put<void>(`${OUTSOURCE_BASE}/${id}/reject`, { reason: remark })
 }
 
 /** 代理商指派工程师 */
@@ -117,12 +120,12 @@ export function assignAgentEngineer(id: number, agentEngineerId: number) {
 
 /** PM 退回（含退回原因） */
 export function rejectOutsourceTask(id: number, reason: string) {
-  return http.put<void>(`${OUTSOURCE_BASE}/${id}/reject`, { reason })
+  return http.put<void>(`${OUTSOURCE_BASE}/${id}/return`, { reason })
 }
 
-/** PM 确认通过 */
+/** PM 确认通过；remark 参数被后端忽略，仅为保持调用签名兼容 */
 export function confirmOutsourceTask(id: number, remark?: string) {
-  return http.put<void>(`${OUTSOURCE_BASE}/${id}/confirm`, { remark })
+  return http.put<void>(`${OUTSOURCE_BASE}/${id}/confirm`)
 }
 
 /* ============ 转包任务交付物 ============ */
@@ -142,11 +145,11 @@ export function deleteDeliverable(taskId: number, id: number) {
 /* ============ 工作量确认与结算 ============ */
 
 export function listWorkloads(params: WorkloadQueryParams) {
-  return http.get<PageResult<OutsourceWorkload>>(`${OUTSOURCE_BASE}/workloads`, params as Record<string, unknown>)
+  return http.get<PageResult<OutsourceWorkload>>(`/outsource-workloads`, params as Record<string, unknown>)
 }
 
 export function getTaskWorkload(taskId: number) {
-  return http.get<OutsourceWorkload>(`${OUTSOURCE_BASE}/${taskId}/workload`)
+  return http.get<OutsourceWorkload[]>(`${OUTSOURCE_BASE}/${taskId}/workload`)
 }
 
 export function submitWorkload(taskId: number, dto: WorkloadConfirmDTO) {
@@ -154,13 +157,13 @@ export function submitWorkload(taskId: number, dto: WorkloadConfirmDTO) {
 }
 
 /** PM 确认工作量 */
-export function confirmWorkload(taskId: number, dto: Partial<WorkloadConfirmDTO>) {
-  return http.put<void>(`${OUTSOURCE_BASE}/${taskId}/workload/confirm`, dto)
+export function confirmWorkload(taskId: number, workloadId: number) {
+  return http.put<void>(`${OUTSOURCE_BASE}/${taskId}/workload/${workloadId}/confirm`)
 }
 
-/** 工作量审批（PM → 总监 → 财务） */
-export function approveWorkload(taskId: number, approved: boolean, remark?: string) {
-  return http.put<void>(`${OUTSOURCE_BASE}/${taskId}/workload/approve`, { approved, remark })
+/** PM 驳回工作量 */
+export function rejectWorkload(taskId: number, workloadId: number, remark?: string) {
+  return http.put<void>(`${OUTSOURCE_BASE}/${taskId}/workload/${workloadId}/reject`, undefined, { params: { remark } })
 }
 
 /* ============ 代理商评分 ============ */

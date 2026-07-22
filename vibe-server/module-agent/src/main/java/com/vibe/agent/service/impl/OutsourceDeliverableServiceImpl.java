@@ -11,6 +11,7 @@ import com.vibe.agent.mapper.OutsourceTaskMapper;
 import com.vibe.agent.service.OutsourceDeliverableService;
 import com.vibe.agent.service.OutsourceTaskService;
 import com.vibe.agent.vo.OutsourceDeliverableVO;
+import com.vibe.common.context.UserContext;
 import com.vibe.common.context.UserContextHolder;
 import com.vibe.common.exception.BusinessException;
 import com.vibe.common.result.ResultCode;
@@ -187,6 +188,41 @@ public class OutsourceDeliverableServiceImpl implements OutsourceDeliverableServ
             return java.util.Collections.emptyList();
         }
         return deliverableMapper.selectByTaskId(taskId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(Long taskId, Long id) {
+        if (id == null) {
+            throw BusinessException.of(ResultCode.PARAM_MISSING, "交付物ID不能为空");
+        }
+        OutsourceDeliverableEntity deliverable = deliverableMapper.selectById(id);
+        if (deliverable == null) {
+            throw BusinessException.of(ResultCode.NOT_FOUND, "交付物不存在");
+        }
+        // 校验交付物归属指定任务
+        if (taskId == null || !taskId.equals(deliverable.getOutsourceTaskId())) {
+            throw BusinessException.of(ResultCode.PARAM_INVALID, "交付物不属于该转包任务");
+        }
+
+        // AGENT_ADMIN 数据归属校验：仅能删除本公司任务下的交付物
+        UserContext ctx = UserContextHolder.get();
+        if (ctx != null && ctx.hasRole(AgentConstant.ROLE_AGENT_ADMIN)) {
+            Long tenantId = ctx.getTenantId();
+            OutsourceTaskEntity task = outsourceTaskMapper.selectById(taskId);
+            if (task == null) {
+                throw BusinessException.of(ResultCode.OUTSOURCE_TASK_NOT_FOUND);
+            }
+            if (tenantId == null || !tenantId.equals(task.getAgentCompanyId())) {
+                log.warn("AGENT_ADMIN 越权删除交付物: userId={}, tenantId={}, taskAgentCompanyId={}, taskId={}, deliverableId={}",
+                        ctx.getUserId(), tenantId, task.getAgentCompanyId(), taskId, id);
+                throw BusinessException.of(ResultCode.DATA_PERMISSION_DENIED);
+            }
+        }
+
+        deliverableMapper.deleteById(id);
+        log.info("删除交付物: taskId={}, id={}, operator={}", taskId, id,
+                ctx == null ? null : ctx.getUserId());
     }
 
     @Override

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.finance.mapper.FinanceCostMapper">
+
+    <!--
+        利润分析 VO 映射。
+        仅从 SQL 聚合出 projectId / projectName / selfCost / agentCost，
+        totalCost / revenue / profit / 各项比率由 Service 层使用 BigDecimal 安全计算。
+        selfCost = 全部成本 - 代理商成本（即 LABOR+TRAVEL+OTHER，与原 sumAll - sumAgent 逻辑一致）。
+    -->
+    <resultMap id="profitVoMap" type="com.vibe.finance.vo.FinanceProfitVO">
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="selfCost" column="self_cost"/>
+        <result property="agentCost" column="agent_cost"/>
+    </resultMap>
+
+    <sql id="profitColumns">
+        fc.project_id,
+        p.project_name,
+        COALESCE(SUM(CASE WHEN fc.cost_type = 'AGENT' THEN 0 ELSE fc.amount END), 0) AS self_cost,
+        COALESCE(SUM(CASE WHEN fc.cost_type = 'AGENT' THEN fc.amount ELSE 0 END), 0) AS agent_cost
+    </sql>
+
+    <!-- 汇总全部项目的利润分析：按 finance_cost 聚合，JOIN project 取真实项目名 -->
+    <select id="selectProjectProfitList" resultMap="profitVoMap">
+        SELECT
+        <include refid="profitColumns"/>
+        FROM finance_cost fc
+        LEFT JOIN project p ON p.id = fc.project_id AND p.deleted = 0
+        WHERE fc.deleted = 0
+          AND fc.project_id IS NOT NULL
+        GROUP BY fc.project_id, p.project_name
+        ORDER BY fc.project_id
+    </select>
+
+    <!-- 汇总指定项目的利润分析 -->
+    <select id="selectProjectProfit" resultMap="profitVoMap">
+        SELECT
+        <include refid="profitColumns"/>
+        FROM finance_cost fc
+        LEFT JOIN project p ON p.id = fc.project_id AND p.deleted = 0
+        WHERE fc.deleted = 0
+          AND fc.project_id = #{projectId}
+        GROUP BY fc.project_id, p.project_name
+    </select>
+
+</mapper>

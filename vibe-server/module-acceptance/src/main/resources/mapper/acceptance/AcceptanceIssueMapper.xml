@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.vibe.acceptance.mapper.AcceptanceIssueMapper">
+
+    <resultMap id="issueVoMap" type="com.vibe.acceptance.vo.AcceptanceIssueVO">
+        <id property="id" column="id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="severity" column="severity"/>
+        <result property="assigneeId" column="assignee_id"/>
+        <result property="dueDate" column="due_date"/>
+        <result property="resolvedTime" column="resolved_time"/>
+        <result property="status" column="status"/>
+        <result property="closeUserId" column="close_user_id"/>
+        <result property="closeTime" column="close_time"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="issueColumns">
+        t.id, t.task_id, t.project_id, t.name, t.description, t.severity,
+        t.assignee_id, t.due_date, t.resolved_time, t.status, t.close_user_id,
+        t.close_time, t.remark, t.create_time, t.update_time,
+        p.project_name AS project_name
+    </sql>
+
+    <select id="selectIssuePage" resultMap="issueVoMap">
+        SELECT <include refid="issueColumns"/>
+        FROM acceptance_issue t
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        <where>
+            t.deleted = 0
+            <if test="query.projectId != null">
+                AND t.project_id = #{query.projectId}
+            </if>
+            <if test="query.taskId != null">
+                AND t.task_id = #{query.taskId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND t.status = #{query.status}
+            </if>
+            <if test="query.severity != null and query.severity != ''">
+                AND t.severity = #{query.severity}
+            </if>
+            <if test="query.assigneeId != null">
+                AND t.assignee_id = #{query.assigneeId}
+            </if>
+        </where>
+        ORDER BY t.create_time DESC
+    </select>
+
+    <select id="selectVoById" resultMap="issueVoMap">
+        SELECT <include refid="issueColumns"/>
+        FROM acceptance_issue t
+        LEFT JOIN project p ON p.id = t.project_id AND p.deleted = 0
+        WHERE t.id = #{id} AND t.deleted = 0
+    </select>
+
+</mapper>

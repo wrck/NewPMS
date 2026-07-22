@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -68,6 +69,15 @@ public class OutsourceDeliverableController {
     @GetMapping
     public Result<List<OutsourceDeliverableVO>> list(@PathVariable Long taskId) {
         return Result.success(deliverableService.listByTaskId(taskId));
+    }
+
+    @Operation(summary = "删除交付物（AGENT_ADMIN 仅删本公司任务下交付物）")
+    @OperationLog(module = AgentConstant.MODULE_DELIVERABLE, type = "DELETE", description = "删除交付物")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','PM','AGENT_ADMIN')")
+    @DeleteMapping("/{id}")
+    public Result<Void> delete(@PathVariable Long taskId, @PathVariable Long id) {
+        deliverableService.delete(taskId, id);
+        return Result.success();
     }
 
     @Operation(summary = "PM 审核交付物（通过→CONFIRMED / 退回→RETURNED）")

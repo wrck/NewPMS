@@ -63,9 +63,12 @@ function handleReset() {
 }
 
 /* ============ 工具函数 ============ */
-function fmtMoney(v: number | undefined): string {
-  if (v == null) return '0.00'
-  return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function fmtMoney(v: number | string | undefined | null): string {
+  if (v == null || v === '') return '0.00'
+  // 后端 BigDecimal 经 JacksonConfig 序列化为字符串，需先转 number
+  const n = Number(v)
+  if (isNaN(n)) return '0.00'
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 /* ============ 利润趋势 LineChart ============ */
@@ -74,7 +77,8 @@ const profitTrendData = computed(() => {
   if (trend.length === 0) return { xAxis: [] as string[], series: [] as Array<{ name: string; data: number[] }> }
   return {
     xAxis: trend.map((t) => t.month),
-    series: [{ name: '利润', data: trend.map((t) => t.profit) }]
+    // BigDecimal 经 JacksonConfig 序列化为字符串，需转 number 供 ECharts 使用
+    series: [{ name: '利润', data: trend.map((t) => Number(t.profit) || 0) }]
   }
 })
 
@@ -85,8 +89,8 @@ const regionBarData = computed(() => {
   return {
     xAxis: list.map((r) => r.region || '未分类'),
     series: [
-      { name: '收入', data: list.map((r) => r.revenue) },
-      { name: '成本', data: list.map((r) => r.cost) }
+      { name: '收入', data: list.map((r) => Number(r.revenue) || 0) },
+      { name: '成本', data: list.map((r) => Number(r.cost) || 0) }
     ]
   }
 })
@@ -97,9 +101,9 @@ const customerFunnelData = computed(() => {
   // 按收入降序，取前 10 名
   return list
     .slice()
-    .sort((a, b) => b.revenue - a.revenue)
+    .sort((a, b) => (Number(b.revenue) || 0) - (Number(a.revenue) || 0))
     .slice(0, 10)
-    .map((c) => ({ name: c.customerName || `客户${c.customerId}`, value: c.revenue }))
+    .map((c) => ({ name: c.customerName || `客户${c.customerId}`, value: Number(c.revenue) || 0 }))
 })
 
 /* ============ 明细表格 ============ */

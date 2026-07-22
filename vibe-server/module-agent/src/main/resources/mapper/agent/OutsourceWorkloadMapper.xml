@@ -5,12 +5,17 @@
 
     <resultMap id="workloadVoMap" type="com.vibe.agent.vo.OutsourceWorkloadVO">
         <id property="id" column="id"/>
-        <result property="outsourceTaskId" column="outsource_task_id"/>
+        <result property="taskId" column="outsource_task_id"/>
+        <result property="projectId" column="project_id"/>
+        <result property="projectName" column="project_name"/>
+        <result property="agentCompanyId" column="agent_company_id"/>
+        <result property="agentCompanyName" column="agent_company_name"/>
         <result property="manDays" column="man_days"/>
         <result property="siteCount" column="site_count"/>
         <result property="deviceCount" column="device_count"/>
         <result property="submittedBy" column="submitted_by"/>
         <result property="confirmedBy" column="confirmed_by"/>
+        <result property="confirmByName" column="confirm_by_name"/>
         <result property="status" column="status"/>
         <result property="remark" column="remark"/>
         <result property="createBy" column="create_by"/>
@@ -19,13 +24,56 @@
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
+    <sql id="workloadVoColumns">
+        w.id, w.outsource_task_id, w.man_days, w.site_count, w.device_count,
+        w.submitted_by, w.confirmed_by, w.status, w.remark,
+        w.create_by, w.create_time, w.update_by, w.update_time,
+        ot.project_id, ot.agent_company_id,
+        p.project_name,
+        ac.company_name AS agent_company_name,
+        u.real_name AS confirm_by_name
+    </sql>
+
+    <sql id="workloadJoins">
+        LEFT JOIN outsource_task ot ON ot.id = w.outsource_task_id AND ot.deleted = 0
+        LEFT JOIN project p ON p.id = ot.project_id AND p.deleted = 0
+        LEFT JOIN agent_company ac ON ac.id = ot.agent_company_id AND ac.deleted = 0
+        LEFT JOIN sys_user u ON u.id = w.confirmed_by AND u.deleted = 0
+    </sql>
+
     <select id="selectByTaskId" resultMap="workloadVoMap">
-        SELECT id, outsource_task_id, man_days, site_count, device_count,
-               submitted_by, confirmed_by, status, remark,
-               create_by, create_time, update_by, update_time
-        FROM outsource_workload
-        WHERE outsource_task_id = #{taskId} AND deleted = 0
-        ORDER BY create_time DESC
+        SELECT
+        <include refid="workloadVoColumns"/>
+        FROM outsource_workload w
+        <include refid="workloadJoins"/>
+        WHERE w.outsource_task_id = #{taskId} AND w.deleted = 0
+        ORDER BY w.create_time DESC
+    </select>
+
+    <select id="selectWorkloadPage" resultMap="workloadVoMap">
+        SELECT
+        <include refid="workloadVoColumns"/>
+        FROM outsource_workload w
+        <include refid="workloadJoins"/>
+        <where>
+            w.deleted = 0
+            <if test="query.agentCompanyId != null">
+                AND ot.agent_company_id = #{query.agentCompanyId}
+            </if>
+            <if test="query.projectId != null">
+                AND ot.project_id = #{query.projectId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND w.status = #{query.status}
+            </if>
+            <if test="query.beginTime != null and query.beginTime != ''">
+                AND w.create_time &gt;= CONCAT(#{query.beginTime}, ' 00:00:00')
+            </if>
+            <if test="query.endTime != null and query.endTime != ''">
+                AND w.create_time &lt; DATE_ADD(CONCAT(#{query.endTime}, ' 00:00:00'), INTERVAL 1 DAY)
+            </if>
+        </where>
+        ORDER BY w.create_time DESC
     </select>
 
 </mapper>

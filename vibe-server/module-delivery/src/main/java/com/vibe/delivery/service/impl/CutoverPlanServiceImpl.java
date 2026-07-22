@@ -1,6 +1,7 @@
 package com.vibe.delivery.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vibe.common.context.UserContext;
 import com.vibe.common.context.UserContextHolder;
@@ -58,51 +59,27 @@ public class CutoverPlanServiceImpl implements CutoverPlanService {
 
     @Override
     public PageResult<CutoverPlanVO> page(CutoverPlanQueryDTO query) {
-        LambdaQueryWrapper<CutoverPlanEntity> wrapper = new LambdaQueryWrapper<>();
-        if (query.getProjectId() != null) {
-            wrapper.eq(CutoverPlanEntity::getProjectId, query.getProjectId());
-        }
-        if (query.getPlanName() != null && !query.getPlanName().isBlank()) {
-            wrapper.like(CutoverPlanEntity::getPlanName, query.getPlanName());
-        }
-        if (query.getStatus() != null && !query.getStatus().isBlank()) {
-            wrapper.eq(CutoverPlanEntity::getStatus, query.getStatus());
-        }
-        if (query.getDateFrom() != null) {
-            wrapper.ge(CutoverPlanEntity::getCutoverDate, query.getDateFrom());
-        }
-        if (query.getDateTo() != null) {
-            wrapper.le(CutoverPlanEntity::getCutoverDate, query.getDateTo());
-        }
-        if (query.getApplyUserId() != null) {
-            wrapper.eq(CutoverPlanEntity::getApplyUserId, query.getApplyUserId());
-        }
-        wrapper.orderByDesc(CutoverPlanEntity::getCreateTime);
+        Page<CutoverPlanVO> page = new Page<>(query.getPage(), query.getSize());
+        IPage<CutoverPlanVO> result = planMapper.selectPlanPage(page, query);
 
-        Page<CutoverPlanEntity> page = new Page<>(query.getPage(), query.getSize());
-        Page<CutoverPlanEntity> result = planMapper.selectPage(page, wrapper);
-
-        List<CutoverPlanVO> records = new ArrayList<>();
-        for (CutoverPlanEntity e : result.getRecords()) {
-            CutoverPlanVO vo = new CutoverPlanVO();
-            BeanUtils.copyProperties(e, vo);
-            // 填充步骤统计
-            int[] counts = countSteps(e.getId());
-            vo.setStepCount(counts[0]);
-            vo.setCompletedStepCount(counts[1]);
-            records.add(vo);
+        List<CutoverPlanVO> records = result.getRecords();
+        if (records != null) {
+            for (CutoverPlanVO vo : records) {
+                // 填充步骤统计
+                int[] counts = countSteps(vo.getId());
+                vo.setStepCount(counts[0]);
+                vo.setCompletedStepCount(counts[1]);
+            }
         }
-        return PageResult.of(records, result.getTotal(), query.getPage(), query.getSize());
+        return PageResult.of(records, result.getTotal(), result.getCurrent(), result.getSize());
     }
 
     @Override
     public CutoverPlanDetailVO getDetail(Long id) {
-        CutoverPlanEntity entity = planMapper.selectById(id);
-        if (entity == null) {
+        CutoverPlanDetailVO vo = planMapper.selectDetailVoById(id);
+        if (vo == null) {
             throw BusinessException.notFound("割接方案");
         }
-        CutoverPlanDetailVO vo = new CutoverPlanDetailVO();
-        BeanUtils.copyProperties(entity, vo);
         // 步骤统计
         int[] counts = countSteps(id);
         vo.setStepCount(counts[0]);
@@ -535,17 +512,7 @@ public class CutoverPlanServiceImpl implements CutoverPlanService {
     }
 
     private List<CutoverExecutionLogVO> listLogVOs(Long planId) {
-        LambdaQueryWrapper<CutoverExecutionLogEntity> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(CutoverExecutionLogEntity::getPlanId, planId);
-        wrapper.orderByAsc(CutoverExecutionLogEntity::getLogTime);
-        List<CutoverExecutionLogEntity> entities = logMapper.selectList(wrapper);
-        List<CutoverExecutionLogVO> list = new ArrayList<>();
-        for (CutoverExecutionLogEntity e : entities) {
-            CutoverExecutionLogVO vo = new CutoverExecutionLogVO();
-            BeanUtils.copyProperties(e, vo);
-            list.add(vo);
-        }
-        return list;
+        return logMapper.selectLogVoListByPlanId(planId);
     }
 
     /**

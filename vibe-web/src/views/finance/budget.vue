@@ -126,14 +126,16 @@ function openCreate() {
 
 function openEdit(record: FinanceBudget) {
   modalTitle.value = '编辑预算'
+  // BigDecimal 经 JacksonConfig 序列化为字符串，绑定 a-input-number 前转 number
+  const num = (v: unknown) => (v != null ? Number(v) : 0)
   Object.assign(form, {
     id: record.id,
     projectId: record.projectId,
     year: record.year,
-    laborAmount: record.laborAmount,
-    travelAmount: record.travelAmount,
-    agentAmount: record.agentAmount,
-    otherAmount: record.otherAmount,
+    laborAmount: num(record.laborAmount),
+    travelAmount: num(record.travelAmount),
+    agentAmount: num(record.agentAmount),
+    otherAmount: num(record.otherAmount),
     remark: record.remark
   })
   modalVisible.value = true

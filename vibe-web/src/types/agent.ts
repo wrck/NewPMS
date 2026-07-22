@@ -102,13 +102,14 @@ export interface OutsourceWorkload {
   deviceCount?: number
   travelDays?: number
   otherCost?: number
-  totalAmount: number
-  status: 'PENDING' | 'CONFIRMED' | 'APPROVED' | 'INVOICED' | 'PAID'
-  confirmBy?: number
+  totalAmount?: number
+  status: 'SUBMITTED' | 'CONFIRMED' | 'REJECTED'
+  submittedBy?: number
+  confirmedBy?: number
   confirmByName?: string
-  confirmAt?: string
   remark?: string
-  createdAt?: string
+  createTime?: string
+  updateTime?: string
 }
 
 /** 代理商评分 */
@@ -151,8 +152,8 @@ export interface WorkloadQueryParams extends PageParams {
   agentCompanyId?: number
   projectId?: number
   status?: OutsourceWorkload['status']
-  startBegin?: string
-  startEnd?: string
+  beginTime?: string
+  endTime?: string
 }
 
 /** 代理商公司 DTO */
@@ -200,9 +201,6 @@ export interface WorkloadConfirmDTO {
   manDays: number
   siteCount?: number
   deviceCount?: number
-  travelDays?: number
-  otherCost?: number
-  totalAmount: number
   remark?: string
 }
 

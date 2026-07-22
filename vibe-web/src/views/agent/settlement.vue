@@ -1,15 +1,14 @@
 <script setup lang="ts">
 /**
  * 结算管理
- * 代理商工作量确认与结算：工作量列表、PM 确认、审批（PM → 总监 → 财务）
+ * 代理商工作量确认：工作量列表、PM 确认/驳回
  */
-import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+import { ref, reactive, onMounted, h } from 'vue'
+import { message, Modal, Input as AInput } from 'ant-design-vue'
 import {
   ReloadOutlined,
   CheckOutlined,
-  CloseOutlined,
-  EditOutlined
+  CloseOutlined
 } from '@ant-design/icons-vue'
 import PageContainer from '@/components/PageContainer.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -18,7 +17,7 @@ import {
   listWorkloads,
   getTaskWorkload,
   confirmWorkload,
-  approveWorkload,
+  rejectWorkload,
   pageAgentCompanies
 } from '@/api/agent'
 import { pageProjects } from '@/api/project'
@@ -32,7 +31,7 @@ import type { PageResult } from '@/types/api'
 const loading = ref(false)
 const dataSource = ref<OutsourceWorkload[]>([])
 const pagination = reactive({ current: 1, pageSize: 10, total: 0, showTotal: (t: number) => `共 ${t} 条` })
-const query = reactive<WorkloadQueryParams>({ agentCompanyId: undefined, projectId: undefined, status: undefined, startBegin: '', startEnd: '' })
+const query = reactive<WorkloadQueryParams>({ agentCompanyId: undefined, projectId: undefined, status: undefined, beginTime: '', endTime: '' })
 
 async function loadData() {
   loading.value = true
@@ -77,14 +76,9 @@ async function loadAgentCompanyOptions() {
 }
 
 const statusMap: Record<string, { tone: any; label: string }> = {
-  DRAFT: { tone: 'default', label: '草稿' },
-  PM_CONFIRMED: { tone: 'processing', label: 'PM 已确认' },
-  AGENT_CONFIRMED: { tone: 'processing', label: '代理商已确认' },
-  PENDING: { tone: 'warning', label: '待审批' },
-  DIRECTOR_APPROVED: { tone: 'processing', label: '总监已审批' },
-  FINANCE_APPROVED: { tone: 'success', label: '财务已审批' },
-  REJECTED: { tone: 'error', label: '已驳回' },
-  CLOSED: { tone: 'archived', label: '已关闭' }
+  SUBMITTED: { tone: 'warning', label: '待确认' },
+  CONFIRMED: { tone: 'success', label: '已确认' },
+  REJECTED: { tone: 'error', label: '已驳回' }
 }
 
 const columns = [
@@ -93,11 +87,9 @@ const columns = [
   { title: '人天', key: 'manDays', width: 90 },
   { title: '站点数', dataIndex: 'siteCount', key: 'siteCount', width: 90 },
   { title: '设备数', dataIndex: 'deviceCount', key: 'deviceCount', width: 90 },
-  { title: '出差天数', dataIndex: 'travelDays', key: 'travelDays', width: 100 },
-  { title: '其他费用', key: 'otherCost', width: 110 },
-  { title: '结算金额', key: 'totalAmount', width: 120 },
   { title: '状态', key: 'status', width: 100 },
   { title: '确认人', dataIndex: 'confirmByName', key: 'confirmByName', width: 100 },
+  { title: '提交时间', dataIndex: 'createTime', key: 'createTime', width: 170 },
   { title: '操作', key: 'action', width: 200, fixed: 'right' }
 ]
 
@@ -109,18 +101,16 @@ const confirmForm = reactive<WorkloadConfirmDTO>({
   manDays: 0,
   siteCount: undefined,
   deviceCount: undefined,
-  travelDays: undefined,
-  otherCost: undefined,
-  totalAmount: 0,
   remark: ''
 })
 
 async function openConfirm(row: OutsourceWorkload) {
   confirmRow.value = row
-  // 若已有工作量数据则回填，否则尝试从任务拉取
+  // 若已有工作量数据则回填，否则尝试从任务拉取（后端返回数组，取最新一条）
   let base: Partial<OutsourceWorkload> = row
   try {
-    base = (await getTaskWorkload(row.taskId)) as unknown as OutsourceWorkload
+    const arr = (await getTaskWorkload(row.taskId)) as unknown as OutsourceWorkload[]
+    base = arr[0] || row
   } catch (e) {
     // 使用当前行
   }
@@ -128,9 +118,6 @@ async function openConfirm(row: OutsourceWorkload) {
     manDays: base.manDays || 0,
     siteCount: base.siteCount,
     deviceCount: base.deviceCount,
-    travelDays: base.travelDays,
-    otherCost: base.otherCost,
-    totalAmount: base.totalAmount || 0,
     remark: base.remark || ''
   })
   confirmVisible.value = true
@@ -138,13 +125,9 @@ async function openConfirm(row: OutsourceWorkload) {
 
 async function handleConfirm() {
   if (!confirmRow.value) return
-  if (!confirmForm.manDays || confirmForm.totalAmount <= 0) {
-    message.warning('请填写人天和结算金额')
-    return
-  }
   confirmLoading.value = true
   try {
-    await confirmWorkload(confirmRow.value.taskId, confirmForm)
+    await confirmWorkload(confirmRow.value.taskId, confirmRow.value.id)
     message.success('工作量已确认')
     confirmVisible.value = false
     loadData()
@@ -155,41 +138,37 @@ async function handleConfirm() {
   }
 }
 
-// 审批弹窗（审批通过/驳回）
-const approveVisible = ref(false)
-const approveLoading = ref(false)
-const approveRow = ref<OutsourceWorkload | null>(null)
-const approveForm = reactive({ approved: true, remark: '' })
-
-function openApprove(row: OutsourceWorkload, approved: boolean) {
-  approveRow.value = row
-  approveForm.approved = approved
-  approveForm.remark = ''
-  approveVisible.value = true
+function openReject(row: OutsourceWorkload) {
+  const state = reactive({ remark: '' })
+  Modal.confirm({
+    title: '驳回工作量',
+    content: () => h('div', [
+      h('p', { style: 'margin-bottom: 8px' }, '驳回后工作量将退回代理商重新提交'),
+      h(AInput.TextArea, {
+        value: state.remark,
+        'onUpdate:value': (v: string) => { state.remark = v },
+        rows: 3,
+        placeholder: '请说明驳回原因'
+      })
+    ]),
+    okType: 'danger',
+    async onOk() {
+      try {
+        await rejectWorkload(row.taskId, row.id, state.remark)
+        message.success('已驳回')
+        loadData()
+      } catch (e) {
+        // ignore
+      }
+    }
+  })
 }
 
-async function handleApprove() {
-  if (!approveRow.value) return
-  if (!approveForm.approved && !approveForm.remark) {
-    message.warning('请填写驳回原因')
-    return
-  }
-  approveLoading.value = true
-  try {
-    await approveWorkload(approveRow.value.taskId, approveForm.approved, approveForm.remark)
-    message.success(approveForm.approved ? '已审批通过' : '已驳回')
-    approveVisible.value = false
-    loadData()
-  } catch (e) {
-    // ignore
-  } finally {
-    approveLoading.value = false
-  }
-}
-
-function formatMoney(v?: number) {
-  if (v == null) return '-'
-  return `¥${v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function formatMoney(v?: number | string) {
+  if (v == null || v === '') return '-'
+  const n = Number(v)
+  if (isNaN(n)) return '-'
+  return `¥${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 onMounted(() => {
@@ -200,7 +179,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <PageContainer title="结算管理" description="代理商工作量确认、审批与结算">
+  <PageContainer title="结算管理" description="代理商工作量确认与结算">
     <template #extra>
       <a-button @click="loadData"><template #icon><ReloadOutlined /></template>刷新</a-button>
     </template>
@@ -235,10 +214,10 @@ onMounted(() => {
           </a-select>
         </a-form-item>
         <a-form-item label="开始起">
-          <a-date-picker v-model:value="query.startBegin" value-format="YYYY-MM-DD" style="width: 150px" />
+          <a-date-picker v-model:value="query.beginTime" value-format="YYYY-MM-DD" style="width: 150px" />
         </a-form-item>
         <a-form-item label="开始止">
-          <a-date-picker v-model:value="query.startEnd" value-format="YYYY-MM-DD" style="width: 150px" />
+          <a-date-picker v-model:value="query.endTime" value-format="YYYY-MM-DD" style="width: 150px" />
         </a-form-item>
         <a-form-item>
           <a-button type="primary" html-type="submit">查询</a-button>
@@ -247,25 +226,18 @@ onMounted(() => {
     </div>
 
     <div class="vibe-card table-card">
-      <a-table :columns="columns" :data-source="dataSource" :loading="loading" :pagination="pagination" row-key="id" :scroll="{ x: 1500 }">
+      <a-table :columns="columns" :data-source="dataSource" :loading="loading" :pagination="pagination" row-key="id" :scroll="{ x: 1300 }">
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'manDays'">
             <span class="tnum">{{ record.manDays }}</span>
-          </template>
-          <template v-else-if="column.key === 'otherCost'">
-            <span class="tnum">{{ formatMoney(record.otherCost) }}</span>
-          </template>
-          <template v-else-if="column.key === 'totalAmount'">
-            <span class="tnum text-strong">{{ formatMoney(record.totalAmount) }}</span>
           </template>
           <template v-else-if="column.key === 'status'">
             <StatusTag :tone="statusMap[record.status]?.tone">{{ statusMap[record.status]?.label || record.status }}</StatusTag>
           </template>
           <template v-else-if="column.key === 'action'">
             <a-space size="small">
-              <a v-if="record.status === 'DRAFT'" @click="openConfirm(record)"><EditOutlined /> 确认</a>
-              <a v-if="record.status === 'PENDING'" @click="openApprove(record, true)"><CheckOutlined /> 通过</a>
-              <a v-if="record.status === 'PENDING'" class="danger-link" @click="openApprove(record, false)"><CloseOutlined /> 驳回</a>
+              <a v-if="record.status === 'SUBMITTED'" @click="openConfirm(record)"><CheckOutlined /> 确认</a>
+              <a v-if="record.status === 'SUBMITTED'" class="danger-link" @click="openReject(record)"><CloseOutlined /> 驳回</a>
             </a-space>
           </template>
         </template>
@@ -277,14 +249,9 @@ onMounted(() => {
     <a-modal v-model:open="confirmVisible" title="确认工作量" width="600px" :confirm-loading="confirmLoading" @ok="handleConfirm">
       <a-form layout="vertical">
         <a-row :gutter="16">
-          <a-col :span="12">
+          <a-col :span="8">
             <a-form-item label="人天" required>
               <a-input-number v-model:value="confirmForm.manDays" :min="0" :step="0.5" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="结算金额" required>
-              <a-input-number v-model:value="confirmForm.totalAmount" :min="0" :step="100" style="width: 100%" />
             </a-form-item>
           </a-col>
           <a-col :span="8">
@@ -297,32 +264,12 @@ onMounted(() => {
               <a-input-number v-model:value="confirmForm.deviceCount" :min="0" style="width: 100%" />
             </a-form-item>
           </a-col>
-          <a-col :span="8">
-            <a-form-item label="出差天数">
-              <a-input-number v-model:value="confirmForm.travelDays" :min="0" :step="0.5" style="width: 100%" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="24">
-            <a-form-item label="其他费用">
-              <a-input-number v-model:value="confirmForm.otherCost" :min="0" :step="100" style="width: 100%" />
-            </a-form-item>
-          </a-col>
           <a-col :span="24">
             <a-form-item label="备注">
               <a-textarea v-model:value="confirmForm.remark" :rows="2" />
             </a-form-item>
           </a-col>
         </a-row>
-      </a-form>
-    </a-modal>
-
-    <!-- 审批弹窗 -->
-    <a-modal v-model:open="approveVisible" :title="approveForm.approved ? '审批通过' : '驳回结算'" :confirm-loading="approveLoading" @ok="handleApprove">
-      <a-alert v-if="!approveForm.approved" message="驳回后工作量将退回 PM 重新确认" type="warning" show-icon style="margin-bottom: 12px" />
-      <a-form layout="vertical">
-        <a-form-item :label="approveForm.approved ? '审批意见' : '驳回原因'" :required="!approveForm.approved">
-          <a-textarea v-model:value="approveForm.remark" :rows="3" :placeholder="approveForm.approved ? '可填写审批意见' : '请说明驳回原因'" />
-        </a-form-item>
       </a-form>
     </a-modal>
   </PageContainer>
@@ -332,5 +279,4 @@ onMounted(() => {
 .search-card { padding: 16px 20px; margin-bottom: 16px; }
 .table-card { padding: 0; }
 .danger-link { color: @status-exception; }
-.text-strong { font-weight: 600; color: @text-primary; }
 </style>

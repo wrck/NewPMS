@@ -7,26 +7,36 @@
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
         <result property="username" column="username"/>
-        <result property="employeeNo" column="employee_no"/>
+        <result property="engineerNo" column="employee_no"/>
         <result property="name" column="name"/>
         <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
+        <result property="orgId" column="org_id"/>
+        <result property="orgName" column="org_name"/>
         <result property="region" column="region"/>
         <result property="status" column="status"/>
-        <result property="hireDate" column="hire_date"/>
+        <result property="joinedAt" column="hire_date"/>
         <result property="skills" column="skills"/>
         <result property="certifications" column="certifications"/>
+        <result property="avatar" column="avatar"/>
         <result property="createTime" column="create_time"/>
     </resultMap>
 
     <sql id="engineerColumns">
         e.id, e.user_id, e.employee_no, e.name, e.phone, e.region, e.status,
-        e.hire_date, e.skills, e.certifications, e.create_time
+        e.hire_date, e.skills, e.certifications, e.create_time,
+        u.username, u.email, u.avatar, u.org_id, o.org_name
+    </sql>
+
+    <sql id="engineerJoins">
+        LEFT JOIN sys_user u ON u.id = e.user_id AND u.deleted = 0
+        LEFT JOIN sys_org o ON o.id = u.org_id AND o.deleted = 0
     </sql>
 
     <select id="selectEngineerPage" resultMap="engineerVoMap">
-        SELECT <include refid="engineerColumns"/>, u.username
+        SELECT <include refid="engineerColumns"/>
         FROM engineer e
-        LEFT JOIN sys_user u ON u.id = e.user_id AND u.deleted = 0
+        <include refid="engineerJoins"/>
         <where>
             e.deleted = 0
             <if test="query.keyword != null and query.keyword != ''">
@@ -59,9 +69,9 @@
     </select>
 
     <select id="selectVoById" resultMap="engineerVoMap">
-        SELECT <include refid="engineerColumns"/>, u.username
+        SELECT <include refid="engineerColumns"/>
         FROM engineer e
-        LEFT JOIN sys_user u ON u.id = e.user_id AND u.deleted = 0
+        <include refid="engineerJoins"/>
         WHERE e.id = #{id} AND e.deleted = 0
     </select>
 
@@ -74,9 +84,9 @@
     </select>
 
     <select id="selectAvailableEngineers" resultMap="engineerVoMap">
-        SELECT DISTINCT <include refid="engineerColumns"/>, u.username
+        SELECT DISTINCT <include refid="engineerColumns"/>
         FROM engineer e
-        LEFT JOIN sys_user u ON u.id = e.user_id AND u.deleted = 0
+        <include refid="engineerJoins"/>
         <where>
             e.deleted = 0
             AND e.status = <choose>

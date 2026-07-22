@@ -30,7 +30,12 @@ const props = withDefaults(defineProps<Props>(), {
   rounded: true
 })
 
-const clamped = computed(() => Math.max(0, Math.min(100, props.percent)))
+// 后端 Long/BigDecimal 经 JacksonConfig 序列化为字符串，此处统一转 number，避免 NaN 渲染异常
+const rawPercent = computed(() => {
+  const n = Number(props.percent)
+  return isNaN(n) ? 0 : n
+})
+const clamped = computed(() => Math.max(0, Math.min(100, rawPercent.value)))
 
 const barColor = computed(() => {
   if (props.color) return props.color

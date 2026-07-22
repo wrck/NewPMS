@@ -8,6 +8,9 @@ import path from 'node:path'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget = env.VITE_API_TARGET || 'http://localhost:8080'
+  // 端口优先级：环境变量 VITE_PORT > .env.development 中 VITE_PORT > 默认 5174
+  // 集中配置见项目根目录 .env.ports（start.ps1 启动时会把 VIBE_MOBILE_PORT 注入为 VITE_PORT）
+  const port = Number(env.VITE_PORT) || 5174
 
   return {
     plugins: [
@@ -24,7 +27,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: '0.0.0.0',
-      port: 5174,
+      port,
       proxy: {
         '/api': {
           target: apiTarget,

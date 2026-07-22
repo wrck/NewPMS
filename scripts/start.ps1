@@ -134,6 +134,31 @@ $DetectedMAVEN_HOME = Find-MavenHome
 $HasNode = Test-NodeAvailable
 $HasDocker = Test-DockerAvailable
 
+# --- 加载集中端口配置 (.env.ports) ---
+# 解析 KEY=VALUE 格式，跳过空行与 # 注释；不覆盖已存在的环境变量
+# 这样允许用户用 `set VIBE_WEB_PORT=6001` 临时覆盖默认值
+function Import-PortConfig {
+    param([string]$Path)
+    $portsFile = Join-Path $ProjectRoot ".env.ports"
+    if (-not (Test-Path $portsFile)) { return }
+    Get-Content $portsFile -Encoding UTF8 | ForEach-Object {
+        $line = $_.Trim()
+        if (-not $line -or $line.StartsWith('#')) { return }
+        $idx = $line.IndexOf('=')
+        if ($idx -le 0) { return }
+        $key = $line.Substring(0, $idx).Trim()
+        $val = $line.Substring($idx + 1).Trim()
+        # 仅当环境变量未设置时才注入（已有环境变量优先）
+        if (-not (Get-Item -Path "Env:$key" -ErrorAction SilentlyContinue)) {
+            Set-Item -Path "Env:$key" -Value $val
+        }
+    }
+}
+Import-PortConfig
+
+# 端口解析：环境变量 > .env.ports > 内置默认值
+# VIBE_SERVER_PORT: 后端 Spring Boot server.port
+# VIBE_WEB_PORT/VIBE_MOBILE_PORT/VIBE_PORTAL_PORT: 前端 vite dev server
 $Config = @{
     ProjectRoot  = $ProjectRoot
     DockerFile   = Join-Path $ProjectRoot "docker-compose.yml"
@@ -145,10 +170,10 @@ $Config = @{
     WebDir       = Join-Path $ProjectRoot "vibe-web"
     MobileDir    = Join-Path $ProjectRoot "vibe-mobile"
     PortalDir    = Join-Path $ProjectRoot "vibe-portal"
-    BackendPort  = 8080
-    WebPort      = 5173
-    MobilePort   = 5174
-    PortalPort   = 5175
+    BackendPort  = if ($env:VIBE_SERVER_PORT) { [int]$env:VIBE_SERVER_PORT } else { 8080 }
+    WebPort      = if ($env:VIBE_WEB_PORT)    { [int]$env:VIBE_WEB_PORT }    else { 5173 }
+    MobilePort   = if ($env:VIBE_MOBILE_PORT) { [int]$env:VIBE_MOBILE_PORT } else { 5174 }
+    PortalPort   = if ($env:VIBE_PORTAL_PORT) { [int]$env:VIBE_PORTAL_PORT } else { 5175 }
     HasNode      = $HasNode
     HasDocker    = $HasDocker
 }
@@ -485,6 +510,12 @@ function Start-Frontend {
 
     if (-not (Clear-Port -Port $Port)) { return $false }
 
+    # 把端口注入为 VITE_PORT，vite.config.ts 据此设置 dev server 监听端口
+    # 优先用脚本计算的 Port（已合并环境变量与 .env.ports），不覆盖用户已显式设置的 VITE_PORT
+    if (-not $env:VITE_PORT) {
+        $env:VITE_PORT = "$Port"
+    }
+
     Write-Status "  启动 $Name..." -Status Info
     # On Windows npm is a .cmd batch script; must invoke npm.cmd explicitly
     $npmCmd = if ($IsWindows -or $env:OS -eq "Windows_NT") { "npm.cmd" } else { "npm" }
@@ -494,6 +525,10 @@ function Start-Frontend {
                           -PassThru -NoNewWindow `
                           -RedirectStandardOutput (Join-Path $ProjectRoot "logs\$key.out.log") `
                           -RedirectStandardError (Join-Path $ProjectRoot "logs\$key.err.log")
+
+    # 启动后清掉本进程设置的 VITE_PORT，避免污染下一个前端启动
+    # （每个前端启动前都会根据自身 Port 重新注入）
+    Remove-Item -Path "Env:VITE_PORT" -ErrorAction SilentlyContinue
 
     Update-Pid -Key $key -PidValue $proc.Id
     Write-Status "  $Name 进程已启动 (PID: $($proc.Id))" -Status Success
